@@ -16,7 +16,9 @@ async function load(slug: string, handle: string) {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string; handle: string }> }): Promise<Metadata> {
   const { slug, handle } = await params;
   const { product } = await load(slug, handle);
-  return { title: product.title, description: product.description.slice(0, 160) || undefined };
+  const description = product.seoDescription || product.description.slice(0, 160) || undefined;
+  const image = parseJson<string[]>(product.images, [])[0];
+  return { title: product.seoTitle || product.title, description, openGraph: { title: product.seoTitle || product.title, description, ...(image ? { images: [image] } : {}) } };
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string; handle: string }> }) {

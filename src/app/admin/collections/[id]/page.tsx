@@ -4,6 +4,7 @@ import { CollectionForm } from "@/components/admin/CollectionForm";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { PageHeader } from "@/components/ui";
 import { requireStore } from "@/lib/auth";
+import { appUrl } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { parseJson } from "@/lib/utils";
 
@@ -27,7 +28,8 @@ export default async function CollectionPage({ params, searchParams }: { params:
       <CollectionForm
         key={collection?.id ?? "new"}
         products={products}
-        initial={{ id: collection?.id, title: collection?.title ?? "", description: collection?.description ?? "", image: collection?.image ?? null, productIds: collection?.products.map((p) => p.productId) ?? [] }}
+        storeUrl={`${appUrl()}/s/${store.slug}`}
+        initial={{ id: collection?.id, title: collection?.title ?? "", description: collection?.description ?? "", image: collection?.image ?? null, productIds: collection?.products.map((p) => p.productId) ?? [], seoTitle: collection?.seoTitle ?? "", seoDescription: collection?.seoDescription ?? "" }}
       />
     </>
   );

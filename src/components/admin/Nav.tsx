@@ -89,7 +89,7 @@ export function AdminNav({ toShip, storeSlug, isOwner, storeCount }: { toShip: n
       <div>
         <div className="mb-1 flex items-center justify-between px-2 text-xs font-[550] text-muted">Canaux de vente</div>
         <ul className="flex flex-col gap-0.5">
-          <NavLink item={{ href: "/admin/theme", label: "Boutique en ligne", icon: "store", children: [{ href: "/admin/theme", label: "Thèmes" }] }} path={path} />
+          <NavLink item={{ href: "/admin/theme", label: "Boutique en ligne", icon: "store", match: ["/admin/theme", "/admin/pages", "/admin/blog"], children: [{ href: "/admin/theme", label: "Thèmes" }, { href: "/admin/pages", label: "Pages" }, { href: "/admin/blog", label: "Articles de blog" }] }} path={path} />
         </ul>
         <a href={`/s/${storeSlug}`} target="_blank" className="mt-0.5 flex h-7 items-center gap-2 rounded-lg pl-9 pr-2 text-[13px] text-muted hover:bg-[#f1f1f1] hover:text-ink">
           Voir la boutique <Icon name="eye" className="h-4 w-4" />

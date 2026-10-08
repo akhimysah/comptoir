@@ -97,6 +97,7 @@ async function main() {
   await db.discount.create({ data: { storeId: store.id, code: "BIENVENUE10", type: "percent", value: 10 } });
   await seedShipping(db, store.id);
   await seedReviews(db, store.id);
+  await seedContent(db, store.id);
   await seedExtraStores(db, user.id);
 
   // Commandes d'exemple réparties sur les 3 dernières semaines
@@ -213,4 +214,21 @@ export async function seedExtraStores(client: PrismaClient, ownerId: string) {
       }
     }
   }
+}
+
+export async function seedContent(client: PrismaClient, storeId: string) {
+  await client.page.createMany({
+    data: [
+      { storeId, handle: "a-propos", title: "À propos", body: "## L'atelier\n\nAtelier Argile est né en 2019 dans un petit atelier de Lyon. Chaque pièce est **tournée, émaillée et cuite à la main**, en petites séries.\n\n## Nos engagements\n\n- Des argiles et des émaux sans plomb\n- Des cuissons groupées pour économiser l'énergie\n- Des emballages recyclés" },
+      { storeId, handle: "livraison-et-retours", title: "Livraison et retours", body: "## Livraison\n\nNous expédions sous 2 jours ouvrés en Colissimo. La livraison est **offerte dès 60 €** en France.\n\n## Retours\n\nVous avez 14 jours pour changer d'avis. Écrivez-nous et nous vous enverrons une étiquette de retour." },
+      { storeId, handle: "cgv", title: "Conditions générales de vente", body: "## Article 1 : Objet\n\nLes présentes conditions régissent les ventes réalisées sur la boutique Atelier Argile.\n\n(Exemple à remplacer par vos propres CGV.)" },
+    ],
+  });
+  await client.blogPost.create({
+    data: {
+      storeId, handle: "entretenir-vos-ceramiques", title: "Comment entretenir vos céramiques", author: "Sofiane", published: true, publishedAt: new Date(Date.now() - 5 * 86400_000),
+      excerpt: "Lave-vaisselle, micro-ondes, taches de thé : nos conseils pour que vos pièces durent des années.",
+      body: "Le grès émaillé est une matière solide, mais quelques gestes simples prolongent sa vie.\n\n## Au quotidien\n\n- Le lave-vaisselle convient, en programme doux\n- Évitez les chocs thermiques : pas de tasse froide directement dans l'eau bouillante\n- Pour les taches de thé, un peu de bicarbonate suffit\n\n## Et si une pièce s'ébrèche ?\n\nÉcrivez-nous : nous vous dirons si elle peut être réparée. Découvrez aussi [nos nouveautés](/s/atelier-argile/products).",
+    },
+  });
 }

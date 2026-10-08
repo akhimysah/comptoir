@@ -14,6 +14,8 @@ const schema = z.object({
   description: z.string().max(2000),
   image: z.string().refine(isImageUrl, "Image invalide.").nullable(),
   productIds: z.array(z.string()).max(500),
+  seoTitle: z.string().max(70).optional().default(""),
+  seoDescription: z.string().max(320).optional().default(""),
 });
 export type CollectionPayload = z.infer<typeof schema>;
 
@@ -41,10 +43,10 @@ export async function saveCollection(_: { error?: string } | undefined, form: Fo
     if (!existing) return { error: "Cette collection n'existe plus." };
     await db.$transaction([
       db.productCollection.deleteMany({ where: { collectionId: id } }),
-      db.collection.update({ where: { id }, data: { title: c.title, handle, description: c.description, image: c.image, products: { create: links } } }),
+      db.collection.update({ where: { id }, data: { title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, products: { create: links } } }),
     ]);
   } else {
-    id = (await db.collection.create({ data: { storeId: store.id, title: c.title, handle, description: c.description, image: c.image, products: { create: links } } })).id;
+    id = (await db.collection.create({ data: { storeId: store.id, title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, products: { create: links } } })).id;
   }
   revalidatePath(`/s/${store.slug}`, "layout");
   redirect(`/admin/collections/${id}?saved=1`);

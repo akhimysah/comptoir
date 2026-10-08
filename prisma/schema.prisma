@@ -53,6 +53,63 @@ model Store {
   shippingZones         ShippingZone[]
   checkouts             Checkout[]
   reviews               Review[]
+  pages                 Page[]
+  posts                 BlogPost[]
+  giftCards             GiftCard[]
+}
+
+/// Page de contenu (À propos, CGV, FAQ…). Mise en forme simple : ## titre, **gras**, listes « - », [lien](url).
+model Page {
+  id             String   @id @default(cuid())
+  storeId        String
+  store          Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  title          String
+  handle         String
+  body           String   @default("")
+  published      Boolean  @default(true)
+  showInFooter   Boolean  @default(true)
+  seoTitle       String   @default("")
+  seoDescription String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([storeId, handle])
+}
+
+model BlogPost {
+  id             String    @id @default(cuid())
+  storeId        String
+  store          Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  title          String
+  handle         String
+  excerpt        String    @default("")
+  body           String    @default("")
+  image          String?
+  author         String    @default("")
+  published      Boolean   @default(false)
+  publishedAt    DateTime?
+  seoTitle       String    @default("")
+  seoDescription String    @default("")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([storeId, handle])
+}
+
+model GiftCard {
+  id           String    @id @default(cuid())
+  storeId      String
+  store        Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  code         String // 16 caractères en majuscules, sans espaces
+  initialCents Int
+  balanceCents Int
+  email        String    @default("")
+  note         String    @default("")
+  disabled     Boolean   @default(false)
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([storeId, code])
 }
 
 /// Zone d'expédition : un groupe de pays et ses tarifs.
@@ -148,6 +205,8 @@ model Product {
   images      String              @default("[]") // JSON: string[]
   options     String              @default("[]") // JSON: { name, values[] }[]
   hue         Int                 @default(160) // couleur du visuel quand il n'y a pas de photo
+  seoTitle       String           @default("")
+  seoDescription String           @default("")
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   variants    Variant[]
@@ -178,6 +237,8 @@ model Collection {
   handle      String
   description String              @default("")
   image       String?
+  seoTitle       String           @default("")
+  seoDescription String           @default("")
   createdAt   DateTime            @default(now())
   products    ProductCollection[]
 
@@ -240,6 +301,8 @@ model Order {
   subtotalCents     Int
   discountCents     Int         @default(0)
   discountCode      String?
+  giftCardCode      String?
+  giftCardCents     Int         @default(0)
   shippingCents     Int
   totalCents        Int
   paymentMethod     String      @default("demo") // demo | stripe | manual

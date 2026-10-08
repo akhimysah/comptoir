@@ -1,3 +1,4 @@
+import { db } from "@/lib/db";
 import type { Metadata } from "next";
 import { CartLink } from "@/components/store/Header";
 import { storeFontVars } from "@/components/store/fonts";
@@ -12,7 +13,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function StoreLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { store, theme } = await getStore(slug);
-  const { collections } = await getCatalog(store.id);
+  const [{ collections }, footerPages, hasBlog] = await Promise.all([
+    getCatalog(store.id),
+    db.page.findMany({ where: { storeId: store.id, published: true, showInFooter: true }, orderBy: { createdAt: "asc" }, select: { title: true, handle: true } }),
+    db.blogPost.count({ where: { storeId: store.id, published: true } }),
+  ]);
   return (
     <div style={themeVars(theme) as React.CSSProperties} className={`${storeFontVars} flex min-h-screen flex-col bg-[var(--c-bg)] font-[family-name:var(--t-body)] text-[var(--c-text)]`}>
       {theme.announcement && <div className="bg-[var(--c-accent)] px-4 py-2 text-center text-sm font-medium text-[var(--c-accent-text)]">{theme.announcement}</div>}
@@ -22,6 +27,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
           <nav className="hidden items-center gap-5 text-sm md:flex">
             <a href={`/s/${slug}/products`} className="hover:opacity-70">Tous les produits</a>
             {collections.slice(0, 4).map((c) => <a key={c.handle} href={`/s/${slug}/c/${c.handle}`} className="hover:opacity-70">{c.title}</a>)}
+            {hasBlog > 0 && <a href={`/s/${slug}/blog`} className="hover:opacity-70">Blog</a>}
           </nav>
           <CartLink slug={slug} />
         </div>
@@ -34,6 +40,12 @@ export default async function StoreLayout({ children, params }: { children: Reac
       <footer className="border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)]">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-8 text-sm text-[var(--c-muted)]">
           <span>© {new Date().getFullYear()} {store.name}{store.tagline ? ` · ${store.tagline}` : ""}</span>
+          {(footerPages.length > 0 || hasBlog > 0) && (
+            <nav className="flex flex-wrap gap-x-5 gap-y-1">
+              {footerPages.map((p) => <a key={p.handle} href={`/s/${slug}/pages/${p.handle}`} className="hover:opacity-70">{p.title}</a>)}
+              {hasBlog > 0 && <a href={`/s/${slug}/blog`} className="hover:opacity-70">Blog</a>}
+            </nav>
+          )}
           <a href="/" className="hover:opacity-70">Boutique propulsée par Comptoir</a>
         </div>
       </footer>

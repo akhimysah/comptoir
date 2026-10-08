@@ -5,6 +5,7 @@ import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { ProductForm } from "@/components/admin/ProductForm";
 import { PageHeader } from "@/components/ui";
 import { requireStore } from "@/lib/auth";
+import { appUrl } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { centsToInput } from "@/lib/money";
 import { parseJson } from "@/lib/utils";
@@ -36,8 +37,12 @@ export default async function EditProductPage({ params, searchParams }: { params
         key={product.updatedAt.toISOString()}
         currency={store.currency}
         collections={collections}
+        storeUrl={`${appUrl()}/s/${store.slug}`}
+        handle={product.handle}
         initial={{
           id: product.id,
+          seoTitle: product.seoTitle,
+          seoDescription: product.seoDescription,
           title: product.title,
           description: product.description,
           status: product.status as "draft" | "active",

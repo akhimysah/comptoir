@@ -4,6 +4,14 @@ import { ProductGrid } from "@/components/store/ProductCard";
 import { db } from "@/lib/db";
 import { getCatalog, getStore } from "@/lib/storefront";
 
+export async function generateMetadata({ params }: { params: Promise<{ slug: string; handle: string }> }) {
+  const { slug, handle } = await params;
+  const { store } = await getStore(slug);
+  const c = await db.collection.findUnique({ where: { storeId_handle: { storeId: store.id, handle } } });
+  if (!c) return {};
+  return { title: c.seoTitle || c.title, description: c.seoDescription || c.description.slice(0, 160) || undefined };
+}
+
 export default async function CollectionPage({ params, searchParams }: { params: Promise<{ slug: string; handle: string }>; searchParams: Promise<{ sort?: string }> }) {
   const [{ slug, handle }, { sort }] = await Promise.all([params, searchParams]);
   const { store } = await getStore(slug);

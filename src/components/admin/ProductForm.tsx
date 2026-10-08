@@ -6,12 +6,13 @@ import { useActionState, useMemo, useRef, useState } from "react";
 import { saveProduct, type ProductPayload } from "@/app/admin/products/actions";
 import { Thumb } from "@/components/ui";
 import { SaveBar } from "./SaveBar";
+import { SeoCard } from "./SeoCard";
 import { uploadImage } from "./upload";
 
 type Option = { name: string; values: string[] };
 type VariantRow = ProductPayload["variants"][number];
 
-export type ProductFormInitial = Omit<ProductPayload, "id"> & { id?: string };
+export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription"> & { id?: string; seoTitle?: string; seoDescription?: string };
 
 const key = (vals: string[]) => vals.join("\u0000");
 
@@ -21,7 +22,7 @@ function cartesian(options: Option[]): string[][] {
   return usable.reduce<string[][]>((acc, o) => acc.flatMap((combo) => o.values.map((v) => [...combo, v])), [[]]);
 }
 
-export function ProductForm({ initial, collections, currency }: { initial: ProductFormInitial; collections: { id: string; title: string }[]; currency: string }) {
+export function ProductForm({ initial, collections, currency, storeUrl, handle }: { initial: ProductFormInitial; collections: { id: string; title: string }[]; currency: string; storeUrl: string; handle?: string }) {
   const [state, action, pending] = useActionState(saveProduct, undefined);
   const router = useRouter();
   const [title, setTitle] = useState(initial.title);
@@ -32,6 +33,7 @@ export function ProductForm({ initial, collections, currency }: { initial: Produ
   const [options, setOptions] = useState<Option[]>(initial.options);
   const [rows, setRows] = useState<Record<string, VariantRow>>(() => Object.fromEntries(initial.variants.map((v) => [key(v.optionValues), v])));
   const [collectionIds, setCollectionIds] = useState<string[]>(initial.collectionIds);
+  const [seo, setSeo] = useState({ seoTitle: initial.seoTitle ?? "", seoDescription: initial.seoDescription ?? "" });
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [bulkPrice, setBulkPrice] = useState("");
@@ -68,7 +70,7 @@ export function ProductForm({ initial, collections, currency }: { initial: Produ
     }
   }
 
-  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds };
+  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo };
   const hasOptions = combos[0].length > 0;
   const [initialJson] = useState(() => JSON.stringify(payload));
   const dirty = !initial.id || JSON.stringify(payload) !== initialJson;
@@ -204,6 +206,14 @@ export function ProductForm({ initial, collections, currency }: { initial: Produ
               </>
             )}
           </section>
+          <SeoCard
+            title={seo.seoTitle}
+            description={seo.seoDescription}
+            fallbackTitle={title}
+            fallbackDescription={description}
+            url={`${storeUrl}/p/${handle ?? "…"}`}
+            onChange={(v) => setSeo((x) => ({ ...x, ...v }))}
+          />
         </div>
 
         <aside className="flex flex-col gap-4">
