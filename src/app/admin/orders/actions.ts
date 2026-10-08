@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStore } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { markOrderPaid } from "@/lib/orders";
+import { markOrderPaid, notifyOrderShipped } from "@/lib/orders";
 import { getStripe } from "@/lib/stripe";
 
 async function ownOrder(form: FormData) {
@@ -28,6 +28,7 @@ export async function setFulfilled(form: FormData) {
     db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: fulfilled ? "fulfilled" : "unfulfilled" } }),
     db.orderEvent.create({ data: { orderId: order.id, type: fulfilled ? "fulfilled" : "unfulfilled", author: user.name } }),
   ]);
+  if (fulfilled) await notifyOrderShipped(order.id);
   revalidatePath(`/admin/orders/${order.id}`);
   revalidatePath("/admin", "layout");
 }
@@ -82,6 +83,7 @@ export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" 
       db.order.update({ where: { id: o.id }, data: { fulfillmentStatus: target } }),
       db.orderEvent.create({ data: { orderId: o.id, type: target, author: user.name } }),
     ]);
+    if (target === "fulfilled") await notifyOrderShipped(o.id);
     count++;
   }
   revalidatePath("/admin", "layout");

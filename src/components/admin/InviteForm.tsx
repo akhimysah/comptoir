@@ -16,7 +16,7 @@ export function InviteForm() {
       {state?.error && <p role="alert" className="text-[13px] text-[#8e0b21]">{state.error}</p>}
       {state?.link && (
         <div className="flex flex-col gap-2 rounded-lg bg-[#f1f1f1] p-3">
-          <p className="text-[13px]">Envoyez ce lien à <b>{state.email}</b>. Il est valable 7 jours et ne sera plus affiché ensuite.</p>
+          <p className="text-[13px]">Invitation envoyée par e-mail à <b>{state.email}</b>. Vous pouvez aussi lui transmettre ce lien vous-même : il est valable 7 jours et ne sera plus affiché ensuite.</p>
           <div className="flex gap-2">
             <input readOnly value={state.link} onFocus={(e) => e.currentTarget.select()} className="input font-mono text-xs" aria-label="Lien d'invitation" />
             <button

@@ -1,6 +1,8 @@
 import "server-only";
 import { Prisma, type Store } from "@prisma/client";
 import { db } from "./db";
+import { newOrderAlertEmail, orderConfirmationEmail, shippingEmail } from "./emails";
+import { sendMail } from "./mail";
 import type { PricedCart } from "./pricing";
 
 export type Address = { line1: string; zip: string; city: string; country: string };
@@ -60,7 +62,7 @@ export async function createOrder(
 
 /** Passe la commande en « payée », décrémente le stock et compte l'usage du code promo. Sans effet si déjà payée. */
 export async function markOrderPaid(orderId: string) {
-  return db.$transaction(async (tx) => {
+  const paid = await db.$transaction(async (tx) => {
     const updated = await tx.order.updateMany({
       where: { id: orderId, paymentStatus: "pending", cancelledAt: null },
       data: { paymentStatus: "paid", paidAt: new Date() },
@@ -80,6 +82,26 @@ export async function markOrderPaid(orderId: string) {
     }
     return true;
   });
+  if (paid) await notifyOrderPaid(orderId);
+  return paid;
+}
+
+/** E-mails après paiement : confirmation au client, alerte au propriétaire. */
+async function notifyOrderPaid(orderId: string) {
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true, store: { include: { owner: true } } } });
+  if (!order) return;
+  const confirm = orderConfirmationEmail(order.store, order);
+  const alert = newOrderAlertEmail(order.store, order);
+  await Promise.all([
+    sendMail({ to: order.email, storeId: order.storeId, ...confirm }),
+    sendMail({ to: order.store.owner.email, storeId: order.storeId, ...alert }),
+  ]);
+}
+
+/** E-mail d'expédition au client. */
+export async function notifyOrderShipped(orderId: string) {
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true, store: true } });
+  if (order) await sendMail({ to: order.email, storeId: order.storeId, ...shippingEmail(order.store, order) });
 }
 
 type Tone = "warn" | "ok" | "neutral" | "bad" | "attention";

@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { inviteEmail } from "@/lib/emails";
 import { hashToken, newToken } from "@/lib/invites";
+import { sendMail } from "@/lib/mail";
 import { appUrl } from "@/lib/stripe";
 
 export type InviteState = { error?: string; link?: string; email?: string } | undefined;
@@ -21,8 +23,10 @@ export async function inviteMember(_: InviteState, form: FormData): Promise<Invi
   const token = newToken();
   await db.storeInvite.deleteMany({ where: { storeId: store.id, email, acceptedAt: null } });
   await db.storeInvite.create({ data: { storeId: store.id, email, token: hashToken(token), invitedBy: user.name, expiresAt: new Date(Date.now() + 7 * 86400_000) } });
+  const link = `${appUrl()}/invite/${token}`;
+  await sendMail({ to: email, storeId: store.id, ...inviteEmail(store.name, user.name, link) });
   revalidatePath("/admin/settings/users");
-  return { link: `${appUrl()}/invite/${token}`, email };
+  return { link, email };
 }
 
 export async function revokeInvite(form: FormData) {

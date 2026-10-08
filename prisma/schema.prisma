@@ -212,3 +212,24 @@ model OrderItem {
   image        String?
   hue          Int     @default(160)
 }
+
+/// Journal des e-mails : envoyés via Resend, ou seulement enregistrés quand aucune clé n'est configurée.
+model MailLog {
+  id        String   @id @default(cuid())
+  storeId   String?
+  to        String
+  subject   String
+  html      String
+  status    String // sent | logged | failed
+  error     String?
+  createdAt DateTime @default(now())
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}

@@ -41,6 +41,12 @@ Ensuite, ouvrez http://localhost:3000.
 
 Dans **Paramètres → Utilisateurs et autorisations**, le propriétaire saisit l'e-mail d'un collaborateur et obtient un lien d'invitation (valable 7 jours) à lui envoyer. Le collaborateur crée son compte depuis ce lien et accède à l'admin de la boutique. Les paramètres, les paiements et la gestion de l'équipe restent réservés au propriétaire.
 
+## E-mails
+
+Comptoir envoie automatiquement : la confirmation de commande au client, l'alerte de nouvelle commande au propriétaire, l'avis d'expédition, les invitations d'équipe et les liens « mot de passe oublié ».
+
+Sans configuration, rien ne part : les e-mails sont enregistrés et visibles dans **Paramètres → Notifications**. En local, le lien « mot de passe oublié » s'affiche aussi dans le terminal. Pour les envoyer vraiment, créez un compte sur https://resend.com, puis renseignez `RESEND_API_KEY` et `MAIL_FROM` dans `.env`. L'adresse d'envoi doit appartenir à un domaine vérifié chez Resend.
+
 ## Activer Stripe (paiement par carte)
 
 Sans clé Stripe, tout fonctionne en paiement de démonstration : les commandes sont validées sans paiement.
