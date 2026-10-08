@@ -118,3 +118,13 @@ ${items.length ? `<ul style="font-size:14px;line-height:1.6;color:#616161">${ite
 ${reason ? `<p style="font-size:13px;color:#616161">Motif : ${esc(reason)}</p>` : ""}`),
   };
 }
+
+export function loginCodeEmail(store: Store, code: string) {
+  return {
+    subject: `${code} est votre code de connexion ${store.name}`,
+    html: layout(store.name, "Votre code de connexion",
+      `<p style="font-size:14px;line-height:1.5">Saisissez ce code pour accéder à votre compte. Il est valable 15 minutes.</p>
+<div style="margin:20px 0;font-size:32px;font-weight:700;letter-spacing:.3em;font-family:monospace;text-align:center">${code}</div>
+<p style="font-size:13px;color:#616161">Si vous n'avez rien demandé, ignorez cet e-mail.</p>`),
+  };
+}

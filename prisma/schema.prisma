@@ -378,3 +378,24 @@ model PasswordReset {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
 }
+
+/// Connexion des clients à leur compte, par code reçu par e-mail (sans mot de passe).
+model CustomerLoginCode {
+  id        String   @id @default(cuid())
+  storeId   String
+  email     String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([storeId, email])
+}
+
+model CustomerSession {
+  id         String   @id // hash SHA-256 du jeton du cookie
+  customerId String
+  storeId    String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+}

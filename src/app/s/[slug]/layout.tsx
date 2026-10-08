@@ -32,6 +32,9 @@ export default async function StoreLayout({ children, params }: { children: Reac
           <a href={`/s/${slug}/search`} aria-label="Rechercher" className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
           </a>
+          <a href={`/s/${slug}/account`} aria-label="Mon compte" className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden><circle cx="12" cy="8.5" r="3.5" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>
+          </a>
           <CartLink slug={slug} />
         </div>
         <nav className="flex gap-4 overflow-x-auto px-4 pb-3 text-sm md:hidden">

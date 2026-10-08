@@ -10,7 +10,7 @@ const field = "w-full rounded-[var(--t-radius)] border border-[color-mix(in_srgb
 
 type Recovered = { items: { variantId: string; quantity: number }[]; email: string; name: string } | null;
 
-export function CartView({ slug, currency, cancelled, demo, recovered }: { slug: string; currency: string; cancelled: boolean; demo: boolean; recovered: Recovered }) {
+export function CartView({ slug, currency, cancelled, demo, recovered, customer }: { slug: string; currency: string; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null }) {
   const { items, ready, setQuantity, replace } = useCart(slug);
   const [cart, setCart] = useState<PricedCart | null>(null);
   const [code, setCode] = useState("");
@@ -134,8 +134,8 @@ export function CartView({ slug, currency, cancelled, demo, recovered }: { slug:
 
           <form onSubmit={checkout} className="flex flex-col gap-3">
             <h2 className="font-[family-name:var(--t-display)] text-xl font-semibold">Livraison</h2>
-            <input id="co-email" name="email" type="email" required autoComplete="email" placeholder="E-mail" aria-label="E-mail" defaultValue={recovered?.email} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
-            <input id="co-name" name="name" required autoComplete="name" placeholder="Nom complet" aria-label="Nom complet" defaultValue={recovered?.name} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
+            <input id="co-email" name="email" type="email" required autoComplete="email" placeholder="E-mail" aria-label="E-mail" defaultValue={recovered?.email ?? customer?.email} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
+            <input id="co-name" name="name" required autoComplete="name" placeholder="Nom complet" aria-label="Nom complet" defaultValue={recovered?.name ?? customer?.name} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
             <input id="co-line1" name="line1" required autoComplete="street-address" placeholder="Adresse" aria-label="Adresse" className={field} />
             <div className="grid grid-cols-[1fr_1.6fr] gap-3">
               <input id="co-zip" name="zip" required autoComplete="postal-code" placeholder="Code postal" aria-label="Code postal" className={field} />
