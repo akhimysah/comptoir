@@ -1,5 +1,7 @@
 # Comptoir
 
+**Démo en ligne : https://akhimysah.github.io/comptoir/** (version de démonstration : les données restent dans le navigateur du visiteur, sans paiement réel).
+
 Plateforme e-commerce multi-boutiques, sur le modèle de Shopify : chaque marchand crée son compte et sa boutique, gère son catalogue et ses commandes, personnalise son thème et encaisse par carte avec Stripe Connect.
 
 ## Démarrer en local
