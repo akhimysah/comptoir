@@ -39,7 +39,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       hue={product.hue}
       rating={agg._count ? { avg: agg._avg.rating ?? 0, count: agg._count } : null}
       options={parseJson(product.options, [])}
-      variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: v.priceCents, compareAtCents: v.compareAtCents, stock: v.stock }))}
+      variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: v.priceCents, compareAtCents: v.compareAtCents, stock: product.isGiftCard ? 99 : v.stock }))}
+      isGiftCard={product.isGiftCard}
     />
     <Related slug={slug} storeId={store.id} productId={product.id} store={store} />
     <Reviews slug={slug} productId={product.id} />

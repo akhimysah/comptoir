@@ -8,8 +8,10 @@ import { db } from "@/lib/db";
 import { parseMoney } from "@/lib/money";
 
 const schema = z.object({
-  code: z.string().trim().toUpperCase().regex(/^[A-Z0-9_-]{3,30}$/, "Le code doit faire 3 à 30 caractères : lettres, chiffres, - ou _."),
-  type: z.enum(["percent", "fixed"]),
+  method: z.enum(["code", "automatic"]),
+  code: z.string().trim().toUpperCase().optional().default(""),
+  title: z.string().trim().max(60).optional().default(""),
+  type: z.enum(["percent", "fixed", "free_shipping"]),
   value: z.string(),
   minSubtotal: z.string(),
   usageLimit: z.string(),
@@ -21,9 +23,13 @@ export async function createDiscount(_: { error?: string; ok?: boolean } | undef
   const parsed = schema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
+  if (d.method === "code" && !/^[A-Z0-9_-]{3,30}$/.test(d.code)) return { error: "Le code doit faire 3 à 30 caractères : lettres, chiffres, - ou _." };
+  if (d.method === "automatic" && !d.title) return { error: "Donnez un nom à la remise automatique (affiché au client)." };
+  const code = d.method === "code" ? d.code : `AUTO-${Date.now().toString(36).toUpperCase()}`;
 
   let value: number | null;
-  if (d.type === "percent") {
+  if (d.type === "free_shipping") value = 0;
+  else if (d.type === "percent") {
     const n = Math.round(Number(d.value.replace(",", ".")));
     value = n >= 1 && n <= 100 ? n : null;
     if (value === null) return { error: "Le pourcentage doit être entre 1 et 100." };
@@ -37,10 +43,10 @@ export async function createDiscount(_: { error?: string; ok?: boolean } | undef
 
   try {
     await db.discount.create({
-      data: { storeId: store.id, code: d.code, type: d.type, value, minSubtotalCents: parseMoney(d.minSubtotal) ?? 0, usageLimit: limit, endsAt },
+      data: { storeId: store.id, code, automatic: d.method === "automatic", title: d.title, type: d.type, value, minSubtotalCents: parseMoney(d.minSubtotal) ?? 0, usageLimit: limit, endsAt },
     });
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { error: `Le code ${d.code} existe déjà.` };
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { error: `Le code ${code} existe déjà.` };
     throw e;
   }
   revalidatePath("/admin/discounts");

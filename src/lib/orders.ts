@@ -1,9 +1,9 @@
 import "server-only";
 import { Prisma, type Store } from "@prisma/client";
 import { db } from "./db";
-import { newOrderAlertEmail, orderConfirmationEmail, shippingEmail } from "./emails";
+import { randomInt } from "crypto";
+import { giftCardEmail, newOrderAlertEmail, orderConfirmationEmail, shippingEmail } from "./emails";
 import { sendMail } from "./mail";
-import { includedTax } from "./tax";
 import type { PricedCart } from "./pricing";
 
 export type Address = { line1: string; zip: string; city: string; country: string };
@@ -40,8 +40,7 @@ export async function createOrder(
           giftCardCode: cart.giftCardCode,
           giftCardCents: cart.giftCardCents,
           taxRateBps: store.taxRateBps,
-          // TVA calculée sur la valeur des articles et de la livraison (une carte cadeau est un moyen de paiement).
-          taxCents: includedTax(cart.totalCents + cart.giftCardCents, store.taxRateBps),
+          taxCents: cart.taxCents,
           shippingCents: cart.shippingCents,
           shippingMethod: cart.shippingMethod,
           totalCents: cart.totalCents,
@@ -55,6 +54,7 @@ export async function createOrder(
               quantity: l.quantity,
               image: l.image,
               hue: l.hue,
+              isGiftCard: l.isGiftCard,
             })),
           },
         },
@@ -83,7 +83,7 @@ export async function markOrderPaid(orderId: string) {
     if (updated.count === 0) return false;
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
     for (const item of order.items) {
-      if (!item.variantId) continue;
+      if (!item.variantId || item.isGiftCard) continue;
       const v = await tx.variant.findUnique({ where: { id: item.variantId } });
       if (v) await tx.variant.update({ where: { id: v.id }, data: { stock: Math.max(0, v.stock - item.quantity) } });
     }
@@ -99,9 +99,37 @@ export async function markOrderPaid(orderId: string) {
     }
     return true;
   });
-  if (paid) await notifyOrderPaid(orderId);
+  if (paid) {
+    await issuePurchasedGiftCards(orderId);
+    await notifyOrderPaid(orderId);
+  }
   return paid;
 }
+
+/** Cartes cadeaux achetées dans la boutique : création, envoi du code par e-mail, commande traitée si elle ne contient que des cartes. */
+async function issuePurchasedGiftCards(orderId: string) {
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true, store: true } });
+  if (!order) return;
+  const giftItems = order.items.filter((i) => i.isGiftCard);
+  if (!giftItems.length) return;
+  for (const item of giftItems) {
+    for (let k = 0; k < item.quantity; k++) {
+      let code = newGiftCode();
+      while (await db.giftCard.findUnique({ where: { storeId_code: { storeId: order.storeId, code } } })) code = newGiftCode();
+      await db.giftCard.create({ data: { storeId: order.storeId, code, initialCents: item.priceCents, balanceCents: item.priceCents, email: order.email, orderId: order.id, note: `Achetée avec la commande #${order.number}` } });
+      await sendMail({ to: order.email, storeId: order.storeId, ...giftCardEmail(order.store, code, item.priceCents, "", null) });
+    }
+  }
+  if (giftItems.length === order.items.length) {
+    await db.$transaction([
+      db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "fulfilled" } }),
+      db.orderEvent.create({ data: { orderId: order.id, type: "giftcards_sent", message: `${giftItems.reduce((s, i) => s + i.quantity, 0)} carte(s) cadeau envoyée(s) par e-mail` } }),
+    ]);
+  }
+}
+
+const GIFT_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const newGiftCode = () => Array.from({ length: 16 }, () => GIFT_ALPHABET[randomInt(GIFT_ALPHABET.length)]).join("");
 
 /** E-mails après paiement : confirmation au client, alerte au propriétaire. */
 async function notifyOrderPaid(orderId: string) {

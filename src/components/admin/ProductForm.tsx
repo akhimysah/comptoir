@@ -12,7 +12,7 @@ import { uploadImage } from "./upload";
 type Option = { name: string; values: string[] };
 type VariantRow = ProductPayload["variants"][number];
 
-export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription"> & { id?: string; seoTitle?: string; seoDescription?: string };
+export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard"> & { id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean };
 
 const key = (vals: string[]) => vals.join("\u0000");
 
@@ -33,6 +33,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle }
   const [options, setOptions] = useState<Option[]>(initial.options);
   const [rows, setRows] = useState<Record<string, VariantRow>>(() => Object.fromEntries(initial.variants.map((v) => [key(v.optionValues), v])));
   const [collectionIds, setCollectionIds] = useState<string[]>(initial.collectionIds);
+  const [isGiftCard, setIsGiftCard] = useState(initial.isGiftCard ?? false);
   const [seo, setSeo] = useState({ seoTitle: initial.seoTitle ?? "", seoDescription: initial.seoDescription ?? "" });
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle }
     }
   }
 
-  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo };
+  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard };
   const hasOptions = combos[0].length > 0;
   const [initialJson] = useState(() => JSON.stringify(payload));
   const dirty = !initial.id || JSON.stringify(payload) !== initialJson;
@@ -227,6 +228,10 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle }
           </section>
           <section className="card flex flex-col gap-2 p-4">
             <h2 className="text-sm font-[650]">Organisation du produit</h2>
+            <label className="flex items-start gap-2 text-[13px]">
+              <input type="checkbox" checked={isGiftCard} onChange={(e) => setIsGiftCard(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#303030]" />
+              <span>Ce produit est une carte cadeau<span className="block text-xs text-muted">Chaque variante est un montant (ex. 25 €, 50 €). À l'achat, la carte est créée et envoyée par e-mail : pas de stock ni de livraison.</span></span>
+            </label>
             <span className="text-[13px]">Collections</span>
             {collections.length ? (
               <div className="flex flex-col gap-1.5">

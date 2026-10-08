@@ -5,7 +5,8 @@ import { createDiscount } from "@/app/admin/discounts/actions";
 
 export function DiscountForm({ currency }: { currency: string }) {
   const [state, action, pending] = useActionState(createDiscount, undefined);
-  const [type, setType] = useState<"percent" | "fixed">("percent");
+  const [type, setType] = useState<"percent" | "fixed" | "free_shipping">("percent");
+  const [method, setMethod] = useState<"code" | "automatic">("code");
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => { if (state?.ok) ref.current?.reset(); }, [state]);
   return (
@@ -14,12 +15,13 @@ export function DiscountForm({ currency }: { currency: string }) {
       <label className="label">Code<input id="d-code" name="code" required className="input uppercase" placeholder="BIENVENUE10" maxLength={30} /></label>
       <div className="grid grid-cols-2 gap-3">
         <label className="label">Type
-          <select id="d-type" name="type" className="input" value={type} onChange={(e) => setType(e.target.value as "percent" | "fixed")}>
+          <select id="d-type" name="type" className="input" value={type} onChange={(e) => setType(e.target.value as "percent" | "fixed" | "free_shipping")}>
             <option value="percent">Pourcentage</option>
             <option value="fixed">Montant fixe</option>
+            <option value="free_shipping">Livraison offerte</option>
           </select>
         </label>
-        <label className="label">{type === "percent" ? "Réduction (%)" : `Réduction (${currency})`}<input id="d-value" name="value" required className="input num" inputMode="decimal" placeholder={type === "percent" ? "10" : "5,00"} /></label>
+        {type === "free_shipping" ? <input type="hidden" name="value" value="0" /> : <label className="label">{type === "percent" ? "Réduction (%)" : `Réduction (${currency})`}<input id="d-value" name="value" required className="input num" inputMode="decimal" placeholder={type === "percent" ? "10" : "5,00"} /></label>}
       </div>
       <label className="label">Montant minimum du panier<span className="hint">Optionnel.</span><input id="d-min" name="minSubtotal" className="input num" inputMode="decimal" placeholder="0,00" /></label>
       <div className="grid grid-cols-2 gap-3">
@@ -27,8 +29,8 @@ export function DiscountForm({ currency }: { currency: string }) {
         <label className="label">Fin de validité<input id="d-ends" name="endsAt" type="date" className="input" /></label>
       </div>
       {state?.error && <p role="alert" className="text-sm font-semibold text-red-700">{state.error}</p>}
-      {state?.ok && <p role="status" className="text-sm font-semibold text-pine">Code créé.</p>}
-      <button className="btn btn-primary" disabled={pending}>{pending ? "Création…" : "Créer le code"}</button>
+      {state?.ok && <p role="status" className="text-[13px] font-[550] text-[#0c5132]">Remise créée.</p>}
+      <button className="btn btn-primary" disabled={pending}>{pending ? "Création…" : "Créer la remise"}</button>
     </form>
   );
 }

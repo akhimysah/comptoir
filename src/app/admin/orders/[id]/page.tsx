@@ -18,6 +18,7 @@ const EVENT_TEXT: Record<string, string> = {
   refund: "a effectué un remboursement :",
   cancelled_refund: "a annulé la commande et remboursé :",
   created_manual: "a créé cette commande manuellement.",
+  giftcards_sent: "",
 };
 
 export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {

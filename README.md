@@ -38,7 +38,10 @@ Ensuite, ouvrez http://localhost:3000.
 | Équipe : invitation de collaborateurs par lien (Paramètres → Utilisateurs) | |
 | Pages de contenu et blog, avec une mise en forme simple | Pages (À propos, CGV…), blog, liens dans le pied de page |
 | Référencement : titre et description Google, aperçu du résultat | Sitemap par boutique (`/s/<boutique>/sitemap.xml`), robots.txt |
-| Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau, totale ou partielle |
+| Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau ; achat de cartes cadeaux dans la boutique |
+| Remboursements partiels et retours, remise en stock | Recherche, « Vous aimerez aussi » |
+| Remises automatiques et livraison offerte | Comptes clients (connexion par code e-mail, historique) |
+| TVA, mentions légales, factures et bons de préparation | Facture téléchargeable après l'achat |
 
 ## Plusieurs boutiques et rapport quotidien
 

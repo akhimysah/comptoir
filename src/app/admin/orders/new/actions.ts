@@ -8,6 +8,7 @@ import { parseMoney } from "@/lib/money";
 import { createOrder, markOrderPaid } from "@/lib/orders";
 import type { PricedCart } from "@/lib/pricing";
 import { parseJson } from "@/lib/utils";
+import { includedTax } from "@/lib/tax";
 
 const schema = z.object({
   lines: z.array(z.object({ variantId: z.string(), quantity: z.number().int().min(1).max(999) })).min(1, "Ajoutez au moins un produit."),
@@ -40,7 +41,7 @@ export async function createManualOrder(input: ManualOrderInput): Promise<{ erro
     lines.push({
       variantId: v.id, productId: v.productId, productTitle: v.product.title, productHandle: v.product.handle, variantTitle: v.title,
       priceCents: v.priceCents, compareAtCents: v.compareAtCents, quantity: l.quantity, available: v.stock,
-      image: parseJson<string[]>(v.product.images, [])[0] ?? null, hue: v.product.hue,
+      image: parseJson<string[]>(v.product.images, [])[0] ?? null, hue: v.product.hue, isGiftCard: v.product.isGiftCard,
     });
   }
   const subtotalCents = lines.reduce((s, l) => s + l.priceCents * l.quantity, 0);
@@ -49,7 +50,7 @@ export async function createManualOrder(input: ManualOrderInput): Promise<{ erro
     totalCents: subtotalCents + shippingCents, freeShippingFromCents: store.freeShippingFromCents, notices: [],
     countries: null, shippingOptions: [], shippingRateId: null, shippingMethod: shippingCents ? "Livraison" : "", shippingError: null,
     giftCardCode: null, giftCardCents: 0, giftCardBalanceCents: 0, giftCardError: null,
-    taxRateBps: store.taxRateBps, taxCents: 0,
+    taxRateBps: store.taxRateBps, taxCents: includedTax(subtotalCents + shippingCents - lines.filter((l) => l.isGiftCard).reduce((s, l) => s + l.priceCents * l.quantity, 0), store.taxRateBps),
   };
   const order = await createOrder(store, cart, { email: d.email, name: d.name, address: { line1: d.line1, zip: d.zip, city: d.city, country: d.country }, note: d.note }, "manual");
   await db.orderEvent.create({ data: { orderId: order.id, type: "created_manual", author: user.name, createdAt: order.createdAt } });

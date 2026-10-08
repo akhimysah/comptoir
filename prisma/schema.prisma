@@ -110,6 +110,7 @@ model GiftCard {
   balanceCents Int
   email        String    @default("")
   note         String    @default("")
+  orderId      String? // commande qui a acheté cette carte, le cas échéant
   disabled     Boolean   @default(false)
   expiresAt    DateTime?
   createdAt    DateTime  @default(now())
@@ -212,6 +213,7 @@ model Product {
   hue         Int                 @default(160) // couleur du visuel quand il n'y a pas de photo
   seoTitle       String           @default("")
   seoDescription String           @default("")
+  isGiftCard     Boolean          @default(false) // vendu comme carte cadeau : pas de stock, pas de livraison
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   variants    Variant[]
@@ -277,12 +279,14 @@ model Discount {
   storeId          String
   store            Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
   code             String // toujours en majuscules
-  type             String // percent | fixed
+  type             String // percent | fixed | free_shipping
   value            Int // pourcentage, ou centimes pour fixed
   minSubtotalCents Int       @default(0)
   usageLimit       Int?
   usageCount       Int       @default(0)
   active           Boolean   @default(true)
+  automatic        Boolean   @default(false) // appliquée sans code dans le panier
+  title            String    @default("") // nom affiché pour une remise automatique
   endsAt           DateTime?
   createdAt        DateTime  @default(now())
 
@@ -348,6 +352,7 @@ model OrderItem {
   image        String?
   hue          Int     @default(160)
   refundedQuantity Int @default(0)
+  isGiftCard       Boolean @default(false)
 }
 
 /// Remboursement (total ou partiel) d'une commande, avec ou sans retour en stock.

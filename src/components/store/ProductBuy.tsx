@@ -8,8 +8,8 @@ import { Stars } from "./Stars";
 
 type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number };
 
-export function ProductBuy({ slug, currency, title, description, images, hue, options, variants, rating }: {
-  slug: string; currency: string; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null;
+export function ProductBuy({ slug, currency, title, description, images, hue, options, variants, rating, isGiftCard }: {
+  slug: string; currency: string; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean;
   options: { name: string; values: string[] }[]; variants: V[];
 }) {
   const { add, items } = useCart(slug);
@@ -100,7 +100,8 @@ export function ProductBuy({ slug, currency, title, description, images, hue, op
         {added && (
           <p role="status" className="text-sm">Ajouté au panier. <a href={`/s/${slug}/cart`} className="font-semibold underline underline-offset-4">Voir le panier</a></p>
         )}
-        {variant && variant.stock > 0 && variant.stock <= 5 && <p className="text-sm text-[var(--c-muted)]">Plus que {variant.stock} en stock.</p>}
+        {isGiftCard && <p className="text-sm text-[var(--c-muted)]">Carte cadeau envoyée par e-mail juste après le paiement, utilisable sur toute la boutique.</p>}
+        {!isGiftCard && variant && variant.stock > 0 && variant.stock <= 5 && <p className="text-sm text-[var(--c-muted)]">Plus que {variant.stock} en stock.</p>}
 
         {description && <div className="whitespace-pre-line border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-6 leading-relaxed text-[var(--c-muted)]">{description}</div>}
       </div>

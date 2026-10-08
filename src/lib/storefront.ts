@@ -36,7 +36,7 @@ export const getCatalog = cache(async (storeId: string) => {
         compareAtCents: cheapest.compareAtCents,
         image: parseJson<string[]>(p.images, [])[0] ?? null,
         hue: p.hue,
-        soldOut: p.variants.every((v) => v.stock <= 0),
+        soldOut: !p.isGiftCard && p.variants.every((v) => v.stock <= 0),
         collectionHandles: p.collections.map((c) => c.collection.handle),
         rating: ratingBy.get(p.id) ?? null,
       };

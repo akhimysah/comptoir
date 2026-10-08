@@ -13,22 +13,22 @@ export default async function DiscountsPage() {
   const now = new Date();
   return (
     <>
-      <PageHeader title="Codes promo" subtitle="Vos clients saisissent le code dans leur panier." />
+      <PageHeader title="Remises" subtitle="Codes promo à saisir dans le panier, ou remises automatiques appliquées sans code." />
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
         <div className="card min-w-0">
           {discounts.length ? (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead><tr><th className="th">Code</th><th className="th">Réduction</th><th className="th">Utilisations</th><th className="th">Statut</th><th className="th" /></tr></thead>
+                <thead><tr><th className="th">Remise</th><th className="th">Réduction</th><th className="th">Utilisations</th><th className="th">Statut</th><th className="th" /></tr></thead>
                 <tbody>
                   {discounts.map((d) => {
                     const expired = d.endsAt && d.endsAt < now;
                     const exhausted = d.usageLimit !== null && d.usageCount >= d.usageLimit;
                     return (
                       <tr key={d.id}>
-                        <td className="td font-semibold">{d.code}</td>
+                        <td className="td">{d.automatic ? <><div className="font-[550]">{d.title}</div><Pill tone="info" dot={false}>Automatique</Pill></> : <span className="font-mono font-[650]">{d.code}</span>}</td>
                         <td className="td">
-                          {d.type === "percent" ? `${d.value} %` : formatMoney(d.value, store.currency)}
+                          {d.type === "free_shipping" ? "Livraison offerte" : d.type === "percent" ? `${d.value} %` : formatMoney(d.value, store.currency)}
                           {d.minSubtotalCents > 0 && <div className="text-xs text-muted">dès {formatMoney(d.minSubtotalCents, store.currency)}</div>}
                           {d.endsAt && <div className="text-xs text-muted">jusqu'au {formatDate(d.endsAt)}</div>}
                         </td>

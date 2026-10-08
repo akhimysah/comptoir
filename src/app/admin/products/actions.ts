@@ -35,6 +35,7 @@ const payloadSchema = z.object({
   collectionIds: z.array(z.string()).max(50),
   seoTitle: z.string().max(70).optional().default(""),
   seoDescription: z.string().max(320).optional().default(""),
+  isGiftCard: z.boolean().optional().default(false),
 });
 export type ProductPayload = z.infer<typeof payloadSchema>;
 export type SaveState = { error?: string } | undefined;
@@ -100,6 +101,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
           options: JSON.stringify(p.options),
           seoTitle: p.seoTitle,
           seoDescription: p.seoDescription,
+          isGiftCard: p.isGiftCard,
           collections: { create: await validCollections(store.id, p.collectionIds) },
         },
       }),
@@ -117,6 +119,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
         options: JSON.stringify(p.options),
         seoTitle: p.seoTitle,
         seoDescription: p.seoDescription,
+        isGiftCard: p.isGiftCard,
         variants: { create: variants.map(({ id: _id, ...v }) => v) },
         collections: { create: await validCollections(store.id, p.collectionIds) },
       },

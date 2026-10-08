@@ -98,6 +98,7 @@ async function main() {
   await seedShipping(db, store.id);
   await seedReviews(db, store.id);
   await seedContent(db, store.id);
+  await seedGiftAndAuto(db, store.id);
   await seedExtraStores(db, user.id);
 
   // Commandes d'exemple réparties sur les 3 dernières semaines
@@ -231,4 +232,17 @@ export async function seedContent(client: PrismaClient, storeId: string) {
       body: "Le grès émaillé est une matière solide, mais quelques gestes simples prolongent sa vie.\n\n## Au quotidien\n\n- Le lave-vaisselle convient, en programme doux\n- Évitez les chocs thermiques : pas de tasse froide directement dans l'eau bouillante\n- Pour les taches de thé, un peu de bicarbonate suffit\n\n## Et si une pièce s'ébrèche ?\n\nÉcrivez-nous : nous vous dirons si elle peut être réparée. Découvrez aussi [nos nouveautés](/s/atelier-argile/products).",
     },
   });
+}
+
+export async function seedGiftAndAuto(client: PrismaClient, storeId: string) {
+  await client.product.create({
+    data: {
+      storeId, title: "Carte cadeau", handle: "carte-cadeau", status: "active", hue: 45, isGiftCard: true,
+      description: "Offrez le choix : une carte cadeau envoyée par e-mail, utilisable sur toute la boutique.",
+      options: JSON.stringify([{ name: "Montant", values: ["25 €", "50 €", "100 €"] }]),
+      variants: { create: [[2500, "25 €"], [5000, "50 €"], [10000, "100 €"]].map(([p, t], i) => ({ title: String(t), optionValues: JSON.stringify([t]), priceCents: Number(p), stock: 0, position: i })) },
+    },
+  });
+  await client.discount.create({ data: { storeId, code: "AUTO-DEMO", automatic: true, title: "−10 % dès 100 €", type: "percent", value: 10, minSubtotalCents: 10000 } });
+  await client.discount.create({ data: { storeId, code: "LIVRAISON", type: "free_shipping", value: 0 } });
 }

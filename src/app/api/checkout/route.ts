@@ -11,10 +11,10 @@ const schema = z.object({
   code: z.string().max(30).optional().default(""),
   email: z.string().trim().email("Indiquez une adresse e-mail valide."),
   name: z.string().trim().min(2, "Indiquez votre nom complet.").max(80),
-  line1: z.string().trim().min(3, "Indiquez votre adresse.").max(140),
-  zip: z.string().trim().min(2, "Indiquez votre code postal.").max(12),
-  city: z.string().trim().min(1, "Indiquez votre ville.").max(60),
-  country: z.string().trim().min(2).max(60),
+  line1: z.string().trim().max(140).optional().default(""),
+  zip: z.string().trim().max(12).optional().default(""),
+  city: z.string().trim().max(60).optional().default(""),
+  country: z.string().trim().max(60).optional().default(""),
   note: z.string().max(500).optional().default(""),
   rateId: z.string().max(40).optional().nullable(),
   giftCode: z.string().max(40).optional().nullable(),
@@ -31,6 +31,11 @@ export async function POST(req: Request) {
   const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode);
   if (b.giftCode && cart.giftCardError) return NextResponse.json({ error: cart.giftCardError }, { status: 400 });
   if (cart.shippingError) return NextResponse.json({ error: cart.shippingError }, { status: 400 });
+  if (cart.lines.some((l) => !l.isGiftCard)) {
+    if (b.line1.length < 3) return NextResponse.json({ error: "Indiquez votre adresse." }, { status: 400 });
+    if (b.zip.length < 2) return NextResponse.json({ error: "Indiquez votre code postal." }, { status: 400 });
+    if (!b.city) return NextResponse.json({ error: "Indiquez votre ville." }, { status: 400 });
+  }
   if (!cart.lines.length) return NextResponse.json({ error: "Votre panier est vide." }, { status: 400 });
   if (b.code && cart.discountError) return NextResponse.json({ error: cart.discountError }, { status: 400 });
   if (cart.notices.length) return NextResponse.json({ error: cart.notices[0], refresh: true }, { status: 409 });

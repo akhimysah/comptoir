@@ -137,6 +137,8 @@ export function CartView({ slug, currency, cancelled, demo, recovered, customer 
             <h2 className="font-[family-name:var(--t-display)] text-xl font-semibold">Livraison</h2>
             <input id="co-email" name="email" type="email" required autoComplete="email" placeholder="E-mail" aria-label="E-mail" defaultValue={recovered?.email ?? customer?.email} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
             <input id="co-name" name="name" required autoComplete="name" placeholder="Nom complet" aria-label="Nom complet" defaultValue={recovered?.name ?? customer?.name} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
+            {(!cart || cart.lines.some((l) => !l.isGiftCard)) ? (
+              <>
             <input id="co-line1" name="line1" required autoComplete="street-address" placeholder="Adresse" aria-label="Adresse" className={field} />
             <div className="grid grid-cols-[1fr_1.6fr] gap-3">
               <input id="co-zip" name="zip" required autoComplete="postal-code" placeholder="Code postal" aria-label="Code postal" className={field} />
@@ -161,6 +163,10 @@ export function CartView({ slug, currency, cancelled, demo, recovered, customer 
                   </label>
                 ))}
               </fieldset>
+            )}
+              </>
+            ) : (
+              <p className="text-sm text-[var(--c-muted)]">Votre carte cadeau sera envoyée par e-mail à cette adresse, juste après le paiement.</p>
             )}
             {cart?.shippingError && <p className="text-sm text-red-600">{cart.shippingError}</p>}
             <textarea id="co-note" name="note" maxLength={500} placeholder="Note pour la boutique (optionnel)" aria-label="Note" className={`${field} min-h-[70px]`} />

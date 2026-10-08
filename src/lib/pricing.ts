@@ -18,6 +18,7 @@ export type PricedLine = {
   available: number;
   image: string | null;
   hue: number;
+  isGiftCard: boolean;
 };
 
 export type PricedCart = {
@@ -87,7 +88,8 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       notices.push("Un article de votre panier n'est plus disponible et a été retiré.");
       continue;
     }
-    const quantity = Math.min(wanted, v.stock);
+    // Une carte cadeau n'a pas de stock.
+    const quantity = v.product.isGiftCard ? wanted : Math.min(wanted, v.stock);
     if (quantity <= 0) {
       notices.push(`${v.product.title} est épuisé et a été retiré du panier.`);
       continue;
@@ -102,29 +104,57 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       priceCents: v.priceCents,
       compareAtCents: v.compareAtCents,
       quantity,
-      available: v.stock,
+      available: v.product.isGiftCard ? 99 : v.stock,
       image: parseJson<string[]>(v.product.images, [])[0] ?? null,
       hue: v.product.hue,
+      isGiftCard: v.product.isGiftCard,
     });
   }
 
   const subtotalCents = lines.reduce((s, l) => s + l.priceCents * l.quantity, 0);
+  // Les remises ne s'appliquent pas aux cartes cadeaux achetées (comme sur Shopify).
+  const giftItemsCents = lines.filter((l) => l.isGiftCard).reduce((s, l) => s + l.priceCents * l.quantity, 0);
+  const discountable = subtotalCents - giftItemsCents;
 
   let discountCents = 0;
   let discountCode: string | null = null;
   let discountError: string | null = null;
+  let freeShipping = false;
   const normalized = code?.trim().toUpperCase();
   if (normalized) {
     const d = await db.discount.findUnique({ where: { storeId_code: { storeId: store.id, code: normalized } } });
-    discountError = discountProblem(d, subtotalCents);
+    discountError = d?.automatic ? "Ce code promo n'existe pas." : discountProblem(d, discountable);
     if (!discountError && d) {
-      discountCents = discountAmount(d, subtotalCents);
+      if (d.type === "free_shipping") freeShipping = true;
+      else discountCents = discountAmount(d, discountable);
       discountCode = d.code;
+    }
+  }
+  // Remise automatique : la plus avantageuse, si aucun code n'est appliqué.
+  if (!discountCode && discountable > 0) {
+    const autos = await db.discount.findMany({ where: { storeId: store.id, automatic: true, active: true } });
+    let best: { d: (typeof autos)[number]; amount: number } | null = null;
+    for (const d of autos) {
+      if (discountProblem(d, discountable)) continue;
+      const amount = d.type === "free_shipping" ? 0 : discountAmount(d, discountable);
+      if (!best || amount > best.amount || (amount === best.amount && d.type === "free_shipping")) best = { d, amount };
+    }
+    if (best) {
+      discountCode = best.d.title || "Remise automatique";
+      if (best.d.type === "free_shipping") freeShipping = true;
+      else discountCents = best.amount;
     }
   }
 
   const afterDiscount = subtotalCents - discountCents;
-  const shipping = await computeShipping(store, afterDiscount, lines.length > 0, ship);
+  const needsShipping = lines.some((l) => !l.isGiftCard);
+  const shipping = needsShipping
+    ? await computeShipping(store, afterDiscount - giftItemsCents, true, ship)
+    : { countries: null, shippingOptions: [], shippingRateId: null, shippingMethod: lines.length ? "Envoi par e-mail" : "", shippingCents: 0, shippingError: null };
+  if (freeShipping && !shipping.shippingError) {
+    shipping.shippingCents = 0;
+    shipping.shippingOptions = shipping.shippingOptions.map((o) => ({ ...o, priceCents: 0 }));
+  }
   const due = afterDiscount + shipping.shippingCents;
 
   // Carte cadeau : elle paie tout ou partie du total, livraison comprise.
@@ -150,7 +180,8 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     giftCardBalanceCents,
     giftCardError,
     taxRateBps: store.taxRateBps,
-    taxCents: includedTax(due, store.taxRateBps),
+    // La vente d'une carte cadeau n'est pas soumise à la TVA : elle l'est quand la carte est utilisée.
+    taxCents: includedTax(due - giftItemsCents, store.taxRateBps),
     totalCents: due - giftCardCents,
     freeShippingFromCents: store.freeShippingFromCents,
     notices,
