@@ -80,3 +80,15 @@ export function inviteEmail(storeName: string, invitedBy: string, link: string) 
       `<p style="font-size:14px;line-height:1.5">${esc(invitedBy)} vous invite à gérer la boutique <b>${esc(storeName)}</b> sur Comptoir. Le lien est valable 7 jours.</p><p>${button(link, "Accepter l'invitation")}</p>`),
   };
 }
+
+export function abandonedCartEmail(store: Store, name: string, lines: { title: string; quantity: number; priceCents: number }[], link: string) {
+  const m = (c: number) => formatMoney(c, store.currency);
+  const rows = lines.map((l) => `<tr><td style="padding:8px 0;border-bottom:1px solid #ebebeb">${esc(l.title)} × ${l.quantity}</td><td align="right" style="padding:8px 0;border-bottom:1px solid #ebebeb">${m(l.priceCents * l.quantity)}</td></tr>`).join("");
+  return {
+    subject: `Vous avez oublié quelque chose chez ${store.name}`,
+    html: layout(store.name, name ? `${name.split(" ")[0]}, votre panier vous attend` : "Votre panier vous attend",
+      `<p style="font-size:14px;line-height:1.5">Vous avez laissé des articles dans votre panier. Nous les avons gardés pour vous.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;margin:16px 0">${rows}</table>
+<p>${button(link, "Reprendre ma commande")}</p>`),
+  };
+}

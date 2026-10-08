@@ -88,6 +88,7 @@ model Checkout {
   orderId     String? // rempli quand le client a commandé
   remindedAt  DateTime?
   recoveredAt DateTime? // commande passée après une relance
+  activityAt  DateTime  @default(now()) // dernière modification du panier par le client
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

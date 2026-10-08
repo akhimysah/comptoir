@@ -8,7 +8,9 @@ import { useCart } from "./cart";
 
 const field = "w-full rounded-[var(--t-radius)] border border-[color-mix(in_srgb,var(--c-text)_22%,transparent)] bg-[var(--c-surface)] px-3 py-2.5 outline-none focus:border-[var(--c-text)]";
 
-export function CartView({ slug, currency, cancelled, demo }: { slug: string; currency: string; cancelled: boolean; demo: boolean }) {
+type Recovered = { items: { variantId: string; quantity: number }[]; email: string; name: string } | null;
+
+export function CartView({ slug, currency, cancelled, demo, recovered }: { slug: string; currency: string; cancelled: boolean; demo: boolean; recovered: Recovered }) {
   const { items, ready, setQuantity, replace } = useCart(slug);
   const [cart, setCart] = useState<PricedCart | null>(null);
   const [code, setCode] = useState("");
@@ -17,6 +19,19 @@ export function CartView({ slug, currency, cancelled, demo }: { slug: string; cu
   const [busy, setBusy] = useState(false);
   const [country, setCountry] = useState("France");
   const [rateId, setRateId] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
+
+  // Lien « Reprendre ma commande » reçu par e-mail : on remet le panier mémorisé.
+  useEffect(() => {
+    if (ready && recovered && !restored) { replace(recovered.items); setRestored(true); }
+  }, [ready, recovered, restored, replace]);
+
+  const saveCheckout = (form: HTMLFormElement | null) => {
+    if (!form || !items.length) return;
+    const email = String(new FormData(form).get("email") ?? "");
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return;
+    fetch("/api/checkouts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, email, name: String(new FormData(form).get("name") ?? ""), items }) }).catch(() => {});
+  };
   const m = (c: number) => formatMoney(c, currency);
 
   const refresh = useCallback(async () => {
@@ -60,6 +75,7 @@ export function CartView({ slug, currency, cancelled, demo }: { slug: string; cu
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <h1 className="mb-6 font-[family-name:var(--t-display)] text-3xl font-semibold md:text-4xl">Panier</h1>
+      {restored && <p className="mb-4 rounded-[var(--t-radius)] bg-[var(--c-surface)] px-4 py-3 text-sm">Votre panier a été retrouvé. Il ne reste plus qu'à valider la commande.</p>}
       {cancelled && <p className="mb-4 rounded-[var(--t-radius)] bg-[var(--c-surface)] px-4 py-3 text-sm">Le paiement a été interrompu. Votre panier est toujours là.</p>}
       {cart?.notices.map((n) => <p key={n} className="mb-3 rounded-[var(--t-radius)] bg-[var(--c-surface)] px-4 py-3 text-sm">{n}</p>)}
 
@@ -110,8 +126,8 @@ export function CartView({ slug, currency, cancelled, demo }: { slug: string; cu
 
           <form onSubmit={checkout} className="flex flex-col gap-3">
             <h2 className="font-[family-name:var(--t-display)] text-xl font-semibold">Livraison</h2>
-            <input id="co-email" name="email" type="email" required autoComplete="email" placeholder="E-mail" aria-label="E-mail" className={field} />
-            <input id="co-name" name="name" required autoComplete="name" placeholder="Nom complet" aria-label="Nom complet" className={field} />
+            <input id="co-email" name="email" type="email" required autoComplete="email" placeholder="E-mail" aria-label="E-mail" defaultValue={recovered?.email} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
+            <input id="co-name" name="name" required autoComplete="name" placeholder="Nom complet" aria-label="Nom complet" defaultValue={recovered?.name} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
             <input id="co-line1" name="line1" required autoComplete="street-address" placeholder="Adresse" aria-label="Adresse" className={field} />
             <div className="grid grid-cols-[1fr_1.6fr] gap-3">
               <input id="co-zip" name="zip" required autoComplete="postal-code" placeholder="Code postal" aria-label="Code postal" className={field} />

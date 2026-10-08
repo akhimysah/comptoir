@@ -24,7 +24,7 @@ export async function createOrder(
   for (let attempt = 0; attempt < 5; attempt++) {
     const last = await db.order.findFirst({ where: { storeId: store.id }, orderBy: { number: "desc" }, select: { number: true } });
     try {
-      return await db.order.create({
+      const order = await db.order.create({
         data: {
           storeId: store.id,
           number: (last?.number ?? 1000) + 1,
@@ -53,6 +53,12 @@ export async function createOrder(
           },
         },
       });
+      // Le panier mémorisé de ce client est marqué comme converti (et « récupéré » s'il avait été relancé).
+      const checkout = await db.checkout.findUnique({ where: { storeId_email: { storeId: store.id, email } } });
+      if (checkout && !checkout.orderId) {
+        await db.checkout.update({ where: { id: checkout.id }, data: { orderId: order.id, ...(checkout.remindedAt ? { recoveredAt: new Date() } : {}) } });
+      }
+      return order;
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") continue;
       throw e;
