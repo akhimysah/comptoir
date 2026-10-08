@@ -9,7 +9,7 @@ export async function createOrder(
   store: Store,
   cart: PricedCart,
   buyer: { email: string; name: string; address: Address; note: string },
-  paymentMethod: "demo" | "stripe",
+  paymentMethod: "demo" | "stripe" | "manual",
 ) {
   const email = buyer.email.trim().toLowerCase();
   const customer = await db.customer.upsert({

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
-import { Empty, PageHeader, Pill } from "@/components/ui";
+import { OrdersTable } from "@/components/admin/OrdersTable";
+import { Empty, PageHeader } from "@/components/ui";
 import { requireStore } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -39,7 +40,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Commandes" />
+      <PageHeader title="Commandes" actions={<Link href="/admin/orders/new" className="btn btn-primary">Créer une commande</Link>} />
       <div className="card min-w-0 overflow-hidden">
         <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
           {TABS.map((t, i) => (
@@ -53,25 +54,19 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           </form>
         </div>
         {orders.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead><tr><th className="th w-8"><input type="checkbox" aria-label="Tout sélectionner" className="h-4 w-4 accent-[#303030]" /></th><th className="th">Commande</th><th className="th">Date</th><th className="th">Client</th><th className="th text-right">Total</th><th className="th">Statut du paiement</th><th className="th">Statut du traitement</th><th className="th hidden md:table-cell">Articles</th></tr></thead>
-              <tbody>
-                {orders.map((o) => (
-                  <tr key={o.id} className="hover:bg-[#f7f7f7]">
-                    <td className="td"><input type="checkbox" aria-label={`Sélectionner #${o.number}`} className="h-4 w-4 accent-[#303030]" /></td>
-                    <td className="td"><Link href={`/admin/orders/${o.id}`} className="font-[650] hover:underline">#{o.number}</Link></td>
-                    <td className="td whitespace-nowrap text-muted">{formatDateTime(o.createdAt)}</td>
-                    <td className="td">{o.name}</td>
-                    <td className="td num whitespace-nowrap text-right">{formatMoney(o.totalCents, store.currency)}</td>
-                    <td className="td">{o.cancelledAt ? <Pill>Annulée</Pill> : <Pill tone={PAYMENT_LABELS[o.paymentStatus].tone}>{PAYMENT_LABELS[o.paymentStatus].label}</Pill>}</td>
-                    <td className="td">{!o.cancelledAt && <Pill tone={FULFILLMENT_LABELS[o.fulfillmentStatus].tone}>{FULFILLMENT_LABELS[o.fulfillmentStatus].label}</Pill>}</td>
-                    <td className="td num hidden text-muted md:table-cell">{o.items.reduce((s, i) => s + i.quantity, 0)} article{o.items.reduce((s, i) => s + i.quantity, 0) > 1 ? "s" : ""}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <OrdersTable
+            rows={orders.map((o) => ({
+              id: o.id,
+              number: o.number,
+              date: formatDateTime(o.createdAt),
+              name: o.name,
+              total: formatMoney(o.totalCents, store.currency),
+              payment: o.cancelledAt ? null : PAYMENT_LABELS[o.paymentStatus],
+              fulfillment: o.cancelledAt ? null : FULFILLMENT_LABELS[o.fulfillmentStatus],
+              items: o.items.reduce((s, i) => s + i.quantity, 0),
+              manual: o.paymentMethod === "manual",
+            }))}
+          />
         ) : (
           <Empty>{counts[0] ? "Aucune commande ne correspond." : "Aucune commande pour l'instant. Elles arrivent ici dès qu'un client paie son panier."}</Empty>
         )}

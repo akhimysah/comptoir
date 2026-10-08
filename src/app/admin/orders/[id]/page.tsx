@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addOrderComment, cancelOrder, setFulfilled } from "../actions";
+import { addOrderComment, cancelOrder, markPaid, setFulfilled } from "../actions";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { PageHeader, Pill, Thumb } from "@/components/ui";
 import { requireStore } from "@/lib/auth";
@@ -14,6 +14,8 @@ const EVENT_TEXT: Record<string, string> = {
   unfulfilled: "a remis la commande à traiter.",
   cancelled: "a annulé la commande.",
   refunded: "a annulé et remboursé la commande.",
+  paid_manual: "a marqué la commande comme payée.",
+  created_manual: "a créé cette commande manuellement.",
 };
 
 export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
@@ -33,8 +35,8 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   // Les étapes automatiques (création, paiement) viennent des champs de la commande ; le reste de la table des événements.
   const timeline = [
     ...o.events.map((e) => ({ at: e.createdAt, kind: e.type, text: e.type === "comment" ? e.message : `${e.author || "Quelqu'un"} ${EVENT_TEXT[e.type] ?? e.type}`, author: e.author })),
-    ...(o.paidAt ? [{ at: o.paidAt, kind: "paid", text: `Paiement de ${m(o.totalCents)} reçu${o.paymentMethod === "stripe" ? " par carte (Stripe)" : " (démonstration)"}.`, author: "" }] : []),
-    { at: o.createdAt, kind: "created", text: `${o.name} a passé cette commande sur la boutique en ligne.`, author: "" },
+    ...(o.paidAt && !o.events.some((e) => e.type === "paid_manual") ? [{ at: o.paidAt, kind: "paid", text: `Paiement de ${m(o.totalCents)} reçu${o.paymentMethod === "stripe" ? " par carte (Stripe)" : o.paymentMethod === "manual" ? " (paiement hors ligne)" : " (démonstration)"}.`, author: "" }] : []),
+    ...(o.paymentMethod === "manual" ? [] : [{ at: o.createdAt, kind: "created", text: `${o.name} a passé cette commande sur la boutique en ligne.`, author: "" }]),
   ].sort((x, y) => y.at.getTime() - x.at.getTime());
 
   return (
@@ -42,7 +44,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       <PageHeader
         back="/admin/orders"
         title={`#${o.number}`}
-        subtitle={`${formatDateTime(o.createdAt)} · Boutique en ligne`}
+        subtitle={`${formatDateTime(o.createdAt)} · ${o.paymentMethod === "manual" ? "Créée dans l'admin" : "Boutique en ligne"}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {o.cancelledAt ? <Pill>Annulée</Pill> : <><Pill tone={pay.tone}>{pay.label}</Pill><Pill tone={ful.tone}>{ful.label}</Pill></>}
@@ -98,6 +100,12 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
               <dt className="col-span-3 my-1 border-t border-line" />
               <dt>{o.paymentStatus === "refunded" ? "Remboursé" : "Payé par le client"}</dt><dd /><dd className="num text-right">{o.paymentStatus === "pending" ? m(0) : m(o.totalCents)}</dd>
             </dl>
+            {!o.cancelledAt && o.paymentStatus === "pending" && o.paymentMethod !== "stripe" && (
+              <form action={markPaid} className="flex justify-end border-t border-line px-4 py-3">
+                <input type="hidden" name="id" value={o.id} />
+                <button className="btn btn-primary">Marquer comme payée</button>
+              </form>
+            )}
           </section>
 
           <section className="flex flex-col gap-3">

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStore } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { markOrderPaid } from "@/lib/orders";
 import { getStripe } from "@/lib/stripe";
 
 async function ownOrder(form: FormData) {
@@ -58,4 +59,37 @@ export async function cancelOrder(form: FormData): Promise<void> {
   ]);
   revalidatePath(`/admin/orders/${order.id}`);
   revalidatePath("/admin", "layout");
+}
+
+/** Actions groupées depuis la liste des commandes. Renvoie le nombre de commandes modifiées. */
+export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" | "markPaid"): Promise<{ count: number }> {
+  const { user, store } = await requireStore();
+  const own = await db.order.findMany({ where: { id: { in: ids.slice(0, 500) }, storeId: store.id, cancelledAt: null } });
+  let count = 0;
+  for (const o of own) {
+    if (action === "markPaid") {
+      // Paiements hors ligne uniquement : un paiement Stripe se confirme par Stripe.
+      if (o.paymentStatus !== "pending" || o.paymentMethod === "stripe") continue;
+      if (await markOrderPaid(o.id)) {
+        await db.orderEvent.create({ data: { orderId: o.id, type: "paid_manual", author: user.name } });
+        count++;
+      }
+      continue;
+    }
+    const target = action === "fulfill" ? "fulfilled" : "unfulfilled";
+    if (o.paymentStatus !== "paid" || o.fulfillmentStatus === target) continue;
+    await db.$transaction([
+      db.order.update({ where: { id: o.id }, data: { fulfillmentStatus: target } }),
+      db.orderEvent.create({ data: { orderId: o.id, type: target, author: user.name } }),
+    ]);
+    count++;
+  }
+  revalidatePath("/admin", "layout");
+  return { count };
+}
+
+export async function markPaid(form: FormData) {
+  const id = String(form.get("id"));
+  await bulkOrders([id], "markPaid");
+  revalidatePath(`/admin/orders/${id}`);
 }
