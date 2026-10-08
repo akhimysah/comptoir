@@ -29,6 +29,9 @@ export default async function StoreLayout({ children, params }: { children: Reac
             {collections.slice(0, 4).map((c) => <a key={c.handle} href={`/s/${slug}/c/${c.handle}`} className="hover:opacity-70">{c.title}</a>)}
             {hasBlog > 0 && <a href={`/s/${slug}/blog`} className="hover:opacity-70">Blog</a>}
           </nav>
+          <a href={`/s/${slug}/search`} aria-label="Rechercher" className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
+          </a>
           <CartLink slug={slug} />
         </div>
         <nav className="flex gap-4 overflow-x-auto px-4 pb-3 text-sm md:hidden">

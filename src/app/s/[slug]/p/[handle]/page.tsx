@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductBuy } from "@/components/store/ProductBuy";
 import { Reviews } from "@/components/store/Reviews";
+import { ProductGrid } from "@/components/store/ProductCard";
+import { getCatalog } from "@/lib/storefront";
+import type { Store } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStore } from "@/lib/storefront";
 import { parseJson } from "@/lib/utils";
@@ -38,7 +41,23 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       options={parseJson(product.options, [])}
       variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: v.priceCents, compareAtCents: v.compareAtCents, stock: v.stock }))}
     />
+    <Related slug={slug} storeId={store.id} productId={product.id} store={store} />
     <Reviews slug={slug} productId={product.id} />
     </>
+  );
+}
+
+/** « Vous aimerez aussi » : produits des mêmes collections d'abord, puis les plus récents. */
+async function Related({ slug, storeId, productId, store }: { slug: string; storeId: string; productId: string; store: Store }) {
+  const { products } = await getCatalog(storeId);
+  const me = products.find((p) => p.id === productId);
+  const shared = (p: (typeof products)[number]) => p.collectionHandles.filter((h) => me?.collectionHandles.includes(h)).length;
+  const list = products.filter((p) => p.id !== productId && !p.soldOut).sort((a, b) => shared(b) - shared(a)).slice(0, 4);
+  if (!list.length) return null;
+  return (
+    <section className="mx-auto max-w-6xl border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] px-4 py-12" data-slug={slug}>
+      <h2 className="mb-6 font-[family-name:var(--t-display)] text-2xl font-semibold md:text-3xl">Vous aimerez aussi</h2>
+      <ProductGrid products={list} store={store} />
+    </section>
   );
 }
