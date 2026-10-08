@@ -54,7 +54,7 @@ ${table}
 ${items.length ? `<p style="font-size:14px;margin:0 0 6px;font-weight:600">Produits les plus vendus</p><p style="font-size:14px;margin:0;color:#616161">${items.map((i) => `${esc(i.productTitle)} (${i._sum.quantity})`).join(" · ")}</p>` : ""}
 <p style="margin-top:24px"><a href="${appUrl()}/admin/overview" style="display:inline-block;background:#303030;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px">Ouvrir le tableau de bord</a></p>
 </td></tr></table>
-<p style="font-size:12px;color:#8a8a8a;margin-top:16px">Rapport quotidien Comptoir · désactivable depuis « Toutes les boutiques »</p>
+<p style="font-size:12px;color:#8a8a8a;margin-top:16px">Rapport quotidien Parnassa Pay · désactivable depuis « Toutes les boutiques »</p>
 </td></tr></table></body></html>`;
 
   return { subject: `${formatMoney(total, cur)} hier · ${totalCount} commande${totalCount > 1 ? "s" : ""} (${stores.length} boutique${stores.length > 1 ? "s" : ""})`, html };

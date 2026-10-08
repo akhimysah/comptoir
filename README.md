@@ -1,4 +1,4 @@
-# Comptoir
+# Parnassa Pay
 
 Plateforme e-commerce multi-boutiques, sur le modèle de Shopify : chaque marchand crée son compte et sa boutique, gère son catalogue et ses commandes, personnalise son thème et encaisse par carte avec Stripe Connect.
 
@@ -55,7 +55,7 @@ Dans **Paramètres → Utilisateurs et autorisations**, le propriétaire saisit 
 
 ## E-mails
 
-Comptoir envoie automatiquement : la confirmation de commande au client, l'alerte de nouvelle commande au propriétaire, l'avis d'expédition, les invitations d'équipe et les liens « mot de passe oublié ».
+Parnassa Pay envoie automatiquement : la confirmation de commande au client, l'alerte de nouvelle commande au propriétaire, l'avis d'expédition, les invitations d'équipe et les liens « mot de passe oublié ».
 
 Sans configuration, rien ne part : les e-mails sont enregistrés et visibles dans **Paramètres → Notifications**. En local, le lien « mot de passe oublié » s'affiche aussi dans le terminal. Pour les envoyer vraiment, créez un compte sur https://resend.com, puis renseignez `RESEND_API_KEY` et `MAIL_FROM` dans `.env`. L'adresse d'envoi doit appartenir à un domaine vérifié chez Resend.
 

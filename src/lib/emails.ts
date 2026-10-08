@@ -14,7 +14,7 @@ function layout(storeName: string, title: string, body: string) {
 <h1 style="font-size:20px;margin:0 0 12px">${esc(title)}</h1>
 ${body}
 </td></tr></table>
-<p style="font-size:12px;color:#8a8a8a;margin-top:16px">Envoyé par ${esc(storeName)} via Comptoir</p>
+<p style="font-size:12px;color:#8a8a8a;margin-top:16px">Envoyé par ${esc(storeName)} via Parnassa Pay</p>
 </td></tr></table></body></html>`;
 }
 
@@ -65,8 +65,8 @@ export function newOrderAlertEmail(store: Store, order: Order & { items: OrderIt
 
 export function passwordResetEmail(link: string) {
   return {
-    subject: "Réinitialiser votre mot de passe Comptoir",
-    html: layout("Comptoir", "Réinitialiser votre mot de passe",
+    subject: "Réinitialiser votre mot de passe Parnassa Pay",
+    html: layout("Parnassa Pay", "Réinitialiser votre mot de passe",
       `<p style="font-size:14px;line-height:1.5">Quelqu'un a demandé à réinitialiser le mot de passe de ce compte. Si c'est vous, cliquez sur le bouton ci-dessous. Le lien est valable 1 heure.</p>
 <p>${button(link, "Choisir un nouveau mot de passe")}</p>
 <p style="font-size:13px;color:#616161">Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail : votre mot de passe ne change pas.</p>`),
@@ -77,7 +77,7 @@ export function inviteEmail(storeName: string, invitedBy: string, link: string) 
   return {
     subject: `${invitedBy} vous invite à gérer ${storeName}`,
     html: layout(storeName, `Rejoindre ${storeName}`,
-      `<p style="font-size:14px;line-height:1.5">${esc(invitedBy)} vous invite à gérer la boutique <b>${esc(storeName)}</b> sur Comptoir. Le lien est valable 7 jours.</p><p>${button(link, "Accepter l'invitation")}</p>`),
+      `<p style="font-size:14px;line-height:1.5">${esc(invitedBy)} vous invite à gérer la boutique <b>${esc(storeName)}</b> sur Parnassa Pay. Le lien est valable 7 jours.</p><p>${button(link, "Accepter l'invitation")}</p>`),
   };
 }
 

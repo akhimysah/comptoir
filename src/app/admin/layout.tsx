@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { logout } from "../(auth)/actions";
 import { AdminNav, Icon } from "@/components/admin/Nav";
 import { MobileNavToggle } from "@/components/admin/MobileNav";
@@ -16,8 +17,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="sticky top-0 z-40 flex h-14 items-center gap-3 bg-topbar px-3 text-white md:px-4">
         <MobileNavToggle />
         <Link href="/admin" className="flex items-center gap-2 pr-2">
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-[#4ad18c] text-[15px] font-bold text-[#0b2e1b]">C</span>
-          <span className="hidden text-[15px] font-semibold sm:inline">comptoir</span>
+          <Logo size={28} withName={false} />
+          <span className="hidden text-[15px] font-semibold sm:inline">Parnassa <span className="text-[#a78bfa]">Pay</span></span>
         </Link>
         <form action="/admin/search" className="mx-auto w-full max-w-[600px]">
           <label className="flex h-9 items-center gap-2 rounded-[10px] border border-[#4a4a4a] bg-[#303030] px-3 text-[#b5b5b5] focus-within:border-[#8a8a8a] focus-within:bg-[#3a3a3a]">

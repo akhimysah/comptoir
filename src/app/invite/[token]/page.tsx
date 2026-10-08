@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/Logo";
 import { logout } from "@/app/(auth)/actions";
 import { acceptInvite } from "./actions";
 import { SignupFromInvite } from "./SignupFromInvite";
@@ -16,8 +17,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   return (
     <div className="flex min-h-screen flex-col items-center bg-canvas px-4 py-12">
       <div className="mb-6 flex items-center gap-2">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#4ad18c] font-bold text-[#0b2e1b]">C</span>
-        <span className="text-[15px] font-semibold">comptoir</span>
+        <Logo size={36} nameClassName="text-[17px]" />
       </div>
       <div className="card flex w-full max-w-md flex-col gap-4 p-6">
         {!invite ? (
@@ -29,7 +29,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <>
             <div>
               <h1 className="text-lg font-bold">Rejoindre {invite.store.name}</h1>
-              <p className="text-muted">{invite.invitedBy} vous invite à gérer cette boutique sur Comptoir.</p>
+              <p className="text-muted">{invite.invitedBy} vous invite à gérer cette boutique sur Parnassa Pay.</p>
             </div>
             {user ? (
               user.email === invite.email ? (

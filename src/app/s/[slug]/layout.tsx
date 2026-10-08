@@ -52,7 +52,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
               {hasBlog > 0 && <a href={`/s/${slug}/blog`} className="hover:opacity-70">Blog</a>}
             </nav>
           )}
-          <a href="/" className="hover:opacity-70">Boutique propulsée par Comptoir</a>
+          <a href="/" className="hover:opacity-70">Boutique propulsée par Parnassa Pay</a>
         </div>
       </footer>
     </div>
