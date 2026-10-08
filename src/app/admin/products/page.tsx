@@ -17,7 +17,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PageHeader title="Produits" subtitle={`${total} produit${total > 1 ? "s" : ""} dans le catalogue`} actions={<Link href="/admin/products/new" className="btn btn-primary">Ajouter un produit</Link>} />
+      <PageHeader title="Produits" subtitle={`${total} produit${total > 1 ? "s" : ""} dans le catalogue`} actions={<><a href="/admin/products/export" className="btn">Exporter</a><Link href="/admin/products/import" className="btn">Importer</Link><Link href="/admin/products/new" className="btn btn-primary">Ajouter un produit</Link></>} />
       {total === 0 ? (
         <div className="card">
           <Empty title="Votre catalogue est vide" action={<Link href="/admin/products/new" className="btn btn-primary">Ajouter un produit</Link>}>

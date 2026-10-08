@@ -40,7 +40,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Commandes" actions={<Link href="/admin/orders/new" className="btn btn-primary">Créer une commande</Link>} />
+      <PageHeader title="Commandes" actions={<><a href="/admin/orders/export" className="btn">Exporter</a><Link href="/admin/orders/new" className="btn btn-primary">Créer une commande</Link></>} />
       <div className="card min-w-0 overflow-hidden">
         <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
           {TABS.map((t, i) => (
