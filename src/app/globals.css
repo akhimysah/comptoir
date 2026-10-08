@@ -3,23 +3,23 @@
 @tailwind utilities;
 
 @layer base {
-  body { @apply bg-canvas text-ink antialiased; }
-  h1, h2, h3 { @apply font-display tracking-tight; text-wrap: balance; }
-  :focus-visible { outline: 2px solid #1F6F5C; outline-offset: 2px; }
+  body { @apply bg-canvas text-[13px] leading-5 text-ink antialiased; }
+  h1, h2, h3 { @apply font-sans; text-wrap: balance; letter-spacing: 0; }
+  :focus-visible { outline: 2px solid #005bd3; outline-offset: 1px; }
 }
 
 @layer components {
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-white px-3.5 py-2 text-sm font-semibold whitespace-nowrap transition hover:bg-[#E3EAE5] disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply border-pine bg-pine text-white hover:bg-pine-dark; }
-  .btn-danger { @apply border-red-200 text-red-700 hover:bg-red-50; }
-  .btn-sm { @apply px-2.5 py-1.5 text-xs; }
-  .card { @apply rounded-xl border border-line bg-white; }
-  .card-h { @apply flex items-center justify-between gap-3 border-b border-line px-5 py-3.5; }
-  .input { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-pine focus:ring-2 focus:ring-pine/20; }
-  .label { @apply flex flex-col gap-1.5 text-sm font-semibold; }
+  .btn { @apply inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-white px-3 text-[13px] font-[550] text-ink shadow-btn transition hover:bg-[#f7f7f7] active:shadow-[inset_0_2px_1px_rgba(26,26,26,.2)] disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply bg-[linear-gradient(180deg,#303030_0%,#1a1a1a_100%)] text-white shadow-btn-primary hover:bg-[linear-gradient(180deg,#3d3d3d_0%,#2a2a2a_100%)]; }
+  .btn-danger { @apply text-[#8e0b21]; }
+  .btn-sm { @apply h-7 px-2.5 text-xs; }
+  .card { @apply rounded-xl bg-white shadow-card; }
+  .card-h { @apply flex items-center justify-between gap-3 border-b border-line px-4 py-3; }
+  .input { @apply min-h-8 w-full rounded-lg border border-[#8a8a8a] bg-white px-3 py-1.5 text-[13px] outline-none placeholder:text-[#8a8a8a] focus:border-[#005bd3] focus:ring-1 focus:ring-[#005bd3]; }
+  .label { @apply flex flex-col gap-1 text-[13px] font-normal text-ink; }
   .hint { @apply text-xs font-normal text-muted; }
-  .eyebrow { @apply text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-muted; }
-  .th { @apply whitespace-nowrap border-b border-line px-5 py-2.5 text-left text-[0.7rem] font-semibold uppercase tracking-wider text-muted; }
-  .td { @apply border-b border-line px-5 py-3 align-middle text-sm; }
-  .num { @apply font-mono tabular-nums; }
+  .eyebrow { @apply text-xs font-[550] text-muted; }
+  .th { @apply whitespace-nowrap border-b border-line bg-[#f7f7f7] px-4 py-2 text-left text-xs font-[550] text-muted; }
+  .td { @apply border-b border-line px-4 py-2.5 align-middle text-[13px]; }
+  .num { @apply tabular-nums; }
 }

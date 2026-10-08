@@ -32,12 +32,12 @@ export function CollectionForm({ initial, products }: { initial: CollectionPaylo
         </div>
       </section>
       <section className="card min-w-0">
-        <div className="card-h"><h2 className="text-base font-bold">Produits ({ids.length})</h2><input id="c-search" className="input max-w-[200px] py-1.5" placeholder="Rechercher" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <div className="card-h"><h2 className="text-sm font-[650]">Produits ({ids.length})</h2><input id="c-search" className="input max-w-[200px] py-1.5" placeholder="Rechercher" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <ul className="max-h-[480px] overflow-y-auto">
           {shown.map((p) => (
             <li key={p.id} className="border-b border-line last:border-0">
-              <label className="flex cursor-pointer items-center gap-3 px-5 py-2.5 hover:bg-[#F3F6F4]">
-                <input type="checkbox" className="h-4 w-4 accent-pine" checked={ids.includes(p.id)} onChange={(e) => setIds((cur) => (e.target.checked ? [...cur, p.id] : cur.filter((x) => x !== p.id)))} />
+              <label className="flex cursor-pointer items-center gap-3 px-5 py-2.5 hover:bg-[#f7f7f7]">
+                <input type="checkbox" className="h-4 w-4 accent-[#303030]" checked={ids.includes(p.id)} onChange={(e) => setIds((cur) => (e.target.checked ? [...cur, p.id] : cur.filter((x) => x !== p.id)))} />
                 <Thumb image={p.image} hue={p.hue} title={p.title} className="h-9 w-9 text-xs" />
                 <span className="flex-1 text-sm font-semibold">{p.title}</span>
                 {p.status !== "active" && <span className="text-xs text-muted">Brouillon</span>}

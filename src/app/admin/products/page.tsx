@@ -9,7 +9,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const { q = "", status = "all" } = await searchParams;
   const { store } = await requireStore();
   const products = await db.product.findMany({
-    where: { storeId: store.id, ...(status !== "all" ? { status } : {}), ...(q ? { title: { contains: q, mode: "insensitive" } } : {}) },
+    where: { storeId: store.id, ...(status !== "all" ? { status } : {}), ...(q ? { title: { contains: q } } : {}) },
     include: { variants: true, collections: { include: { collection: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -31,7 +31,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
             <div className="flex gap-2">
               <select name="status" defaultValue={status} className="input w-auto" aria-label="Statut">
                 <option value="all">Tous les statuts</option>
-                <option value="active">En ligne</option>
+                <option value="active">Actifs</option>
                 <option value="draft">Brouillons</option>
               </select>
               <button className="btn">Filtrer</button>
@@ -48,7 +48,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                   const prices = p.variants.map((v) => v.priceCents);
                   const min = Math.min(...prices), max = Math.max(...prices);
                   return (
-                    <tr key={p.id} className="hover:bg-[#F3F6F4]">
+                    <tr key={p.id} className="hover:bg-[#f7f7f7]">
                       <td className="td">
                         <Link href={`/admin/products/${p.id}`} className="flex min-w-[220px] items-center gap-3">
                           <Thumb image={parseJson<string[]>(p.images, [])[0]} hue={p.hue} title={p.title} className="h-10 w-10 text-xs" />
@@ -58,7 +58,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                           </span>
                         </Link>
                       </td>
-                      <td className="td">{p.status === "active" ? <Pill tone="ok">En ligne</Pill> : <Pill>Brouillon</Pill>}</td>
+                      <td className="td">{p.status === "active" ? <Pill tone="ok">Actif</Pill> : <Pill>Brouillon</Pill>}</td>
                       <td className="td">{stock <= 0 ? <Pill tone="bad">Rupture</Pill> : <span className="num whitespace-nowrap">{stock}<span className="text-muted"> en stock</span></span>}</td>
                       <td className="td hidden text-muted md:table-cell">{p.collections.map((c) => c.collection.title).join(", ") || "—"}</td>
                       <td className="td num text-right">{min === max ? formatMoney(min, store.currency) : `${formatMoney(min, store.currency)} – ${formatMoney(max, store.currency)}`}</td>

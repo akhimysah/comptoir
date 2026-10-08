@@ -26,7 +26,7 @@ export default async function DiscountsPage() {
                     const exhausted = d.usageLimit !== null && d.usageCount >= d.usageLimit;
                     return (
                       <tr key={d.id}>
-                        <td className="td font-mono font-semibold">{d.code}</td>
+                        <td className="td font-semibold">{d.code}</td>
                         <td className="td">
                           {d.type === "percent" ? `${d.value} %` : formatMoney(d.value, store.currency)}
                           {d.minSubtotalCents > 0 && <div className="text-xs text-muted">dès {formatMoney(d.minSubtotalCents, store.currency)}</div>}

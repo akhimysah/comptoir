@@ -82,12 +82,13 @@ export async function markOrderPaid(orderId: string) {
   });
 }
 
-export const PAYMENT_LABELS: Record<string, { label: string; tone: "warn" | "ok" | "neutral" | "bad" }> = {
+type Tone = "warn" | "ok" | "neutral" | "bad" | "attention";
+export const PAYMENT_LABELS: Record<string, { label: string; tone: Tone }> = {
   pending: { label: "Paiement en attente", tone: "warn" },
-  paid: { label: "Payée", tone: "ok" },
+  paid: { label: "Payée", tone: "neutral" },
   refunded: { label: "Remboursée", tone: "neutral" },
 };
-export const FULFILLMENT_LABELS: Record<string, { label: string; tone: "warn" | "ok" | "neutral" | "bad" }> = {
-  unfulfilled: { label: "À expédier", tone: "warn" },
-  fulfilled: { label: "Expédiée", tone: "ok" },
+export const FULFILLMENT_LABELS: Record<string, { label: string; tone: Tone }> = {
+  unfulfilled: { label: "Non traitée", tone: "attention" },
+  fulfilled: { label: "Traitée", tone: "neutral" },
 };

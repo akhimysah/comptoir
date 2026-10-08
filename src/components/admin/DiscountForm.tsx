@@ -10,8 +10,8 @@ export function DiscountForm({ currency }: { currency: string }) {
   useEffect(() => { if (state?.ok) ref.current?.reset(); }, [state]);
   return (
     <form ref={ref} action={action} className="card flex flex-col gap-4 p-5">
-      <h2 className="text-base font-bold">Nouveau code promo</h2>
-      <label className="label">Code<input id="d-code" name="code" required className="input font-mono uppercase" placeholder="BIENVENUE10" maxLength={30} /></label>
+      <h2 className="text-sm font-[650]">Nouveau code promo</h2>
+      <label className="label">Code<input id="d-code" name="code" required className="input uppercase" placeholder="BIENVENUE10" maxLength={30} /></label>
       <div className="grid grid-cols-2 gap-3">
         <label className="label">Type
           <select id="d-type" name="type" className="input" value={type} onChange={(e) => setType(e.target.value as "percent" | "fixed")}>

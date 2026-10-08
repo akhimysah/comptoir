@@ -22,7 +22,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
         <section id="paiements" className="card flex flex-col gap-4 self-start p-5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-bold">Paiements</h2>
+            <h2 className="text-sm font-[650]">Paiements</h2>
             {store.stripeChargesEnabled ? <Pill tone="ok">Carte bancaire activée</Pill> : store.stripeAccountId ? <Pill tone="warn">Inscription à terminer</Pill> : <Pill>Démonstration</Pill>}
           </div>
           {stripe && ERRORS[stripe] && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{ERRORS[stripe]}</p>}
@@ -39,7 +39,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               {store.stripeChargesEnabled ? "Ouvrir mon tableau de bord Stripe" : store.stripeAccountId ? "Terminer l'inscription Stripe" : "Connecter Stripe"}
             </a>
           ) : (
-            <p className="rounded-lg bg-[#E3EAE5] px-3 py-2 text-xs text-muted">La plateforme n'a pas encore de clé Stripe. Voir le README, section « Activer Stripe ».</p>
+            <p className="rounded-lg bg-[#ebebeb] px-3 py-2 text-xs text-muted">La plateforme n'a pas encore de clé Stripe. Voir le README, section « Activer Stripe ».</p>
           )}
           {configured && isTestMode() && <p className="text-xs text-muted">Mode test Stripe : aucun argent réel ne circule. Carte de test : 4242 4242 4242 4242.</p>}
         </section>

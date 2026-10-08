@@ -14,11 +14,11 @@ export default async function CollectionsPage() {
           <ul>
             {collections.map((c, i) => (
               <li key={c.id} className="border-b border-line last:border-0">
-                <Link href={`/admin/collections/${c.id}`} className="flex items-center gap-4 px-5 py-3 hover:bg-[#F3F6F4]">
+                <Link href={`/admin/collections/${c.id}`} className="flex items-center gap-4 px-5 py-3 hover:bg-[#f7f7f7]">
                   <Thumb image={c.image} hue={(i * 67 + 140) % 360} title={c.title} className="h-12 w-16 text-sm" />
                   <span className="flex-1">
                     <span className="block font-semibold">{c.title}</span>
-                    <span className="font-mono text-xs text-muted">/c/{c.handle}</span>
+                    <span className="text-xs text-muted">/c/{c.handle}</span>
                   </span>
                   <span className="text-sm text-muted">{c._count.products} produit{c._count.products > 1 ? "s" : ""}</span>
                 </Link>

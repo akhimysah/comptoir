@@ -102,7 +102,7 @@ export function ThemeEditor({ initial, store, products, collections }: { initial
           ) : current ? (
             <div className="flex flex-col gap-4">
               <button type="button" className="self-start text-sm font-semibold text-pine" onClick={() => setSelected(null)}>← Toutes les sections</button>
-              <h2 className="text-base font-bold">{SECTION_LABELS[current.type]}</h2>
+              <h2 className="text-sm font-[650]">{SECTION_LABELS[current.type]}</h2>
               <SectionFields s={current} collections={collections} onChange={(p) => updateSection(current.id, p)} />
               <button type="button" className="btn btn-danger" onClick={() => { setTheme((t) => ({ ...t, sections: t.sections.filter((s) => s.id !== current.id) })); setSelected(null); }}>Retirer cette section</button>
             </div>
@@ -146,7 +146,7 @@ export function ThemeEditor({ initial, store, products, collections }: { initial
       <div className="card min-w-0 overflow-hidden">
         <div className="flex items-center gap-1.5 border-b border-line bg-[#F6F8F7] px-4 py-2.5">
           <span className="h-2.5 w-2.5 rounded-full bg-[#E4A3A3]" /><span className="h-2.5 w-2.5 rounded-full bg-[#E9CF8E]" /><span className="h-2.5 w-2.5 rounded-full bg-[#9FCDB0]" />
-          <span className="ml-3 truncate font-mono text-xs text-muted">/s/{store.slug}</span>
+          <span className="ml-3 truncate text-xs text-muted">/s/{store.slug}</span>
           <span className="ml-auto text-xs text-muted">Aperçu : les liens sont désactivés</span>
         </div>
         <div

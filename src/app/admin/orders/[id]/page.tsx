@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cancelOrder, setFulfilled } from "../actions";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
@@ -19,10 +18,10 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
 
   return (
     <>
-      <div><Link href="/admin/orders" className="text-sm font-semibold text-pine">← Commandes</Link></div>
       <PageHeader
-        title={`Commande #${o.number}`}
-        subtitle={formatDateTime(o.createdAt)}
+        back="/admin/orders"
+        title={`#${o.number}`}
+        subtitle={`${formatDateTime(o.createdAt)} · Boutique en ligne`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {o.cancelledAt ? <Pill tone="bad">Annulée</Pill> : <Pill tone={PAYMENT_LABELS[o.paymentStatus].tone}>{PAYMENT_LABELS[o.paymentStatus].label}</Pill>}
@@ -58,7 +57,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           {!o.cancelledAt && (
             <section className="card flex flex-wrap items-center justify-between gap-3 p-5">
               <div>
-                <h2 className="text-base font-bold">{o.paymentStatus !== "paid" ? "En attente du paiement" : o.fulfillmentStatus === "fulfilled" ? "Commande expédiée" : "Prête à expédier"}</h2>
+                <h2 className="text-sm font-[650]">{o.paymentStatus !== "paid" ? "En attente du paiement" : o.fulfillmentStatus === "fulfilled" ? "Commande expédiée" : "Prête à expédier"}</h2>
                 <p className="text-sm text-muted">{o.paymentStatus !== "paid" ? "Le client n'a pas encore terminé son paiement." : o.fulfillmentStatus === "fulfilled" ? "Vous pouvez revenir en arrière si besoin." : "Emballez les articles puis marquez la commande comme expédiée."}</p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -80,7 +79,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
 
         <aside className="flex flex-col gap-5">
           <section className="card p-5 text-sm">
-            <h2 className="mb-2 text-base font-bold">Client</h2>
+            <h2 className="mb-2 text-sm font-[650]">Client</h2>
             <div className="font-semibold">{o.name}</div>
             <div className="break-all text-muted">{o.email}</div>
             {o.customer && <div className="mt-1 text-muted">{o.customer._count.orders} commande{o.customer._count.orders > 1 ? "s" : ""} au total</div>}

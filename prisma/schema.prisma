@@ -2,11 +2,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// PostgreSQL (Neon). DATABASE_URL passe par le pooler, DATABASE_URL_UNPOOLED sert aux changements de schéma.
+// SQLite en local. Pour la mise en ligne, passez provider à "postgresql" (voir README).
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model User {

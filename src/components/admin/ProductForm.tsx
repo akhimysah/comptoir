@@ -80,7 +80,7 @@ export function ProductForm({ initial, collections, currency }: { initial: Produ
 
           <section className="card p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold">Photos</h2>
+              <h2 className="text-sm font-[650]">Photos</h2>
               <span className="text-xs text-muted">{images.length}/10 · la première est l'image principale</span>
             </div>
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
@@ -105,14 +105,14 @@ export function ProductForm({ initial, collections, currency }: { initial: Produ
             {!images.length && (
               <div className="mt-4 flex items-center gap-4">
                 <Thumb hue={hue} title={title || "?"} className="h-14 w-14 text-base" />
-                <label className="label flex-1">Couleur du visuel sans photo<input id="hue" type="range" min={0} max={359} value={hue} onChange={(e) => setHue(Number(e.target.value))} className="accent-pine" /></label>
+                <label className="label flex-1">Couleur du visuel sans photo<input id="hue" type="range" min={0} max={359} value={hue} onChange={(e) => setHue(Number(e.target.value))} className="accent-[#303030]" /></label>
               </div>
             )}
           </section>
 
           <section className="card p-5">
             <div className="mb-1 flex items-center justify-between gap-3">
-              <h2 className="text-base font-bold">Options</h2>
+              <h2 className="text-sm font-[650]">Options</h2>
               {options.length < 3 && (
                 <button type="button" className="btn btn-sm" onClick={() => setOptions((o) => [...o, { name: o.length === 0 ? "Taille" : o.length === 1 ? "Couleur" : "Matière", values: [] }])}>+ Ajouter une option</button>
               )}
@@ -132,7 +132,7 @@ export function ProductForm({ initial, collections, currency }: { initial: Produ
 
           <section className="card min-w-0">
             <div className="card-h">
-              <h2 className="text-base font-bold">{hasOptions ? `Variantes (${variants.length})` : "Prix et stock"}</h2>
+              <h2 className="text-sm font-[650]">{hasOptions ? `Variantes (${variants.length})` : "Prix et stock"}</h2>
               {hasOptions && variants.length > 1 && (
                 <div className="flex items-center gap-2">
                   <input id="bulk-price" className="input w-28 py-1.5" placeholder="Prix pour tout" value={bulkPrice} onChange={(e) => setBulkPrice(e.target.value)} inputMode="decimal" />
@@ -169,18 +169,18 @@ export function ProductForm({ initial, collections, currency }: { initial: Produ
 
         <aside className="flex flex-col gap-5">
           <section className="card flex flex-col gap-3 p-5">
-            <h2 className="text-base font-bold">Statut</h2>
+            <h2 className="text-sm font-[650]">Statut</h2>
             <select id="status" className="input" value={status} onChange={(e) => setStatus(e.target.value as "draft" | "active")}>
-              <option value="active">En ligne, visible dans la boutique</option>
-              <option value="draft">Brouillon, masqué</option>
+              <option value="active">Actif</option>
+              <option value="draft">Brouillon</option>
             </select>
           </section>
           <section className="card flex flex-col gap-3 p-5">
-            <h2 className="text-base font-bold">Collections</h2>
+            <h2 className="text-sm font-[650]">Collections</h2>
             {collections.length ? (
               collections.map((c) => (
                 <label key={c.id} className="flex items-center gap-2.5 text-sm">
-                  <input type="checkbox" className="h-4 w-4 accent-pine" checked={collectionIds.includes(c.id)} onChange={(e) => setCollectionIds((ids) => (e.target.checked ? [...ids, c.id] : ids.filter((x) => x !== c.id)))} />
+                  <input type="checkbox" className="h-4 w-4 accent-[#303030]" checked={collectionIds.includes(c.id)} onChange={(e) => setCollectionIds((ids) => (e.target.checked ? [...ids, c.id] : ids.filter((x) => x !== c.id)))} />
                   {c.title}
                 </label>
               ))
@@ -215,7 +215,7 @@ function OptionEditor({ option, onChange, onRemove }: { option: Option; onChange
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {option.values.map((v) => (
-          <span key={v} className="inline-flex items-center gap-1.5 rounded-full bg-[#E3EAE5] py-1 pl-3 pr-1.5 text-sm">
+          <span key={v} className="inline-flex items-center gap-1.5 rounded-full bg-[#ebebeb] py-1 pl-3 pr-1.5 text-sm">
             {v}
             <button type="button" aria-label={`Retirer ${v}`} className="grid h-5 w-5 place-items-center rounded-full hover:bg-white" onClick={() => onChange({ ...option, values: option.values.filter((x) => x !== v) })}>✕</button>
           </span>

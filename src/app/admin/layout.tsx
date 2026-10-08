@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { logout } from "../(auth)/actions";
 import { AdminNav, Icon } from "@/components/admin/Nav";
+import { MobileNavToggle } from "@/components/admin/MobileNav";
 import { requireStore } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { initials } from "@/lib/utils";
 
 export const metadata = { title: "Admin" };
 
@@ -10,28 +12,45 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { user, store } = await requireStore();
   const toShip = await db.order.count({ where: { storeId: store.id, paymentStatus: "paid", fulfillmentStatus: "unfulfilled", cancelledAt: null } });
   return (
-    <div className="md:grid md:min-h-screen md:grid-cols-[236px_1fr]">
-      <aside className="sticky top-0 z-30 flex items-center gap-2 overflow-x-auto bg-side px-3 py-2 text-[#B9CCC2] md:h-screen md:flex-col md:items-stretch md:gap-1 md:overflow-visible md:px-3 md:py-5">
-        <div className="flex items-center gap-2.5 px-1.5 md:mb-4">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-pine font-display font-bold text-white">{store.name[0]?.toUpperCase()}</span>
-          <div className="hidden min-w-0 md:block">
-            <div className="truncate font-display font-bold leading-tight text-white">{store.name}</div>
-            <div className="truncate text-xs opacity-70">{user.name}</div>
+    <div className="min-h-screen bg-canvas">
+      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 bg-topbar px-3 text-white md:px-4">
+        <MobileNavToggle />
+        <Link href="/admin" className="flex items-center gap-2 pr-2">
+          <span className="grid h-7 w-7 place-items-center rounded-md bg-[#4ad18c] text-[15px] font-bold text-[#0b2e1b]">C</span>
+          <span className="hidden text-[15px] font-semibold sm:inline">comptoir</span>
+        </Link>
+        <form action="/admin/search" className="mx-auto w-full max-w-[600px]">
+          <label className="flex h-9 items-center gap-2 rounded-[10px] border border-[#4a4a4a] bg-[#303030] px-3 text-[#b5b5b5] focus-within:border-[#8a8a8a] focus-within:bg-[#3a3a3a]">
+            <Icon name="search" className="h-4 w-4" />
+            <input id="admin-search" name="q" placeholder="Rechercher" className="w-full bg-transparent text-[13px] text-white outline-none placeholder:text-[#b5b5b5]" />
+            <kbd className="hidden whitespace-nowrap rounded border border-[#4a4a4a] px-1.5 font-sans text-[11px] sm:inline">⌘K</kbd>
+          </label>
+        </form>
+        <button className="hidden h-8 w-8 place-items-center rounded-lg text-[#e3e3e3] hover:bg-[#303030] sm:grid" aria-label="Notifications"><Icon name="bell" /></button>
+        <details className="relative">
+          <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-[#303030]">
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-[#c4b5fd] text-xs font-semibold text-[#2e1065]">{initials(store.name)}</span>
+            <span className="hidden max-w-[160px] truncate text-[13px] font-[550] md:inline">{store.name}</span>
+          </summary>
+          <div className="absolute right-0 mt-2 w-60 rounded-xl bg-white p-1.5 text-ink shadow-[0_4px_16px_rgba(0,0,0,.18),0_0_0_1px_rgba(0,0,0,.06)]">
+            <div className="px-2.5 py-2">
+              <div className="font-[550]">{user.name}</div>
+              <div className="truncate text-xs text-muted">{user.email}</div>
+            </div>
+            <Link href="/admin/settings" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Paramètres</Link>
+            <a href={`/s/${store.slug}`} target="_blank" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Voir la boutique</a>
+            <form action={logout}><button className="w-full rounded-lg px-2.5 py-1.5 text-left hover:bg-[#f1f1f1]">Se déconnecter</button></form>
           </div>
-        </div>
-        <AdminNav toShip={toShip} />
-        <div className="flex gap-1 md:mt-auto md:flex-col">
-          <Link href={`/s/${store.slug}`} target="_blank" className="flex items-center gap-2.5 whitespace-nowrap rounded-lg border border-[#22392F] px-2.5 py-2 text-sm hover:bg-[#22392F] hover:text-white">
-            <Icon name="store" /><span className="hidden md:inline">Voir la boutique</span>
-          </Link>
-          <form action={logout}>
-            <button className="w-full whitespace-nowrap rounded-lg px-2.5 py-2 text-left text-sm opacity-80 hover:bg-[#22392F] hover:text-white">Déconnexion</button>
-          </form>
-        </div>
-      </aside>
-      <main className="min-w-0 px-4 pb-16 pt-6 md:px-10 md:pt-8">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6">{children}</div>
-      </main>
+        </details>
+      </header>
+      <div className="flex">
+        <aside id="admin-nav" className="fixed inset-y-14 left-0 z-30 hidden w-60 bg-side data-[open=true]:block md:sticky md:top-14 md:block md:h-[calc(100vh-56px)] md:shrink-0">
+          <AdminNav toShip={toShip} storeSlug={store.slug} />
+        </aside>
+        <main className="min-w-0 flex-1 px-4 pb-16 pt-5 md:px-8">
+          <div className="mx-auto flex max-w-[1000px] flex-col gap-4">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

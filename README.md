@@ -1,21 +1,17 @@
 # Comptoir
 
-**Démo en ligne : https://akhimysah.github.io/comptoir/** (version de démonstration : les données restent dans le navigateur du visiteur, sans paiement réel).
-
 Plateforme e-commerce multi-boutiques, sur le modèle de Shopify : chaque marchand crée son compte et sa boutique, gère son catalogue et ses commandes, personnalise son thème et encaisse par carte avec Stripe Connect.
 
 ## Démarrer en local
 
-Prérequis : Node.js 20 ou plus, et le projet relié à Vercel (voir « Mettre en ligne »), car la base de données est chez Neon.
+Prérequis : Node.js 20 ou plus.
 
 ```bash
 npm install
-npx vercel env pull .env
+cp .env.example .env
 npm run setup
 npm run dev
 ```
-
-`vercel env pull` copie dans `.env` les URL de la base et la clé du stockage d'images. Ajoutez ensuite `APP_URL="http://localhost:3000"` dans ce fichier.
 
 Ensuite, ouvrez http://localhost:3000.
 
@@ -66,7 +62,7 @@ L'offre gratuite de Vercel (Hobby) est réservée aux projets non commerciaux. P
    - **Create → Neon (Postgres)**, relié au projet. Cela crée `DATABASE_URL` et `DATABASE_URL_UNPOOLED`.
    - **Create → Blob**, relié au projet. Cela crée `BLOB_READ_WRITE_TOKEN`.
 3. Dans **Settings → Environment Variables**, ajoutez `APP_URL` (l'adresse du site, par exemple `https://comptoir.vercel.app`) et `PLATFORM_FEE_PERCENT` (`2`).
-4. Relancez un déploiement. Le build crée lui-même les tables (`prisma db push`).
+4. Dans `prisma/schema.prisma`, passez `provider` à `"postgresql"`. Dans Vercel, réglez la commande de build sur `prisma generate && prisma db push --skip-generate && next build`, puis relancez un déploiement.
 5. Facultatif, la boutique de démonstration : lancez la commande suivante sur votre Mac, avec le mot de passe de votre choix.
 
    ```bash

@@ -1,18 +1,20 @@
 import { cx, initials } from "@/lib/utils";
 
-type Tone = "ok" | "warn" | "bad" | "info" | "neutral";
+type Tone = "ok" | "warn" | "bad" | "info" | "neutral" | "attention";
+// Couleurs des badges de l'admin Shopify (Polaris).
 const TONES: Record<Tone, string> = {
-  ok: "bg-[#DBEFE2] text-[#2C7A4C]",
-  warn: "bg-[#FAEAC6] text-[#8F5B00]",
-  bad: "bg-[#F6DADA] text-[#B13838]",
-  info: "bg-[#DBE6F6] text-[#2A5BA6]",
-  neutral: "bg-[#E3EAE5] text-muted",
+  ok: "bg-[#cdfee1] text-[#0c5132]",
+  attention: "bg-[#ffeb78] text-[#4f4700]",
+  warn: "bg-[#ffd6a4] text-[#5e4200]",
+  bad: "bg-[#fedad9] text-[#8e0b21]",
+  info: "bg-[#e0f0ff] text-[#00527c]",
+  neutral: "bg-[rgba(0,0,0,.06)] text-[#616161]",
 };
 
-export function Pill({ tone = "neutral", children }: { tone?: Tone; children: React.ReactNode }) {
+export function Pill({ tone = "neutral", children, dot = true }: { tone?: Tone; children: React.ReactNode; dot?: boolean }) {
   return (
-    <span className={cx("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", TONES[tone])}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+    <span className={cx("inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2 py-0.5 text-xs font-[550]", TONES[tone])}>
+      {dot && <span className={cx("h-2 w-2 rounded-full border-[1.5px] border-current", tone === "ok" || tone === "neutral" ? "bg-current" : "bg-transparent")} />}
       {children}
     </span>
   );
@@ -35,23 +37,31 @@ export function Thumb({ image, hue, title, className, rounded = "rounded-lg" }: 
   );
 }
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: React.ReactNode; actions?: React.ReactNode }) {
+export function PageHeader({ title, subtitle, actions, back }: { title: string; subtitle?: React.ReactNode; actions?: React.ReactNode; back?: string }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-bold md:text-[1.75rem]">{title}</h1>
-        {subtitle && <p className="mt-1 text-muted">{subtitle}</p>}
+    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+      <div className="flex min-w-0 items-center gap-2">
+        {back && (
+          <a href={back} aria-label="Retour" className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-[#e3e3e3] hover:text-ink">
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M12 4.5 6.5 10l5.5 5.5" /></svg>
+          </a>
+        )}
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-bold leading-7">{title}</h1>
+          {subtitle && <p className="text-[13px] text-muted">{subtitle}</p>}
+        </div>
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
 
 export function Empty({ title, children, action }: { title?: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
-      {title && <h2 className="text-lg font-bold">{title}</h2>}
-      <p className="max-w-[44ch] text-sm text-muted">{children}</p>
+    <div className="flex flex-col items-center gap-2 px-5 py-14 text-center">
+      <svg viewBox="0 0 60 60" className="mb-2 h-16 w-16 text-[#d4d4d4]" fill="none" stroke="currentColor" strokeWidth={2}><rect x="10" y="14" width="40" height="32" rx="5" /><path d="M10 24h40M18 34h12" /></svg>
+      {title && <h2 className="text-sm font-[650]">{title}</h2>}
+      <p className="max-w-[44ch] text-[13px] text-muted">{children}</p>
       {action}
     </div>
   );
