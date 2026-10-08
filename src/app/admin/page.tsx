@@ -126,8 +126,20 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       <section className="card overflow-hidden">
         <div className="card-h"><h2 className="text-sm font-[650]">Commandes récentes</h2><Link href="/admin/orders" className="text-[13px] text-pine hover:underline">Tout afficher</Link></div>
+        {recent.length > 0 && (
+          <ul className="md:hidden">
+            {recent.map((o) => (
+              <li key={o.id} className="border-b border-line last:border-0">
+                <Link href={`/admin/orders/${o.id}`} className="flex flex-col gap-1 px-4 py-2.5">
+                  <span className="flex justify-between gap-2"><span className="truncate"><b>#{o.number}</b> · {o.name}</span><span className="num">{m(o.totalCents)}</span></span>
+                  <span className="flex flex-wrap gap-1">{o.cancelledAt ? <Pill>Annulée</Pill> : <><Pill tone={PAYMENT_LABELS[o.paymentStatus].tone}>{PAYMENT_LABELS[o.paymentStatus].label}</Pill><Pill tone={FULFILLMENT_LABELS[o.fulfillmentStatus].tone}>{FULFILLMENT_LABELS[o.fulfillmentStatus].label}</Pill></>}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
         {recent.length ? (
-          <div className="overflow-x-auto">
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full">
               <thead><tr><th className="th">Commande</th><th className="th">Date</th><th className="th">Client</th><th className="th text-right">Total</th><th className="th">Statut du paiement</th><th className="th">Statut du traitement</th></tr></thead>
               <tbody>

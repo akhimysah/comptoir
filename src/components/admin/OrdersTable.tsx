@@ -38,7 +38,26 @@ export function OrdersTable({ rows }: { rows: OrderRow[] }) {
   return (
     <div className="overflow-x-auto">
       {notice && <div role="status" className="border-b border-line bg-[#f7f7f7] px-4 py-2 text-[13px]">{notice} <button className="ml-2 text-pine hover:underline" onClick={() => setNotice(null)}>Fermer</button></div>}
-      <table className="w-full">
+      <ul className="md:hidden">
+        {rows.map((o) => (
+          <li key={o.id} className={`flex gap-3 border-b border-line px-3 py-3 last:border-0 ${selected.has(o.id) ? "bg-[#f1f1f1]" : ""}`}>
+            <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggle(o.id)} aria-label={`Sélectionner #${o.number}`} className="mt-0.5 h-4 w-4 shrink-0 accent-[#303030]" />
+            <Link href={`/admin/orders/${o.id}`} className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="flex justify-between gap-2"><span className="truncate"><b>#{o.number}</b> · {o.name}</span><span className="num shrink-0">{o.total}</span></span>
+              <span className="text-xs text-muted">{o.date} · {o.items} article{o.items > 1 ? "s" : ""}</span>
+              <span className="flex flex-wrap gap-1">{o.payment ? <Pill tone={o.payment.tone}>{o.payment.label}</Pill> : <Pill>Annulée</Pill>}{o.fulfillment && <Pill tone={o.fulfillment.tone}>{o.fulfillment.label}</Pill>}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {selected.size > 0 && (
+        <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-line bg-white px-3 py-2 md:hidden">
+          <span className="text-[13px] font-[550]">{selected.size} sélectionnée{selected.size > 1 ? "s" : ""}</span>
+          <button className="btn btn-sm" disabled={pending} onClick={() => run("fulfill")}>Traitées</button>
+          <button className="btn btn-sm" disabled={pending} onClick={() => run("markPaid")}>Payées</button>
+        </div>
+      )}
+      <table className="hidden w-full md:table">
         <thead>
           {selected.size > 0 ? (
             <tr>

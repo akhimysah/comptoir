@@ -37,7 +37,24 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
               <button className="btn">Filtrer</button>
             </div>
           </form>
-          <div className="overflow-x-auto">
+          <ul className="md:hidden">
+            {products.map((p) => {
+              const stock = p.variants.reduce((s, v) => s + v.stock, 0);
+              return (
+                <li key={p.id} className="border-b border-line last:border-0">
+                  <Link href={`/admin/products/${p.id}`} className="flex items-center gap-3 px-3 py-2.5">
+                    <Thumb image={parseJson<string[]>(p.images, [])[0]} hue={p.hue} title={p.title} className="h-10 w-10 text-xs" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-[550]">{p.title}</span>
+                      <span className="text-xs text-muted">{stock} en stock{p.variants.length > 1 ? ` · ${p.variants.length} variantes` : ""}</span>
+                    </span>
+                    {p.status === "active" ? <Pill tone="ok">Actif</Pill> : <Pill>Brouillon</Pill>}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full">
               <thead>
                 <tr><th className="th">Produit</th><th className="th">Statut</th><th className="th">Stock</th><th className="th hidden md:table-cell">Collections</th><th className="th text-right">Prix</th></tr>
