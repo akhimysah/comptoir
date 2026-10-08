@@ -10,9 +10,9 @@ import { cx, formatDateTime } from "@/lib/utils";
 
 const DAYS = 30;
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
-  const { welcome } = await searchParams;
-  const { user, store } = await requireStore();
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ welcome?: string; denied?: string }> }) {
+  const { welcome, denied } = await searchParams;
+  const { user, store, isOwner } = await requireStore();
   const since = new Date(Date.now() - DAYS * 86400_000);
   since.setHours(0, 0, 0, 0);
   const prevSince = new Date(since.getTime() - DAYS * 86400_000);
@@ -71,7 +71,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         {welcome && <span className="ml-auto text-[13px] font-[550]">Bienvenue, {user.name.split(" ")[0]} !</span>}
       </div>
 
-      {setup.some((s) => !s.done) && (
+      {denied && <p role="alert" className="card bg-[#fff8db] px-4 py-3 text-[13px]">Cette page est réservée au propriétaire de la boutique.</p>}
+
+      {isOwner && setup.some((s) => !s.done) && (
         <section className="card p-4">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-sm font-[650]">Guide de configuration</h2>

@@ -1,6 +1,7 @@
 import { SettingsForm } from "@/components/admin/SettingsForm";
 import { PageHeader, Pill } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
+import Link from "next/link";
 import { centsToInput } from "@/lib/money";
 import { isTestMode, stripeConfigured } from "@/lib/stripe";
 
@@ -11,12 +12,12 @@ const ERRORS: Record<string, string> = {
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ stripe?: string }> }) {
   const { stripe } = await searchParams;
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const configured = stripeConfigured();
 
   return (
     <>
-      <PageHeader title="Réglages" />
+      <PageHeader title="Paramètres" actions={<Link href="/admin/settings/users" className="btn">Utilisateurs et autorisations</Link>} />
       <div className="grid gap-5 lg:grid-cols-2">
         <SettingsForm name={store.name} tagline={store.tagline} currency={store.currency} shipping={centsToInput(store.shippingCents)} freeFrom={centsToInput(store.freeShippingFromCents)} />
 

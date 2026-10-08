@@ -9,7 +9,7 @@ import { initials } from "@/lib/utils";
 export const metadata = { title: "Admin" };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, store } = await requireStore();
+  const { user, store, isOwner } = await requireStore();
   const toShip = await db.order.count({ where: { storeId: store.id, paymentStatus: "paid", fulfillmentStatus: "unfulfilled", cancelledAt: null } });
   return (
     <div className="min-h-screen bg-canvas">
@@ -37,7 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <div className="font-[550]">{user.name}</div>
               <div className="truncate text-xs text-muted">{user.email}</div>
             </div>
-            <Link href="/admin/settings" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Paramètres</Link>
+            {isOwner ? <Link href="/admin/settings" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Paramètres</Link> : <span className="block px-2.5 py-1.5 text-xs text-muted">Collaborateur</span>}
             <a href={`/s/${store.slug}`} target="_blank" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Voir la boutique</a>
             <form action={logout}><button className="w-full rounded-lg px-2.5 py-1.5 text-left hover:bg-[#f1f1f1]">Se déconnecter</button></form>
           </div>
@@ -45,7 +45,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </header>
       <div className="flex">
         <aside id="admin-nav" className="fixed inset-y-14 left-0 z-30 hidden w-60 bg-side data-[open=true]:block md:sticky md:top-14 md:block md:h-[calc(100vh-56px)] md:shrink-0">
-          <AdminNav toShip={toShip} storeSlug={store.slug} />
+          <AdminNav toShip={toShip} storeSlug={store.slug} isOwner={isOwner} />
         </aside>
         <main className="min-w-0 flex-1 px-4 pb-16 pt-5 md:px-8">
           <div className="mx-auto flex max-w-[1000px] flex-col gap-4">{children}</div>

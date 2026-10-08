@@ -16,6 +16,7 @@ model User {
   createdAt    DateTime  @default(now())
   sessions     Session[]
   stores       Store[]
+  memberships  StoreMember[]
 }
 
 model Session {
@@ -46,6 +47,32 @@ model Store {
   orders                Order[]
   customers             Customer[]
   discounts             Discount[]
+  members               StoreMember[]
+  invites               StoreInvite[]
+}
+
+/// Collaborateurs d'une boutique (le propriétaire reste Store.owner).
+model StoreMember {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([storeId, userId])
+}
+
+model StoreInvite {
+  id         String    @id @default(cuid())
+  storeId    String
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  email      String
+  token      String    @unique // hash SHA-256 du jeton envoyé dans le lien
+  invitedBy  String
+  acceptedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
 }
 
 model Product {

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseMoney } from "@/lib/money";
 
@@ -17,7 +17,7 @@ const schema = z.object({
 });
 
 export async function saveSettings(_: { error?: string; ok?: boolean } | undefined, form: FormData) {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const parsed = schema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const s = parsed.data;

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireStore } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { appUrl, getStripe } from "@/lib/stripe";
 
 export async function GET() {
-  const { store } = await requireStore();
+  const { store } = await requireOwner();
   const stripe = getStripe();
   if (stripe && store.stripeAccountId) {
     const account = await stripe.accounts.retrieve(store.stripeAccountId);

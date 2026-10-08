@@ -67,7 +67,7 @@ function NavLink({ item, path }: { item: Item; path: string }) {
   );
 }
 
-export function AdminNav({ toShip, storeSlug }: { toShip: number; storeSlug: string }) {
+export function AdminNav({ toShip, storeSlug, isOwner }: { toShip: number; storeSlug: string; isOwner: boolean }) {
   const path = usePathname();
   const main: Item[] = [
     { href: "/admin", label: "Accueil", icon: "home" },
@@ -89,9 +89,11 @@ export function AdminNav({ toShip, storeSlug }: { toShip: number; storeSlug: str
           Voir la boutique <Icon name="eye" className="h-4 w-4" />
         </a>
       </div>
-      <ul className="mt-auto flex flex-col gap-0.5">
-        <NavLink item={{ href: "/admin/settings", label: "Paramètres", icon: "settings" }} path={path} />
-      </ul>
+      {isOwner && (
+        <ul className="mt-auto flex flex-col gap-0.5">
+          <NavLink item={{ href: "/admin/settings", label: "Paramètres", icon: "settings" }} path={path} />
+        </ul>
+      )}
     </nav>
   );
 }

@@ -44,10 +44,20 @@ export async function requireUser() {
   return user;
 }
 
-/** Le marchand connecté et sa boutique. */
+/** Le marchand connecté, sa boutique (dont il est propriétaire ou collaborateur) et son rôle. */
 export const requireStore = cache(async () => {
   const user = await requireUser();
-  const store = await db.store.findFirst({ where: { ownerId: user.id }, orderBy: { createdAt: "asc" } });
+  const store = await db.store.findFirst({
+    where: { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
+    orderBy: { createdAt: "asc" },
+  });
   if (!store) redirect("/signup?step=store");
-  return { user, store };
+  return { user, store, isOwner: store.ownerId === user.id };
 });
+
+/** Pages réservées au propriétaire : paiements, collaborateurs. */
+export async function requireOwner() {
+  const ctx = await requireStore();
+  if (!ctx.isOwner) redirect("/admin?denied=1");
+  return ctx;
+}

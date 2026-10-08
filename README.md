@@ -29,10 +29,17 @@ Ensuite, ouvrez http://localhost:3000.
 | Produits : photos, options (taille, couleur…), variantes avec prix, prix barré, stock et référence | Fiches produit avec choix de variante et stock en direct |
 | Collections | Pages de collection, tri par prix ou par nom |
 | Commandes : filtres, expédition, annulation avec remboursement Stripe | Panier, code promo, livraison offerte au-delà d'un seuil |
-| Clients et total dépensé | Paiement Stripe Checkout, ou paiement de démonstration |
+| Clients : fiche, historique, note interne | Paiement Stripe Checkout, ou paiement de démonstration |
 | Codes promo : pourcentage ou montant, minimum, limite, date de fin | Page de confirmation |
 | Éditeur de thème : 4 thèmes prêts, couleurs, polices, arrondis, sections avec aperçu en direct | |
 | Réglages : devise, livraison, connexion Stripe | |
+| Commandes : actions groupées, création manuelle, chronologie et commentaires internes | |
+| Stock modifiable sur place, page Statistiques | |
+| Équipe : invitation de collaborateurs par lien (Paramètres → Utilisateurs) | |
+
+## Travailler à plusieurs sur une boutique
+
+Dans **Paramètres → Utilisateurs et autorisations**, le propriétaire saisit l'e-mail d'un collaborateur et obtient un lien d'invitation (valable 7 jours) à lui envoyer. Le collaborateur crée son compte depuis ce lien et accède à l'admin de la boutique. Les paramètres, les paiements et la gestion de l'équipe restent réservés au propriétaire.
 
 ## Activer Stripe (paiement par carte)
 

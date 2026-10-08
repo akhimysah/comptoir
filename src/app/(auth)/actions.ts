@@ -64,10 +64,12 @@ export async function login(_: AuthState, form: FormData): Promise<AuthState> {
   const user = await db.user.findUnique({ where: { email } });
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) return { error: "E-mail ou mot de passe incorrect." };
   await createSession(user.id);
-  redirect("/admin");
+  const next = String(form.get("next") ?? "");
+  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/admin");
 }
 
-export async function logout() {
+export async function logout(form?: FormData) {
   await destroySession();
-  redirect("/");
+  const next = String(form?.get("next") ?? "");
+  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/");
 }
