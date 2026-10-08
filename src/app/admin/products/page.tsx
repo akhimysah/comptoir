@@ -9,7 +9,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const { q = "", status = "all" } = await searchParams;
   const { store } = await requireStore();
   const products = await db.product.findMany({
-    where: { storeId: store.id, ...(status !== "all" ? { status } : {}), ...(q ? { title: { contains: q } } : {}) },
+    where: { storeId: store.id, ...(status !== "all" ? { status } : {}), ...(q ? { title: { contains: q, mode: "insensitive" } } : {}) },
     include: { variants: true, collections: { include: { collection: true } } },
     orderBy: { createdAt: "desc" },
   });

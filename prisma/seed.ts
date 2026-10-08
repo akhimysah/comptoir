@@ -1,6 +1,7 @@
 /**
  * Boutique de démonstration « Atelier Argile ».
  * Compte marchand de test : demo@comptoir.test / demo1234
+ * (en ligne, définissez SEED_DEMO_PASSWORD pour choisir un autre mot de passe).
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -39,7 +40,7 @@ async function main() {
     data: {
       email: "demo@comptoir.test",
       name: "Sofiane",
-      passwordHash: await bcrypt.hash("demo1234", 12),
+      passwordHash: await bcrypt.hash(process.env.SEED_DEMO_PASSWORD || "demo1234", 12),
       stores: { create: { slug: "atelier-argile", name: "Atelier Argile", tagline: "Céramiques artisanales", theme: JSON.stringify(theme) } },
     },
     include: { stores: true },

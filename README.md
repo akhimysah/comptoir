@@ -4,14 +4,16 @@ Plateforme e-commerce multi-boutiques, sur le modèle de Shopify : chaque marcha
 
 ## Démarrer en local
 
-Prérequis : Node.js 20 ou plus.
+Prérequis : Node.js 20 ou plus, et le projet relié à Vercel (voir « Mettre en ligne »), car la base de données est chez Neon.
 
 ```bash
 npm install
-cp .env.example .env
+npx vercel env pull .env
 npm run setup
 npm run dev
 ```
+
+`vercel env pull` copie dans `.env` les URL de la base et la clé du stockage d'images. Ajoutez ensuite `APP_URL="http://localhost:3000"` dans ce fichier.
 
 Ensuite, ouvrez http://localhost:3000.
 
@@ -53,12 +55,23 @@ Chaque vente est versée sur le compte Stripe du marchand. La plateforme prélè
 stripe listen --forward-to localhost:3000/api/stripe/webhook
 ```
 
-## Mettre en ligne
+## Mettre en ligne (Vercel, gratuit)
 
-1. **Base de données.** Créez une base PostgreSQL (Neon, Supabase, Railway…). Dans `prisma/schema.prisma`, passez `provider = "sqlite"` à `"postgresql"`, et mettez l'URL de la base dans `DATABASE_URL`.
-2. **Images.** Elles sont enregistrées dans le dossier `uploads/`, ce qui ne convient pas à un hébergement « serverless » comme Vercel. Branchez S3, Cloudflare R2 ou Vercel Blob dans `src/app/api/upload/route.ts`.
-3. **Variables.** Réglez `APP_URL` sur votre domaine et utilisez les clés Stripe **live**. Créez le webhook dans Stripe vers `https://votre-domaine/api/stripe/webhook`, avec les événements `checkout.session.completed` et `account.updated`, en cochant les comptes connectés.
-4. **Déploiement.** Lancez `npm run build`, puis `npm start`, ou déployez sur Vercel.
+L'offre gratuite de Vercel (Hobby) est réservée aux projets non commerciaux. Pour une boutique qui encaisse de l'argent, passez à l'offre Pro.
+
+1. Sur https://vercel.com, créez un compte avec GitHub, puis **Add New → Project** et importez le dépôt `comptoir`.
+2. Dans le projet, onglet **Storage** :
+   - **Create → Neon (Postgres)**, relié au projet. Cela crée `DATABASE_URL` et `DATABASE_URL_UNPOOLED`.
+   - **Create → Blob**, relié au projet. Cela crée `BLOB_READ_WRITE_TOKEN`.
+3. Dans **Settings → Environment Variables**, ajoutez `APP_URL` (l'adresse du site, par exemple `https://comptoir.vercel.app`) et `PLATFORM_FEE_PERCENT` (`2`).
+4. Relancez un déploiement. Le build crée lui-même les tables (`prisma db push`).
+5. Facultatif, la boutique de démonstration : lancez la commande suivante sur votre Mac, avec le mot de passe de votre choix.
+
+   ```bash
+   npx vercel env pull .env && SEED_DEMO_PASSWORD="un-mot-de-passe-solide" npm run db:seed
+   ```
+
+Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dans les variables Vercel. Créez le webhook dans Stripe vers `https://votre-site/api/stripe/webhook`, avec les événements `checkout.session.completed` et `account.updated`, en cochant les comptes connectés.
 
 ## Pas encore fait
 

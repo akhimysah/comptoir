@@ -10,10 +10,13 @@
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "setup": "prisma db push && tsx prisma/seed.ts"
+    "setup": "prisma db push && tsx prisma/seed.ts",
+    "vercel-build": "prisma generate && prisma db push --skip-generate && next build",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "6.2.1",
+    "@vercel/blob": "^0.27.0",
     "bcryptjs": "2.4.3",
     "next": "15.1.6",
     "react": "19.0.0",

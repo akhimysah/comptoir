@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { isImageUrl } from "@/lib/images";
 import { requireStore } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { slugify } from "@/lib/utils";
@@ -11,7 +12,7 @@ const schema = z.object({
   id: z.string().optional(),
   title: z.string().trim().min(1, "Donnez un titre à la collection.").max(80),
   description: z.string().max(2000),
-  image: z.string().regex(/^\/uploads\/[a-f0-9]{24}\.(jpg|png|webp|gif)$/).nullable(),
+  image: z.string().refine(isImageUrl, "Image invalide.").nullable(),
   productIds: z.array(z.string()).max(500),
 });
 export type CollectionPayload = z.infer<typeof schema>;

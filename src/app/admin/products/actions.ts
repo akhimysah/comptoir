@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { isImageUrl } from "@/lib/images";
 import { requireStore } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseMoney } from "@/lib/money";
@@ -14,7 +15,7 @@ const payloadSchema = z.object({
   description: z.string().max(5000),
   status: z.enum(["draft", "active"]),
   hue: z.number().int().min(0).max(359),
-  images: z.array(z.string().regex(/^\/uploads\/[a-f0-9]{24}\.(jpg|png|webp|gif)$/)).max(10),
+  images: z.array(z.string().refine(isImageUrl, "Image invalide.")).max(10),
   options: z
     .array(z.object({ name: z.string().trim().min(1, "Chaque option a besoin d'un nom.").max(30), values: z.array(z.string().trim().min(1).max(40)).min(1, "Chaque option a besoin d'au moins une valeur.").max(30) }))
     .max(3),

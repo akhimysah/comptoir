@@ -31,7 +31,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const counts = await Promise.all(TABS.map((t) => db.order.count({ where: filter(store.id, t.key) })));
   const n = Number(q.replace("#", ""));
   const orders = await db.order.findMany({
-    where: { AND: [filter(store.id, tab), q ? { OR: [{ name: { contains: q } }, { email: { contains: q } }, ...(Number.isInteger(n) && n > 0 ? [{ number: n }] : [])] } : {}] },
+    where: { AND: [filter(store.id, tab), q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }, ...(Number.isInteger(n) && n > 0 ? [{ number: n }] : [])] } : {}] },
     include: { items: true },
     orderBy: { createdAt: "desc" },
     take: 200,
