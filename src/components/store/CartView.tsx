@@ -15,11 +15,13 @@ export function CartView({ slug, currency, cancelled, demo }: { slug: string; cu
   const [applied, setApplied] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [country, setCountry] = useState("France");
+  const [rateId, setRateId] = useState<string | null>(null);
   const m = (c: number) => formatMoney(c, currency);
 
   const refresh = useCallback(async () => {
     if (!ready) return;
-    const res = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, items, code: applied }) });
+    const res = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, items, code: applied, country, rateId }) });
     if (!res.ok) return;
     const priced: PricedCart = await res.json();
     setCart(priced);
@@ -28,7 +30,7 @@ export function CartView({ slug, currency, cancelled, demo }: { slug: string; cu
     const next = priced.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity }));
     const same = next.length === items.length && next.every((n) => items.some((i) => i.variantId === n.variantId && i.quantity === n.quantity));
     if (!same) replace(next);
-  }, [ready, slug, items, applied, replace]);
+  }, [ready, slug, items, applied, country, rateId, replace]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -37,7 +39,7 @@ export function CartView({ slug, currency, cancelled, demo }: { slug: string; cu
     setBusy(true);
     setError(null);
     const data = Object.fromEntries(new FormData(e.currentTarget));
-    const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, slug, items, code: applied }) });
+    const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, country, rateId: cart?.shippingRateId ?? rateId, slug, items, code: applied }) });
     const json = await res.json().catch(() => ({}));
     if (res.ok && json.url) { window.location.href = json.url; return; }
     setError(json.error ?? "La commande n'a pas pu être créée. Réessayez.");
@@ -96,12 +98,12 @@ export function CartView({ slug, currency, cancelled, demo }: { slug: string; cu
               <dl className="grid grid-cols-[1fr_auto] gap-y-1.5 text-sm tabular-nums">
                 <dt className="text-[var(--c-muted)]">Sous-total</dt><dd className="text-right">{m(cart.subtotalCents)}</dd>
                 {cart.discountCents > 0 && <><dt className="text-[var(--c-muted)]">Code {cart.discountCode} <button type="button" className="underline" onClick={() => { setApplied(""); setCode(""); }}>retirer</button></dt><dd className="text-right">−{m(cart.discountCents)}</dd></>}
-                <dt className="text-[var(--c-muted)]">Livraison</dt><dd className="text-right">{cart.shippingCents ? m(cart.shippingCents) : "Offerte"}</dd>
+                <dt className="text-[var(--c-muted)]">{cart.shippingMethod || "Livraison"}</dt><dd className="text-right">{cart.shippingError ? "—" : cart.shippingCents ? m(cart.shippingCents) : "Offerte"}</dd>
                 <dt className="mt-2 border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-2 text-base font-semibold">Total</dt>
                 <dd className="mt-2 border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-2 text-right text-base font-semibold">{m(cart.totalCents)}</dd>
               </dl>
             )}
-            {cart && cart.shippingCents > 0 && cart.freeShippingFromCents > 0 && (
+            {cart && !cart.countries && cart.shippingCents > 0 && cart.freeShippingFromCents > 0 && (
               <p className="text-xs text-[var(--c-muted)]">Plus que {m(cart.freeShippingFromCents - (cart.subtotalCents - cart.discountCents))} pour la livraison offerte.</p>
             )}
           </div>
@@ -115,10 +117,30 @@ export function CartView({ slug, currency, cancelled, demo }: { slug: string; cu
               <input id="co-zip" name="zip" required autoComplete="postal-code" placeholder="Code postal" aria-label="Code postal" className={field} />
               <input id="co-city" name="city" required autoComplete="address-level2" placeholder="Ville" aria-label="Ville" className={field} />
             </div>
-            <input id="co-country" name="country" required autoComplete="country-name" defaultValue="France" aria-label="Pays" className={field} />
+            {cart?.countries ? (
+              <select id="co-country" aria-label="Pays" value={country} onChange={(e) => { setCountry(e.target.value); setRateId(null); }} className={field}>
+                {!cart.countries.includes(country) && <option value={country}>{country} (non livré)</option>}
+                {cart.countries.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            ) : (
+              <input id="co-country" required autoComplete="country-name" value={country} onChange={(e) => setCountry(e.target.value)} aria-label="Pays" className={field} />
+            )}
+            {cart && cart.shippingOptions.length > 1 && (
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1 text-sm font-semibold">Mode de livraison</legend>
+                {cart.shippingOptions.map((o) => (
+                  <label key={o.id} className={`flex cursor-pointer items-center gap-3 rounded-[var(--t-radius)] border px-3 py-2.5 ${cart.shippingRateId === o.id ? "border-[var(--c-text)]" : "border-[color-mix(in_srgb,var(--c-text)_22%,transparent)]"}`}>
+                    <input type="radio" name="rate" checked={cart.shippingRateId === o.id} onChange={() => setRateId(o.id)} />
+                    <span className="flex-1">{o.name}</span>
+                    <span className="tabular-nums">{o.priceCents ? m(o.priceCents) : "Gratuit"}</span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
+            {cart?.shippingError && <p className="text-sm text-red-600">{cart.shippingError}</p>}
             <textarea id="co-note" name="note" maxLength={500} placeholder="Note pour la boutique (optionnel)" aria-label="Note" className={`${field} min-h-[70px]`} />
             {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-            <button disabled={busy || !cart?.lines.length} className="h-12 rounded-[var(--t-radius)] bg-[var(--c-accent)] font-semibold text-[var(--c-accent-text)] transition hover:opacity-90 disabled:opacity-40">
+            <button disabled={busy || !cart?.lines.length || Boolean(cart?.shippingError)} className="h-12 rounded-[var(--t-radius)] bg-[var(--c-accent)] font-semibold text-[var(--c-accent-text)] transition hover:opacity-90 disabled:opacity-40">
               {busy ? "Un instant…" : demo ? `Valider la commande · ${cart ? m(cart.totalCents) : ""}` : `Payer ${cart ? m(cart.totalCents) : ""}`}
             </button>
             <p className="text-center text-xs text-[var(--c-muted)]">{demo ? "Boutique en démonstration : aucun paiement ne sera demandé." : "Paiement sécurisé par Stripe : carte, Apple Pay, Google Pay."}</p>

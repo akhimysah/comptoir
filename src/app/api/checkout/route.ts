@@ -16,6 +16,7 @@ const schema = z.object({
   city: z.string().trim().min(1, "Indiquez votre ville.").max(60),
   country: z.string().trim().min(2).max(60),
   note: z.string().max(500).optional().default(""),
+  rateId: z.string().max(40).optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -26,7 +27,8 @@ export async function POST(req: Request) {
   const store = await db.store.findUnique({ where: { slug: b.slug } });
   if (!store) return NextResponse.json({ error: "Boutique introuvable." }, { status: 404 });
 
-  const cart = await priceCart(store, b.items, b.code);
+  const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId });
+  if (cart.shippingError) return NextResponse.json({ error: cart.shippingError }, { status: 400 });
   if (!cart.lines.length) return NextResponse.json({ error: "Votre panier est vide." }, { status: 400 });
   if (b.code && cart.discountError) return NextResponse.json({ error: cart.discountError }, { status: 400 });
   if (cart.notices.length) return NextResponse.json({ error: cart.notices[0], refresh: true }, { status: 409 });
@@ -61,7 +63,7 @@ export async function POST(req: Request) {
           product_data: { name: l.variantTitle === "Par défaut" ? l.productTitle : `${l.productTitle} — ${l.variantTitle}` },
         },
       })),
-      ...(cart.shippingCents ? [{ quantity: 1, price_data: { currency, unit_amount: cart.shippingCents, product_data: { name: "Livraison" } } }] : []),
+      ...(cart.shippingCents ? [{ quantity: 1, price_data: { currency, unit_amount: cart.shippingCents, product_data: { name: cart.shippingMethod || "Livraison" } } }] : []),
     ],
     ...(coupon ? { discounts: [{ coupon: coupon.id }] } : {}),
     payment_intent_data: {

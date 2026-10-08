@@ -95,6 +95,7 @@ async function main() {
   });
 
   await db.discount.create({ data: { storeId: store.id, code: "BIENVENUE10", type: "percent", value: 10 } });
+  await seedShipping(db, store.id);
 
   // Commandes d'exemple réparties sur les 3 dernières semaines
   const buyers = [
@@ -135,4 +136,19 @@ async function main() {
   console.log("Boutique de démonstration créée : /s/atelier-argile");
 }
 
-main().finally(() => db.$disconnect());
+if (require.main === module) main().finally(() => db.$disconnect());
+
+export async function seedShipping(client: PrismaClient, storeId: string) {
+  await client.shippingZone.create({
+    data: {
+      storeId, name: "France", countries: JSON.stringify(["France", "Monaco"]),
+      rates: { create: [{ name: "Colissimo", priceCents: 490, freeAboveCents: 6000, position: 0 }, { name: "Express 24 h", priceCents: 990, position: 1 }] },
+    },
+  });
+  await client.shippingZone.create({
+    data: {
+      storeId, name: "Europe", countries: JSON.stringify(["Belgique", "Suisse", "Luxembourg", "Allemagne", "Espagne", "Italie", "Pays-Bas", "Portugal"]),
+      rates: { create: [{ name: "Standard international", priceCents: 1290, freeAboveCents: 12000, position: 0 }] },
+    },
+  });
+}

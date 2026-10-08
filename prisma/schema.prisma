@@ -49,6 +49,65 @@ model Store {
   discounts             Discount[]
   members               StoreMember[]
   invites               StoreInvite[]
+  shippingZones         ShippingZone[]
+  checkouts             Checkout[]
+  reviews               Review[]
+}
+
+/// Zone d'expédition : un groupe de pays et ses tarifs.
+model ShippingZone {
+  id        String         @id @default(cuid())
+  storeId   String
+  store     Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name      String
+  countries String         @default("[]") // JSON: string[] (noms de pays)
+  rates     ShippingRate[]
+  createdAt DateTime       @default(now())
+}
+
+model ShippingRate {
+  id               String       @id @default(cuid())
+  zoneId           String
+  zone             ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  name             String // « Standard », « Express »…
+  priceCents       Int
+  freeAboveCents   Int? // gratuit à partir de ce montant
+  position         Int          @default(0)
+}
+
+/// Panier d'un client qui a donné son e-mail sans terminer sa commande.
+model Checkout {
+  id          String    @id @default(cuid())
+  storeId     String
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  token       String    @unique // jeton du lien de récupération
+  email       String
+  name        String    @default("")
+  items       String // JSON: { variantId, quantity }[]
+  totalCents  Int       @default(0)
+  orderId     String? // rempli quand le client a commandé
+  remindedAt  DateTime?
+  recoveredAt DateTime? // commande passée après une relance
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([storeId, email])
+}
+
+/// Avis client sur un produit, publié après modération.
+model Review {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  email     String
+  rating    Int
+  title     String   @default("")
+  body      String
+  status    String   @default("pending") // pending | published | hidden
+  createdAt DateTime @default(now())
 }
 
 /// Collaborateurs d'une boutique (le propriétaire reste Store.owner).
@@ -90,6 +149,7 @@ model Product {
   updatedAt   DateTime            @updatedAt
   variants    Variant[]
   collections ProductCollection[]
+  reviews     Review[]
 
   @@unique([storeId, handle])
 }
@@ -179,7 +239,8 @@ model Order {
   discountCode      String?
   shippingCents     Int
   totalCents        Int
-  paymentMethod     String      @default("demo") // demo | stripe
+  paymentMethod     String      @default("demo") // demo | stripe | manual
+  shippingMethod    String      @default("")
   stripeSessionId   String?     @unique
   paidAt            DateTime?
   createdAt         DateTime    @default(now())

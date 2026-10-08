@@ -95,7 +95,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             <dl className="m-3 grid grid-cols-[auto_1fr_auto] gap-x-4 gap-y-1.5 rounded-lg border border-line p-3">
               <dt>Sous-total</dt><dd className="text-muted">{qty} article{qty > 1 ? "s" : ""}</dd><dd className="num text-right">{m(o.subtotalCents)}</dd>
               {o.discountCents > 0 && <><dt>Remise</dt><dd className="text-muted">{o.discountCode}</dd><dd className="num text-right">−{m(o.discountCents)}</dd></>}
-              <dt>Expédition</dt><dd className="text-muted">Livraison standard</dd><dd className="num text-right">{o.shippingCents ? m(o.shippingCents) : "Offerte"}</dd>
+              <dt>Expédition</dt><dd className="text-muted">{o.shippingMethod || "Livraison standard"}</dd><dd className="num text-right">{o.shippingCents ? m(o.shippingCents) : "Offerte"}</dd>
               <dt className="font-[650]">Total</dt><dd /><dd className="num text-right font-[650]">{m(o.totalCents)}</dd>
               <dt className="col-span-3 my-1 border-t border-line" />
               <dt>{o.paymentStatus === "refunded" ? "Remboursé" : "Payé par le client"}</dt><dd /><dd className="num text-right">{o.paymentStatus === "pending" ? m(0) : m(o.totalCents)}</dd>

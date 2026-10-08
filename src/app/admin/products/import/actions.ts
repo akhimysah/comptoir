@@ -44,6 +44,10 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
   const collectionId = async (title: string) => {
     const key = title.toLowerCase();
     if (collectionCache.has(key)) return collectionCache.get(key)!;
+    // Une collection existante est reprise par son nom (sans tenir compte des majuscules), quel que soit son identifiant.
+    const all = await db.collection.findMany({ where: { storeId: store.id }, select: { id: true, title: true } });
+    const same = all.find((x) => x.title.toLowerCase() === key);
+    if (same) { collectionCache.set(key, same.id); return same.id; }
     const handle = slugify(title);
     const c = await db.collection.upsert({ where: { storeId_handle: { storeId: store.id, handle } }, update: {}, create: { storeId: store.id, handle, title } });
     collectionCache.set(key, c.id);

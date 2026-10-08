@@ -17,7 +17,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PageHeader title="Paramètres" actions={<><Link href="/admin/settings/notifications" className="btn">Notifications</Link><Link href="/admin/settings/users" className="btn">Utilisateurs et autorisations</Link></>} />
+      <PageHeader title="Paramètres" actions={<><Link href="/admin/settings/shipping" className="btn">Expédition et livraison</Link><Link href="/admin/settings/notifications" className="btn">Notifications</Link><Link href="/admin/settings/users" className="btn">Utilisateurs et autorisations</Link></>} />
       <div className="grid gap-5 lg:grid-cols-2">
         <SettingsForm name={store.name} tagline={store.tagline} currency={store.currency} shipping={centsToInput(store.shippingCents)} freeFrom={centsToInput(store.freeShippingFromCents)} />
 

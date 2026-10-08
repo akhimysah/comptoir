@@ -30,7 +30,15 @@ export type PricedCart = {
   freeShippingFromCents: number;
   /** Messages pour le client : article retiré, quantité réduite… */
   notices: string[];
+  /** Pays livrés (null = la boutique n'a pas de zones : tarif unique, tous pays). */
+  countries: string[] | null;
+  shippingOptions: { id: string; name: string; priceCents: number }[];
+  shippingRateId: string | null;
+  shippingMethod: string;
+  shippingError: string | null;
 };
+
+export type ShippingChoice = { country?: string | null; rateId?: string | null };
 
 export function discountAmount(d: Discount, subtotalCents: number) {
   const raw = d.type === "percent" ? Math.round((subtotalCents * Math.min(d.value, 100)) / 100) : d.value;
@@ -49,7 +57,7 @@ export function discountProblem(d: Discount | null, subtotalCents: number): stri
  * Recalcule toujours le panier côté serveur à partir de la base :
  * les prix envoyés par le navigateur ne sont jamais utilisés.
  */
-export async function priceCart(store: Store, items: CartInput, code?: string | null): Promise<PricedCart> {
+export async function priceCart(store: Store, items: CartInput, code?: string | null, ship: ShippingChoice = {}): Promise<PricedCart> {
   const qty = new Map<string, number>();
   for (const it of items) {
     if (!it || typeof it.variantId !== "string") continue;
@@ -107,10 +115,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
   }
 
   const afterDiscount = subtotalCents - discountCents;
-  const shippingCents =
-    lines.length === 0 || (store.freeShippingFromCents > 0 && afterDiscount >= store.freeShippingFromCents) || store.freeShippingFromCents === 0
-      ? 0
-      : store.shippingCents;
+  const shipping = await computeShipping(store, afterDiscount, lines.length > 0, ship);
 
   return {
     lines,
@@ -118,9 +123,27 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     discountCents,
     discountCode,
     discountError,
-    shippingCents,
-    totalCents: afterDiscount + shippingCents,
+    ...shipping,
+    totalCents: afterDiscount + shipping.shippingCents,
     freeShippingFromCents: store.freeShippingFromCents,
     notices,
   };
+}
+
+/** Tarifs selon les zones d'expédition, ou tarif unique de la boutique s'il n'y a pas de zone. */
+async function computeShipping(store: Store, amount: number, hasItems: boolean, ship: ShippingChoice) {
+  const zones = await db.shippingZone.findMany({ where: { storeId: store.id }, include: { rates: { orderBy: { position: "asc" } } } });
+  if (!zones.length) {
+    const free = !hasItems || store.freeShippingFromCents === 0 || amount >= store.freeShippingFromCents;
+    const priceCents = free ? 0 : store.shippingCents;
+    return { countries: null, shippingOptions: [{ id: "default", name: "Livraison standard", priceCents }], shippingRateId: "default", shippingMethod: "Livraison standard", shippingCents: priceCents, shippingError: null };
+  }
+  const countries = [...new Set(zones.flatMap((z) => parseJson<string[]>(z.countries, [])))].sort((a, b) => a.localeCompare(b, "fr"));
+  const zone = ship.country ? zones.find((z) => parseJson<string[]>(z.countries, []).includes(ship.country!)) : null;
+  if (!zone || !zone.rates.length) {
+    return { countries, shippingOptions: [], shippingRateId: null, shippingMethod: "", shippingCents: 0, shippingError: ship.country ? "Nous ne livrons pas encore dans ce pays." : "Choisissez votre pays de livraison." };
+  }
+  const options = zone.rates.map((r) => ({ id: r.id, name: r.name, priceCents: !hasItems || (r.freeAboveCents !== null && amount >= r.freeAboveCents) ? 0 : r.priceCents }));
+  const chosen = options.find((o) => o.id === ship.rateId) ?? options.reduce((a, b) => (b.priceCents < a.priceCents ? b : a));
+  return { countries, shippingOptions: options, shippingRateId: chosen.id, shippingMethod: chosen.name, shippingCents: chosen.priceCents, shippingError: null };
 }

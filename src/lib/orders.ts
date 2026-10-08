@@ -37,6 +37,7 @@ export async function createOrder(
           discountCents: cart.discountCents,
           discountCode: cart.discountCode,
           shippingCents: cart.shippingCents,
+          shippingMethod: cart.shippingMethod,
           totalCents: cart.totalCents,
           paymentMethod,
           items: {
