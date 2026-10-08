@@ -68,6 +68,7 @@ export function OrdersTable({ rows }: { rows: OrderRow[] }) {
                   <button className="btn btn-sm" disabled={pending} onClick={() => run("fulfill")}>Marquer comme traitées</button>
                   <button className="btn btn-sm" disabled={pending} onClick={() => run("unfulfill")}>Marquer comme non traitées</button>
                   <button className="btn btn-sm" disabled={pending} onClick={() => run("markPaid")}>Marquer comme payées</button>
+                  <a className="btn btn-sm" href={`/print/packing?ids=${[...selected].join(",")}`} target="_blank">Imprimer les bons de préparation</a>
                 </div>
               </th>
             </tr>

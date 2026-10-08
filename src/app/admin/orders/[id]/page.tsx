@@ -49,6 +49,8 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         subtitle={`${formatDateTime(o.createdAt)} · ${o.paymentMethod === "manual" ? "Créée dans l'admin" : "Boutique en ligne"}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <a href={`/print/packing?ids=${o.id}`} target="_blank" className="btn h-8">Bon de préparation</a>
+            {o.paymentStatus !== "pending" && <a href={`/print/invoice/${o.id}`} target="_blank" className="btn h-8">Facture</a>}
             {o.cancelledAt ? <Pill>Annulée</Pill> : <><Pill tone={pay.tone}>{pay.label}</Pill><Pill tone={ful.tone}>{ful.label}</Pill></>}
             {!o.cancelledAt && ["paid", "partially_refunded"].includes(o.paymentStatus) && o.totalCents - o.refundedCents > 0 && <a href={`/admin/orders/${o.id}/refund`} className="btn h-8">Rembourser</a>}
             {!o.cancelledAt && (
@@ -101,6 +103,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
               {o.discountCents > 0 && <><dt>Remise</dt><dd className="text-muted">{o.discountCode}</dd><dd className="num text-right">−{m(o.discountCents)}</dd></>}
               <dt>Expédition</dt><dd className="text-muted">{o.shippingMethod || "Livraison standard"}</dd><dd className="num text-right">{o.shippingCents ? m(o.shippingCents) : "Offerte"}</dd>
               {o.giftCardCents > 0 && <><dt>Carte cadeau</dt><dd className="text-muted">····{o.giftCardCode?.slice(-4)}</dd><dd className="num text-right">−{m(o.giftCardCents)}</dd></>}
+              {o.taxCents > 0 && <><dt className="text-xs text-muted">dont TVA</dt><dd className="text-xs text-muted">{(o.taxRateBps / 100).toLocaleString("fr-FR")} %</dd><dd className="num text-right text-xs text-muted">{m(o.taxCents)}</dd></>}
               <dt className="font-[650]">{o.giftCardCents > 0 ? "Reste à payer" : "Total"}</dt><dd /><dd className="num text-right font-[650]">{m(o.totalCents)}</dd>
               <dt className="col-span-3 my-1 border-t border-line" />
               <dt>Payé par le client</dt><dd /><dd className="num text-right">{o.paymentStatus === "pending" ? m(0) : m(o.totalCents)}</dd>

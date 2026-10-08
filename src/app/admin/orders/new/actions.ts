@@ -49,6 +49,7 @@ export async function createManualOrder(input: ManualOrderInput): Promise<{ erro
     totalCents: subtotalCents + shippingCents, freeShippingFromCents: store.freeShippingFromCents, notices: [],
     countries: null, shippingOptions: [], shippingRateId: null, shippingMethod: shippingCents ? "Livraison" : "", shippingError: null,
     giftCardCode: null, giftCardCents: 0, giftCardBalanceCents: 0, giftCardError: null,
+    taxRateBps: store.taxRateBps, taxCents: 0,
   };
   const order = await createOrder(store, cart, { email: d.email, name: d.name, address: { line1: d.line1, zip: d.zip, city: d.city, country: d.country }, note: d.note }, "manual");
   await db.orderEvent.create({ data: { orderId: order.id, type: "created_manual", author: user.name, createdAt: order.createdAt } });

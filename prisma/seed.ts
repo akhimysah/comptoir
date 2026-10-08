@@ -41,7 +41,7 @@ async function main() {
       email: "demo@comptoir.test",
       name: "Sofiane",
       passwordHash: await bcrypt.hash(process.env.SEED_DEMO_PASSWORD || "demo1234", 12),
-      stores: { create: { slug: "atelier-argile", name: "Atelier Argile", tagline: "Céramiques artisanales", theme: JSON.stringify(theme) } },
+      stores: { create: { slug: "atelier-argile", name: "Atelier Argile", tagline: "Céramiques artisanales", theme: JSON.stringify(theme), legalName: "Atelier Argile (exemple)", legalAddress: "12 rue des Potiers\n69002 Lyon, France", siret: "000 000 000 00000" } },
     },
     include: { stores: true },
   });

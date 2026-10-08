@@ -3,6 +3,7 @@ import { Prisma, type Store } from "@prisma/client";
 import { db } from "./db";
 import { newOrderAlertEmail, orderConfirmationEmail, shippingEmail } from "./emails";
 import { sendMail } from "./mail";
+import { includedTax } from "./tax";
 import type { PricedCart } from "./pricing";
 
 export type Address = { line1: string; zip: string; city: string; country: string };
@@ -38,6 +39,9 @@ export async function createOrder(
           discountCode: cart.discountCode,
           giftCardCode: cart.giftCardCode,
           giftCardCents: cart.giftCardCents,
+          taxRateBps: store.taxRateBps,
+          // TVA calculée sur la valeur des articles et de la livraison (une carte cadeau est un moyen de paiement).
+          taxCents: includedTax(cart.totalCents + cart.giftCardCents, store.taxRateBps),
           shippingCents: cart.shippingCents,
           shippingMethod: cart.shippingMethod,
           totalCents: cart.totalCents,

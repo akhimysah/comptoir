@@ -1,4 +1,5 @@
 import { SettingsForm } from "@/components/admin/SettingsForm";
+import { TaxForm } from "@/components/admin/TaxForm";
 import { PageHeader, Pill } from "@/components/ui";
 import { requireOwner } from "@/lib/auth";
 import Link from "next/link";
@@ -19,7 +20,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader title="Paramètres" actions={<><Link href="/admin/settings/shipping" className="btn">Expédition et livraison</Link><Link href="/admin/settings/notifications" className="btn">Notifications</Link><Link href="/admin/settings/users" className="btn">Utilisateurs et autorisations</Link></>} />
       <div className="grid gap-5 lg:grid-cols-2">
-        <SettingsForm name={store.name} tagline={store.tagline} currency={store.currency} shipping={centsToInput(store.shippingCents)} freeFrom={centsToInput(store.freeShippingFromCents)} />
+        <div className="flex flex-col gap-5">
+          <SettingsForm name={store.name} tagline={store.tagline} currency={store.currency} shipping={centsToInput(store.shippingCents)} freeFrom={centsToInput(store.freeShippingFromCents)} />
+          <TaxForm taxRateBps={store.taxRateBps} legalName={store.legalName} legalAddress={store.legalAddress} siret={store.siret} vatNumber={store.vatNumber} />
+        </div>
 
         <section id="paiements" className="card flex flex-col gap-4 self-start p-5">
           <div className="flex items-center justify-between gap-3">

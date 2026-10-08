@@ -2,6 +2,7 @@ import "server-only";
 import type { Discount, Store } from "@prisma/client";
 import { db } from "./db";
 import { parseJson } from "./utils";
+import { includedTax } from "./tax";
 
 export type CartInput = { variantId: string; quantity: number }[];
 
@@ -40,6 +41,8 @@ export type PricedCart = {
   giftCardCents: number;
   giftCardBalanceCents: number;
   giftCardError: string | null;
+  taxRateBps: number;
+  taxCents: number;
 };
 
 export type ShippingChoice = { country?: string | null; rateId?: string | null };
@@ -146,6 +149,8 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     giftCardCents,
     giftCardBalanceCents,
     giftCardError,
+    taxRateBps: store.taxRateBps,
+    taxCents: includedTax(due, store.taxRateBps),
     totalCents: due - giftCardCents,
     freeShippingFromCents: store.freeShippingFromCents,
     notices,

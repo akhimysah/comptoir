@@ -40,6 +40,11 @@ model Store {
   themeUpdatedAt        DateTime?
   stripeAccountId       String?
   stripeChargesEnabled  Boolean      @default(false)
+  taxRateBps            Int          @default(2000) // TVA incluse dans les prix, en points de base (2000 = 20 %) ; 0 = franchise
+  legalName             String       @default("") // pour les factures
+  legalAddress          String       @default("")
+  siret                 String       @default("")
+  vatNumber             String       @default("")
   ownerId               String
   owner                 User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt             DateTime     @default(now())
@@ -311,6 +316,8 @@ model Order {
   paidAt            DateTime?
   createdAt         DateTime    @default(now())
   refundedCents     Int         @default(0)
+  taxRateBps        Int         @default(0) // taux de TVA au moment de la commande
+  taxCents          Int         @default(0) // TVA comprise dans le total
   items             OrderItem[]
   events            OrderEvent[]
   refunds           Refund[]

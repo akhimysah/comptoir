@@ -30,3 +30,16 @@ export async function saveSettings(_: { error?: string; ok?: boolean } | undefin
   revalidatePath(`/s/${store.slug}`, "layout");
   return { ok: true };
 }
+
+export async function saveTaxes(_: { error?: string; ok?: boolean } | undefined, form: FormData) {
+  const { store } = await requireOwner();
+  const bps = Number(form.get("taxRateBps"));
+  if (![2000, 1000, 550, 210, 0].includes(bps)) return { error: "Taux de TVA invalide." };
+  const str = (k: string, max: number) => String(form.get(k) ?? "").trim().slice(0, max);
+  await db.store.update({
+    where: { id: store.id },
+    data: { taxRateBps: bps, legalName: str("legalName", 120), legalAddress: str("legalAddress", 300), siret: str("siret", 20), vatNumber: str("vatNumber", 20) },
+  });
+  revalidatePath("/admin/settings");
+  return { ok: true };
+}

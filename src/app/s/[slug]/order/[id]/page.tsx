@@ -54,7 +54,10 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
         </ul>
         <div className="mt-4 flex justify-between border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-3 font-semibold tabular-nums"><span>Total payé</span><span>{m(order.totalCents)}</span></div>
       </div>
-      <a href={`/s/${slug}`} className="self-center rounded-[var(--t-radius)] border border-[var(--c-text)] px-6 py-3 font-semibold">Retour à la boutique</a>
+      <div className="flex flex-wrap justify-center gap-3">
+        {paid && <a href={`/print/invoice/${order.id}`} target="_blank" className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-6 py-3 font-semibold">Télécharger la facture</a>}
+        <a href={`/s/${slug}`} className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-6 py-3 font-semibold">Retour à la boutique</a>
+      </div>
     </div>
   );
 }
