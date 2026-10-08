@@ -18,7 +18,7 @@ const TABS = [
 
 function filter(storeId: string, tab: string): Prisma.OrderWhereInput {
   switch (tab) {
-    case "toship": return { storeId, paymentStatus: "paid", fulfillmentStatus: "unfulfilled", cancelledAt: null };
+    case "toship": return { storeId, paymentStatus: { in: ["paid", "partially_refunded"] }, fulfillmentStatus: "unfulfilled", cancelledAt: null };
     case "unpaid": return { storeId, paymentStatus: "pending", cancelledAt: null };
     case "shipped": return { storeId, fulfillmentStatus: "fulfilled", cancelledAt: null };
     case "cancelled": return { storeId, cancelledAt: { not: null } };

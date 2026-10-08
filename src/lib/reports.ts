@@ -14,19 +14,20 @@ export async function buildDailyReport(stores: Store[], day?: Date) {
   const weekAgo = new Date(start); weekAgo.setDate(weekAgo.getDate() - 7);
   const weekAgoEnd = new Date(weekAgo); weekAgoEnd.setDate(weekAgoEnd.getDate() + 1);
   const ids = stores.map((s) => s.id);
-  const paid = { storeId: { in: ids }, paymentStatus: "paid", cancelledAt: null };
+  const paid = { storeId: { in: ids }, paymentStatus: { in: ["paid", "partially_refunded"] }, cancelledAt: null };
 
   const [orders, lastWeek, toShip, items] = await Promise.all([
-    db.order.groupBy({ by: ["storeId"], where: { ...paid, createdAt: { gte: start, lt: end } }, _sum: { totalCents: true }, _count: true }),
-    db.order.groupBy({ by: ["storeId"], where: { ...paid, createdAt: { gte: weekAgo, lt: weekAgoEnd } }, _sum: { totalCents: true } }),
+    db.order.groupBy({ by: ["storeId"], where: { ...paid, createdAt: { gte: start, lt: end } }, _sum: { totalCents: true, refundedCents: true }, _count: true }),
+    db.order.groupBy({ by: ["storeId"], where: { ...paid, createdAt: { gte: weekAgo, lt: weekAgoEnd } }, _sum: { totalCents: true, refundedCents: true } }),
     db.order.groupBy({ by: ["storeId"], where: { ...paid, fulfillmentStatus: "unfulfilled" }, _count: true }),
     db.orderItem.groupBy({ by: ["productTitle"], where: { order: { ...paid, createdAt: { gte: start, lt: end } } }, _sum: { quantity: true }, orderBy: { _sum: { quantity: "desc" } }, take: 3 }),
   ]);
 
   const rows = stores.map((s) => {
     const o = orders.find((x) => x.storeId === s.id);
-    const revenue = o?._sum.totalCents ?? 0;
-    const prev = lastWeek.find((x) => x.storeId === s.id)?._sum.totalCents ?? 0;
+    const revenue = (o?._sum.totalCents ?? 0) - (o?._sum.refundedCents ?? 0);
+    const lw = lastWeek.find((x) => x.storeId === s.id)?._sum;
+    const prev = (lw?.totalCents ?? 0) - (lw?.refundedCents ?? 0);
     return { s, revenue, count: o?._count ?? 0, prev, toShip: toShip.find((x) => x.storeId === s.id)?._count ?? 0 };
   });
   const cur = stores[0]?.currency ?? "EUR";

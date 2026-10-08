@@ -16,17 +16,17 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const since = new Date(); since.setHours(0, 0, 0, 0); since.setDate(since.getDate() - (days - 1));
   const prevSince = new Date(since); prevSince.setDate(prevSince.getDate() - days);
 
-  const where = { storeId: store.id, paymentStatus: "paid", cancelledAt: null };
+  const where = { storeId: store.id, paymentStatus: { in: ["paid", "partially_refunded"] }, cancelledAt: null };
   const [orders, prev, firstOrders] = await Promise.all([
     db.order.findMany({ where: { ...where, createdAt: { gte: since } }, include: { items: true } }),
-    db.order.findMany({ where: { ...where, createdAt: { gte: prevSince, lt: since } }, select: { totalCents: true } }),
+    db.order.findMany({ where: { ...where, createdAt: { gte: prevSince, lt: since } }, select: { totalCents: true, refundedCents: true } }),
     // Première commande payée de chaque client, pour distinguer nouveaux clients et clients fidèles.
     db.order.groupBy({ by: ["customerId"], where: { ...where, customerId: { not: null } }, _min: { createdAt: true } }),
   ]);
 
   const m = (c: number) => formatMoney(c, store.currency);
-  const revenue = orders.reduce((s, o) => s + o.totalCents, 0);
-  const prevRevenue = prev.reduce((s, o) => s + o.totalCents, 0);
+  const revenue = orders.reduce((s, o) => s + o.totalCents - o.refundedCents, 0);
+  const prevRevenue = prev.reduce((s, o) => s + o.totalCents - o.refundedCents, 0);
   const units = orders.reduce((s, o) => s + o.items.reduce((t, i) => t + i.quantity, 0), 0);
   const aov = orders.length ? Math.round(revenue / orders.length) : 0;
   const firstBy = new Map(firstOrders.map((f) => [f.customerId, f._min.createdAt]));
@@ -52,7 +52,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   for (const o of orders) {
     const k = monthly ? `${o.createdAt.getFullYear()}-${o.createdAt.getMonth()}` : new Date(o.createdAt.getFullYear(), o.createdAt.getMonth(), o.createdAt.getDate()).toDateString();
     const b = buckets.find((x) => x.key === k);
-    if (b) b.v += o.totalCents;
+    if (b) b.v += o.totalCents - o.refundedCents;
   }
 
   const byProduct = new Map<string, { title: string; units: number; cents: number; image: string | null; hue: number }>();
@@ -65,8 +65,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const topMax = Math.max(...top.map((t) => t.cents), 1);
 
   const channels = [
-    { label: "Boutique en ligne", cents: orders.filter((o) => o.paymentMethod !== "manual").reduce((s, o) => s + o.totalCents, 0) },
-    { label: "Commandes manuelles", cents: orders.filter((o) => o.paymentMethod === "manual").reduce((s, o) => s + o.totalCents, 0) },
+    { label: "Boutique en ligne", cents: orders.filter((o) => o.paymentMethod !== "manual").reduce((s, o) => s + o.totalCents - o.refundedCents, 0) },
+    { label: "Commandes manuelles", cents: orders.filter((o) => o.paymentMethod === "manual").reduce((s, o) => s + o.totalCents - o.refundedCents, 0) },
   ];
 
   const cards = [

@@ -10,7 +10,7 @@ export const metadata = { title: "Admin" };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, store, stores, isOwner } = await requireStore();
-  const toShip = await db.order.count({ where: { storeId: store.id, paymentStatus: "paid", fulfillmentStatus: "unfulfilled", cancelledAt: null } });
+  const toShip = await db.order.count({ where: { storeId: store.id, paymentStatus: { in: ["paid", "partially_refunded"] }, fulfillmentStatus: "unfulfilled", cancelledAt: null } });
   return (
     <div className="min-h-screen bg-canvas">
       <header className="sticky top-0 z-40 flex h-14 items-center gap-3 bg-topbar px-3 text-white md:px-4">

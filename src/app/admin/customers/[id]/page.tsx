@@ -14,8 +14,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const c = await db.customer.findFirst({ where: { id, storeId: store.id }, include: { orders: { orderBy: { createdAt: "desc" }, include: { items: true } } } });
   if (!c) notFound();
   const m = (x: number) => formatMoney(x, store.currency);
-  const paid = c.orders.filter((o) => o.paymentStatus === "paid" && !o.cancelledAt);
-  const spent = paid.reduce((s, o) => s + o.totalCents, 0);
+  const paid = c.orders.filter((o) => ["paid", "partially_refunded"].includes(o.paymentStatus) && !o.cancelledAt);
+  const spent = paid.reduce((s, o) => s + o.totalCents - o.refundedCents, 0);
   const last = c.orders[0];
   const addr = last ? parseJson<Address>(last.address, { line1: "", zip: "", city: "", country: "" }) : null;
   const months = Math.max(0, Math.round((Date.now() - c.createdAt.getTime()) / (30 * 86400_000)));

@@ -108,3 +108,13 @@ ${expiresAt ? `<div style="font-size:12px;color:#616161;margin-top:6px">Valable 
 <p>${button(`${appUrl()}/s/${store.slug}`, "Découvrir la boutique")}</p>`),
   };
 }
+
+export function refundEmail(store: Store, number: number, amountCents: number, items: { title: string; quantity: number }[], reason: string) {
+  return {
+    subject: `Remboursement de ${formatMoney(amountCents, store.currency)} pour votre commande #${number}`,
+    html: layout(store.name, "Votre remboursement est en route",
+      `<p style="font-size:14px;line-height:1.5">Nous avons remboursé <b>${formatMoney(amountCents, store.currency)}</b> sur votre commande <b>#${number}</b>. Selon votre banque, le montant apparaît sous 5 à 10 jours.</p>
+${items.length ? `<ul style="font-size:14px;line-height:1.6;color:#616161">${items.map((i) => `<li>${esc(i.title)} × ${i.quantity}</li>`).join("")}</ul>` : ""}
+${reason ? `<p style="font-size:13px;color:#616161">Motif : ${esc(reason)}</p>` : ""}`),
+  };
+}

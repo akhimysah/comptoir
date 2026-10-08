@@ -9,10 +9,10 @@ export default async function CustomersPage() {
   const { store } = await requireStore();
   const customers = await db.customer.findMany({
     where: { storeId: store.id },
-    include: { orders: { where: { paymentStatus: "paid", cancelledAt: null }, select: { totalCents: true, createdAt: true } } },
+    include: { orders: { where: { paymentStatus: { in: ["paid", "partially_refunded"] }, cancelledAt: null }, select: { totalCents: true, refundedCents: true, createdAt: true } } },
   });
   const rows = customers
-    .map((c) => ({ ...c, spent: c.orders.reduce((s, o) => s + o.totalCents, 0), last: c.orders.reduce<Date | null>((d, o) => (!d || o.createdAt > d ? o.createdAt : d), null) }))
+    .map((c) => ({ ...c, spent: c.orders.reduce((s, o) => s + o.totalCents - o.refundedCents, 0), last: c.orders.reduce<Date | null>((d, o) => (!d || o.createdAt > d ? o.createdAt : d), null) }))
     .sort((a, b) => b.spent - a.spent);
 
   return (

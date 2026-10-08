@@ -122,6 +122,7 @@ export const PAYMENT_LABELS: Record<string, { label: string; tone: Tone }> = {
   pending: { label: "Paiement en attente", tone: "warn" },
   paid: { label: "Payée", tone: "neutral" },
   refunded: { label: "Remboursée", tone: "neutral" },
+  partially_refunded: { label: "Partiellement remboursée", tone: "warn" },
 };
 export const FULFILLMENT_LABELS: Record<string, { label: string; tone: Tone }> = {
   unfulfilled: { label: "Non traitée", tone: "attention" },

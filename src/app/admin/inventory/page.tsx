@@ -19,7 +19,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   // « Engagé » : articles déjà payés mais pas encore expédiés.
   const committed = await db.orderItem.groupBy({
     by: ["variantId"],
-    where: { variantId: { in: variants.map((v) => v.id) }, order: { storeId: store.id, paymentStatus: "paid", fulfillmentStatus: "unfulfilled", cancelledAt: null } },
+    where: { variantId: { in: variants.map((v) => v.id) }, order: { storeId: store.id, paymentStatus: { in: ["paid", "partially_refunded"] }, fulfillmentStatus: "unfulfilled", cancelledAt: null } },
     _sum: { quantity: true },
   });
   const committedBy = new Map(committed.map((c) => [c.variantId, c._sum.quantity ?? 0]));

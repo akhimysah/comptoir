@@ -15,6 +15,8 @@ const EVENT_TEXT: Record<string, string> = {
   cancelled: "a annulé la commande.",
   refunded: "a annulé et remboursé la commande.",
   paid_manual: "a marqué la commande comme payée.",
+  refund: "a effectué un remboursement :",
+  cancelled_refund: "a annulé la commande et remboursé :",
   created_manual: "a créé cette commande manuellement.",
 };
 
@@ -34,7 +36,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
 
   // Les étapes automatiques (création, paiement) viennent des champs de la commande ; le reste de la table des événements.
   const timeline = [
-    ...o.events.map((e) => ({ at: e.createdAt, kind: e.type, text: e.type === "comment" ? e.message : `${e.author || "Quelqu'un"} ${EVENT_TEXT[e.type] ?? e.type}`, author: e.author })),
+    ...o.events.map((e) => ({ at: e.createdAt, kind: e.type, text: e.type === "comment" ? e.message : `${e.author || "Quelqu'un"} ${EVENT_TEXT[e.type] ?? e.type}${e.message && e.type !== "comment" ? ` ${e.message}` : ""}`, author: e.author })),
     ...(o.paidAt && !o.events.some((e) => e.type === "paid_manual") ? [{ at: o.paidAt, kind: "paid", text: `Paiement de ${m(o.totalCents)} reçu${o.paymentMethod === "stripe" ? " par carte (Stripe)" : o.paymentMethod === "manual" ? " (paiement hors ligne)" : " (démonstration)"}.`, author: "" }] : []),
     ...(o.paymentMethod === "manual" ? [] : [{ at: o.createdAt, kind: "created", text: `${o.name} a passé cette commande sur la boutique en ligne.`, author: "" }]),
   ].sort((x, y) => y.at.getTime() - x.at.getTime());
@@ -48,10 +50,11 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {o.cancelledAt ? <Pill>Annulée</Pill> : <><Pill tone={pay.tone}>{pay.label}</Pill><Pill tone={ful.tone}>{ful.label}</Pill></>}
+            {!o.cancelledAt && ["paid", "partially_refunded"].includes(o.paymentStatus) && o.totalCents - o.refundedCents > 0 && <a href={`/admin/orders/${o.id}/refund`} className="btn h-8">Rembourser</a>}
             {!o.cancelledAt && (
               <form action={cancelOrder}>
                 <input type="hidden" name="id" value={o.id} />
-                <ConfirmSubmit label={o.paymentStatus === "paid" ? "Rembourser" : "Annuler"} confirmLabel="Confirmer" className="h-8" />
+                <ConfirmSubmit label="Annuler la commande" confirmLabel={["paid", "partially_refunded"].includes(o.paymentStatus) ? "Annuler et tout rembourser" : "Confirmer l'annulation"} className="h-8" />
               </form>
             )}
           </div>
@@ -73,13 +76,14 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                       <div className="truncate font-[550] text-pine">{i.productTitle}</div>
                       {i.variantTitle !== "Par défaut" && <span className="mt-0.5 inline-block rounded-md bg-[#ebebeb] px-1.5 text-xs">{i.variantTitle}</span>}
                     </div>
+                    {i.refundedQuantity > 0 && <Pill>{i.refundedQuantity} remboursé{i.refundedQuantity > 1 ? "s" : ""}</Pill>}
                     <span className="num whitespace-nowrap text-muted">{m(i.priceCents)} × {i.quantity}</span>
                     <span className="num w-20 text-right">{m(i.priceCents * i.quantity)}</span>
                   </li>
                 ))}
               </ul>
             </div>
-            {!o.cancelledAt && o.paymentStatus === "paid" && (
+            {!o.cancelledAt && ["paid", "partially_refunded"].includes(o.paymentStatus) && (
               <div className="flex justify-end border-t border-line px-4 py-3">
                 <form action={setFulfilled}>
                   <input type="hidden" name="id" value={o.id} />
@@ -99,7 +103,8 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
               {o.giftCardCents > 0 && <><dt>Carte cadeau</dt><dd className="text-muted">····{o.giftCardCode?.slice(-4)}</dd><dd className="num text-right">−{m(o.giftCardCents)}</dd></>}
               <dt className="font-[650]">{o.giftCardCents > 0 ? "Reste à payer" : "Total"}</dt><dd /><dd className="num text-right font-[650]">{m(o.totalCents)}</dd>
               <dt className="col-span-3 my-1 border-t border-line" />
-              <dt>{o.paymentStatus === "refunded" ? "Remboursé" : "Payé par le client"}</dt><dd /><dd className="num text-right">{o.paymentStatus === "pending" ? m(0) : m(o.totalCents)}</dd>
+              <dt>Payé par le client</dt><dd /><dd className="num text-right">{o.paymentStatus === "pending" ? m(0) : m(o.totalCents)}</dd>
+              {o.refundedCents > 0 && <><dt>Remboursé</dt><dd /><dd className="num text-right">−{m(o.refundedCents)}</dd><dt className="font-[650]">Net</dt><dd /><dd className="num text-right font-[650]">{m(o.totalCents - o.refundedCents)}</dd></>}
             </dl>
             {!o.cancelledAt && o.paymentStatus === "pending" && o.paymentMethod !== "stripe" && (
               <form action={markPaid} className="flex justify-end border-t border-line px-4 py-3">

@@ -18,17 +18,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const prevSince = new Date(since.getTime() - DAYS * 86400_000);
 
   const [paid, prevPaid, recent, toShip, unpaid, outOfStock, productCount] = await Promise.all([
-    db.order.findMany({ where: { storeId: store.id, paymentStatus: "paid", cancelledAt: null, createdAt: { gte: since } }, select: { totalCents: true, createdAt: true, fulfillmentStatus: true } }),
-    db.order.findMany({ where: { storeId: store.id, paymentStatus: "paid", cancelledAt: null, createdAt: { gte: prevSince, lt: since } }, select: { totalCents: true } }),
+    db.order.findMany({ where: { storeId: store.id, paymentStatus: { in: ["paid", "partially_refunded"] }, cancelledAt: null, createdAt: { gte: since } }, select: { totalCents: true, refundedCents: true, createdAt: true, fulfillmentStatus: true } }),
+    db.order.findMany({ where: { storeId: store.id, paymentStatus: { in: ["paid", "partially_refunded"] }, cancelledAt: null, createdAt: { gte: prevSince, lt: since } }, select: { totalCents: true, refundedCents: true } }),
     db.order.findMany({ where: { storeId: store.id }, orderBy: { createdAt: "desc" }, take: 6, include: { items: true } }),
-    db.order.count({ where: { storeId: store.id, paymentStatus: "paid", fulfillmentStatus: "unfulfilled", cancelledAt: null } }),
+    db.order.count({ where: { storeId: store.id, paymentStatus: { in: ["paid", "partially_refunded"] }, fulfillmentStatus: "unfulfilled", cancelledAt: null } }),
     db.order.count({ where: { storeId: store.id, paymentStatus: "pending", cancelledAt: null } }),
     db.product.count({ where: { storeId: store.id, status: "active", variants: { every: { stock: { lte: 0 } } } } }),
     db.product.count({ where: { storeId: store.id } }),
   ]);
 
-  const revenue = paid.reduce((s, o) => s + o.totalCents, 0);
-  const prevRevenue = prevPaid.reduce((s, o) => s + o.totalCents, 0);
+  const revenue = paid.reduce((s, o) => s + o.totalCents - o.refundedCents, 0);
+  const prevRevenue = prevPaid.reduce((s, o) => s + o.totalCents - o.refundedCents, 0);
   const aov = paid.length ? Math.round(revenue / paid.length) : 0;
   const fulfilled = paid.filter((o) => o.fulfillmentStatus === "fulfilled").length;
 
@@ -39,7 +39,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   });
   for (const o of paid) {
     const i = Math.floor((o.createdAt.getTime() - since.getTime()) / 86400_000);
-    if (days[i]) { days[i].v += o.totalCents; days[i].n += 1; }
+    if (days[i]) { days[i].v += o.totalCents - o.refundedCents; days[i].n += 1; }
   }
   const m = (c: number) => formatMoney(c, store.currency);
   const delta = prevRevenue ? Math.round(((revenue - prevRevenue) / prevRevenue) * 100) : null;

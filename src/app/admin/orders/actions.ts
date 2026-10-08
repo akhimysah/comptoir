@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStore } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { markOrderPaid, notifyOrderShipped } from "@/lib/orders";
-import { getStripe } from "@/lib/stripe";
+import { PAID_STATUSES, refundableCents, refundOrder } from "@/lib/refunds";
 
 async function ownOrder(form: FormData) {
   const { user, store } = await requireStore();
@@ -33,31 +33,24 @@ export async function setFulfilled(form: FormData) {
   revalidatePath("/admin", "layout");
 }
 
-/** Annule la commande, remet le stock si elle était payée, et rembourse le paiement Stripe. */
+/** Annule la commande : rembourse ce qui reste à rembourser et remet en stock les articles non encore retournés. */
 export async function cancelOrder(form: FormData): Promise<void> {
-  const { user, order } = await ownOrder(form);
+  const { user, store, order } = await ownOrder(form);
   if (order.cancelledAt) return;
-
-  let paymentStatus = order.paymentStatus;
-  if (order.paymentStatus === "paid" && order.paymentMethod === "stripe" && order.stripeSessionId) {
-    const stripe = getStripe();
-    if (!stripe) throw new Error("Stripe n'est pas configuré : impossible de rembourser.");
-    const session = await stripe.checkout.sessions.retrieve(order.stripeSessionId);
-    const pi = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
-    if (pi) await stripe.refunds.create({ payment_intent: pi, reverse_transfer: true, refund_application_fee: true });
-    paymentStatus = "refunded";
-  } else if (order.paymentStatus === "paid") {
-    paymentStatus = "refunded";
+  if (!PAID_STATUSES.includes(order.paymentStatus)) {
+    await db.$transaction([
+      db.order.update({ where: { id: order.id }, data: { cancelledAt: new Date() } }),
+      db.orderEvent.create({ data: { orderId: order.id, type: "cancelled", author: user.name } }),
+    ]);
+  } else {
+    const items = await db.orderItem.findMany({ where: { orderId: order.id } });
+    const res = await refundOrder({
+      orderId: order.id, storeId: store.id, author: user.name, cancel: true, restock: true, reason: "Commande annulée",
+      lines: items.map((i) => ({ orderItemId: i.id, quantity: i.quantity - i.refundedQuantity })),
+      shippingCents: 0, amountCents: refundableCents(order),
+    });
+    if (res.error) throw new Error(res.error);
   }
-
-  const items = await db.orderItem.findMany({ where: { orderId: order.id } });
-  await db.$transaction([
-    db.order.update({ where: { id: order.id }, data: { cancelledAt: new Date(), paymentStatus } }),
-    db.orderEvent.create({ data: { orderId: order.id, type: paymentStatus === "refunded" ? "refunded" : "cancelled", author: user.name } }),
-    ...(order.paymentStatus === "paid"
-      ? items.filter((i) => i.variantId).map((i) => db.variant.updateMany({ where: { id: i.variantId! }, data: { stock: { increment: i.quantity } } }))
-      : []),
-  ]);
   revalidatePath(`/admin/orders/${order.id}`);
   revalidatePath("/admin", "layout");
 }
@@ -78,7 +71,7 @@ export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" 
       continue;
     }
     const target = action === "fulfill" ? "fulfilled" : "unfulfilled";
-    if (o.paymentStatus !== "paid" || o.fulfillmentStatus === target) continue;
+    if (!PAID_STATUSES.includes(o.paymentStatus) || o.fulfillmentStatus === target) continue;
     await db.$transaction([
       db.order.update({ where: { id: o.id }, data: { fulfillmentStatus: target } }),
       db.orderEvent.create({ data: { orderId: o.id, type: target, author: user.name } }),

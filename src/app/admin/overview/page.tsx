@@ -24,11 +24,11 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const since = new Date(today); since.setDate(since.getDate() - (days - 1));
   const prevSince = new Date(since); prevSince.setDate(prevSince.getDate() - days);
   const chartSince = new Date(today); chartSince.setDate(chartSince.getDate() - (Math.max(days, 14) - 1));
-  const paid = { storeId: { in: ids }, paymentStatus: "paid", cancelledAt: null };
+  const paid = { storeId: { in: ids }, paymentStatus: { in: ["paid", "partially_refunded"] }, cancelledAt: null };
 
   const [orders, prevOrders, toShip, recent] = await Promise.all([
-    db.order.findMany({ where: { ...paid, createdAt: { gte: new Date(Math.min(since.getTime(), chartSince.getTime())) } }, select: { storeId: true, totalCents: true, createdAt: true } }),
-    db.order.groupBy({ by: ["storeId"], where: { ...paid, createdAt: { gte: prevSince, lt: since } }, _sum: { totalCents: true } }),
+    db.order.findMany({ where: { ...paid, createdAt: { gte: new Date(Math.min(since.getTime(), chartSince.getTime())) } }, select: { storeId: true, totalCents: true, refundedCents: true, createdAt: true } }),
+    db.order.groupBy({ by: ["storeId"], where: { ...paid, createdAt: { gte: prevSince, lt: since } }, _sum: { totalCents: true, refundedCents: true } }),
     db.order.groupBy({ by: ["storeId"], where: { ...paid, fulfillmentStatus: "unfulfilled" }, _count: true }),
     db.order.findMany({ where: { storeId: { in: ids } }, orderBy: { createdAt: "desc" }, take: 12, include: { store: true } }),
   ]);
@@ -37,12 +37,13 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
     const mine = orders.filter((o) => o.storeId === s.id);
     const inPeriod = mine.filter((o) => o.createdAt >= since);
     const todayOrders = mine.filter((o) => o.createdAt >= today);
-    const revenue = inPeriod.reduce((t, o) => t + o.totalCents, 0);
-    const prev = prevOrders.find((x) => x.storeId === s.id)?._sum.totalCents ?? 0;
+    const revenue = inPeriod.reduce((t, o) => t + o.totalCents - o.refundedCents, 0);
+    const prevSum = prevOrders.find((x) => x.storeId === s.id)?._sum;
+    const prev = (prevSum?.totalCents ?? 0) - (prevSum?.refundedCents ?? 0);
     return {
       store: s,
       color: STORE_COLORS[i % STORE_COLORS.length],
-      todayRevenue: todayOrders.reduce((t, o) => t + o.totalCents, 0),
+      todayRevenue: todayOrders.reduce((t, o) => t + o.totalCents - o.refundedCents, 0),
       todayCount: todayOrders.length,
       revenue,
       count: inPeriod.length,
@@ -66,7 +67,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   for (let d = new Date(chartSince); d <= today; d.setDate(d.getDate() + 1)) chartDays.push(new Date(d));
   const daily = chartDays.map((d) => {
     const k = dayKey(d);
-    const per = rows.map((r) => orders.filter((o) => o.storeId === r.store.id && dayKey(o.createdAt) === k).reduce((t, o) => t + o.totalCents, 0));
+    const per = rows.map((r) => orders.filter((o) => o.storeId === r.store.id && dayKey(o.createdAt) === k).reduce((t, o) => t + o.totalCents - o.refundedCents, 0));
     return { d, per, total: per.reduce((a, b) => a + b, 0) };
   });
   const chartRows = rows.filter((r) => r.store.currency === main.cur);

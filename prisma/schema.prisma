@@ -310,8 +310,10 @@ model Order {
   stripeSessionId   String?     @unique
   paidAt            DateTime?
   createdAt         DateTime    @default(now())
+  refundedCents     Int         @default(0)
   items             OrderItem[]
   events            OrderEvent[]
+  refunds           Refund[]
 
   @@unique([storeId, number])
 }
@@ -338,6 +340,22 @@ model OrderItem {
   quantity     Int
   image        String?
   hue          Int     @default(160)
+  refundedQuantity Int @default(0)
+}
+
+/// Remboursement (total ou partiel) d'une commande, avec ou sans retour en stock.
+model Refund {
+  id             String   @id @default(cuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amountCents    Int
+  shippingCents  Int      @default(0)
+  items          String   @default("[]") // JSON: { orderItemId, quantity }[]
+  restock        Boolean  @default(true)
+  reason         String   @default("")
+  stripeRefundId String?
+  author         String   @default("")
+  createdAt      DateTime @default(now())
 }
 
 /// Journal des e-mails : envoyés via Resend, ou seulement enregistrés quand aucune clé n'est configurée.

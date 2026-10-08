@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const already = await db.review.count({ where: { productId: product.id, email: b.email } });
   if (already >= 2) return NextResponse.json({ error: "Vous avez déjà donné votre avis sur ce produit." }, { status: 429 });
   // « Achat vérifié » : une commande payée de cette adresse contient ce produit.
-  const verified = (await db.orderItem.count({ where: { productTitle: product.title, order: { storeId: product.storeId, email: b.email, paymentStatus: "paid" } } })) > 0;
+  const verified = (await db.orderItem.count({ where: { productTitle: product.title, order: { storeId: product.storeId, email: b.email, paymentStatus: { in: ["paid", "partially_refunded"] } } } })) > 0;
   await db.review.create({ data: { storeId: product.storeId, productId: product.id, name: b.name, email: b.email, rating: b.rating, title: b.title, body: b.body, verified } });
   return NextResponse.json({ ok: true });
 }
