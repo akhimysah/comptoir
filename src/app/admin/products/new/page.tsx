@@ -8,7 +8,7 @@ export default async function NewProductPage() {
   const collections = await db.collection.findMany({ where: { storeId: store.id }, orderBy: { title: "asc" }, select: { id: true, title: true } });
   return (
     <>
-      <PageHeader title="Nouveau produit" />
+      <PageHeader back="/admin/products" title="Ajouter un produit" />
       <ProductForm
         currency={store.currency}
         collections={collections}

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Empty, PageHeader } from "@/components/ui";
 import { requireStore } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -24,8 +25,8 @@ export default async function CustomersPage() {
               <thead><tr><th className="th">Client</th><th className="th">Commandes payées</th><th className="th hidden sm:table-cell">Dernier achat</th><th className="th hidden sm:table-cell">Client depuis</th><th className="th text-right">Total dépensé</th></tr></thead>
               <tbody>
                 {rows.map((c) => (
-                  <tr key={c.id}>
-                    <td className="td"><div className="font-semibold">{c.name}</div><div className="text-xs text-muted">{c.email}</div></td>
+                  <tr key={c.id} className="hover:bg-[#f7f7f7]">
+                    <td className="td"><Link href={`/admin/customers/${c.id}`} className="font-[650] hover:underline">{c.name}</Link><div className="text-xs text-muted">{c.email}</div></td>
                     <td className="td num">{c.orders.length}</td>
                     <td className="td hidden text-muted sm:table-cell">{c.last ? formatDate(c.last) : "—"}</td>
                     <td className="td hidden text-muted sm:table-cell">{formatDate(c.createdAt)}</td>

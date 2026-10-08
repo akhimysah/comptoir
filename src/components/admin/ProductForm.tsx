@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useMemo, useRef, useState } from "react";
 import { saveProduct, type ProductPayload } from "@/app/admin/products/actions";
 import { Thumb } from "@/components/ui";
+import { SaveBar } from "./SaveBar";
 import { uploadImage } from "./upload";
 
 type Option = { name: string; values: string[] };
@@ -21,6 +23,7 @@ function cartesian(options: Option[]): string[][] {
 
 export function ProductForm({ initial, collections, currency }: { initial: ProductFormInitial; collections: { id: string; title: string }[]; currency: string }) {
   const [state, action, pending] = useActionState(saveProduct, undefined);
+  const router = useRouter();
   const [title, setTitle] = useState(initial.title);
   const [description, setDescription] = useState(initial.description);
   const [status, setStatus] = useState(initial.status);
@@ -67,58 +70,96 @@ export function ProductForm({ initial, collections, currency }: { initial: Produ
 
   const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds };
   const hasOptions = combos[0].length > 0;
+  const [initialJson] = useState(() => JSON.stringify(payload));
+  const dirty = !initial.id || JSON.stringify(payload) !== initialJson;
+  const single = variants[0];
+  const totalStock = variants.reduce((s, v) => s + v.stock, 0);
 
   return (
-    <form action={action} className="flex flex-col gap-5">
+    <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="payload" value={JSON.stringify(payload)} />
-      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-        <div className="flex min-w-0 flex-col gap-5">
-          <section className="card flex flex-col gap-4 p-5">
-            <label className="label">Titre<input id="title" className="input" required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex. Tasse en grès émaillé" /></label>
-            <label className="label">Description<textarea id="description" className="input min-h-[140px]" maxLength={5000} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Matière, dimensions, entretien…" /></label>
+      <SaveBar
+        visible={dirty}
+        message={initial.id ? "Produit non enregistré" : "Nouveau produit non enregistré"}
+        pending={pending || uploading}
+        error={state?.error}
+        onDiscard={() => (initial.id ? window.location.reload() : router.push("/admin/products"))}
+      />
+      <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <section className="card flex flex-col gap-3 p-4">
+            <label className="label">Titre<input id="title" className="input" required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="T-shirt à manches courtes" /></label>
+            <label className="label">Description<textarea id="description" className="input min-h-[160px]" maxLength={5000} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
           </section>
 
-          <section className="card p-5">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-[650]">Photos</h2>
-              <span className="text-xs text-muted">{images.length}/10 · la première est l'image principale</span>
-            </div>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-              {images.map((src, i) => (
-                <div key={src} className="group relative aspect-square overflow-hidden rounded-lg border border-line">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" className="h-full w-full object-cover" />
-                  <div className="absolute inset-x-1 bottom-1 flex justify-between gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
-                    {i > 0 ? <button type="button" className="btn btn-sm px-2" onClick={() => setImages((im) => [im[i], ...im.filter((_, j) => j !== i)])} aria-label="Mettre en image principale">★</button> : <span />}
-                    <button type="button" className="btn btn-sm px-2" onClick={() => setImages((im) => im.filter((_, j) => j !== i))} aria-label="Retirer la photo">✕</button>
+          <section className="card p-4">
+            <h2 className="mb-3 text-sm font-[650]">Médias</h2>
+            {images.length ? (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {images.map((src, i) => (
+                  <div key={src} className={`group relative overflow-hidden rounded-lg border border-line ${i === 0 ? "col-span-2 row-span-2" : "aspect-square"}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" className="h-full w-full object-cover" />
+                    <div className="absolute inset-x-1 top-1 flex justify-between gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                      {i > 0 ? <button type="button" className="btn btn-sm px-2" onClick={() => setImages((im) => [im[i], ...im.filter((_, j) => j !== i)])} aria-label="Mettre en image principale">★</button> : <span />}
+                      <button type="button" className="btn btn-sm px-2" onClick={() => setImages((im) => im.filter((_, j) => j !== i))} aria-label="Retirer la photo">✕</button>
+                    </div>
                   </div>
+                ))}
+                {images.length < 10 && (
+                  <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="grid aspect-square place-items-center rounded-lg border border-dashed border-[#8a8a8a] text-2xl text-muted hover:bg-[#f7f7f7]" aria-label="Ajouter des photos">
+                    {uploading ? <span className="text-xs">Envoi…</span> : "+"}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-[#8a8a8a] px-4 py-8 text-center">
+                <div className="flex gap-2">
+                  <button type="button" className="btn" onClick={() => fileRef.current?.click()} disabled={uploading}>{uploading ? "Envoi…" : "Importer"}</button>
                 </div>
-              ))}
-              {images.length < 10 && (
-                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="grid aspect-square place-items-center rounded-lg border-2 border-dashed border-line text-sm text-muted hover:border-pine hover:text-pine">
-                  {uploading ? "Envoi…" : "+ Ajouter"}
-                </button>
-              )}
-            </div>
+                <span className="text-xs text-muted">Accepte les images JPG, PNG, WebP et GIF (5 Mo max).</span>
+              </div>
+            )}
             <input ref={fileRef} id="product-images" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden onChange={(e) => onFiles(e.target.files)} />
-            {uploadError && <p className="mt-2 text-sm text-red-700">{uploadError}</p>}
+            {uploadError && <p className="mt-2 text-[13px] text-[#8e0b21]">{uploadError}</p>}
             {!images.length && (
-              <div className="mt-4 flex items-center gap-4">
-                <Thumb hue={hue} title={title || "?"} className="h-14 w-14 text-base" />
-                <label className="label flex-1">Couleur du visuel sans photo<input id="hue" type="range" min={0} max={359} value={hue} onChange={(e) => setHue(Number(e.target.value))} className="accent-[#303030]" /></label>
+              <div className="mt-3 flex items-center gap-3">
+                <Thumb hue={hue} title={title || "?"} className="h-10 w-10 text-xs" />
+                <label className="label flex-1 text-xs text-muted">Couleur du visuel tant qu'il n'y a pas de photo<input id="hue" type="range" min={0} max={359} value={hue} onChange={(e) => setHue(Number(e.target.value))} className="accent-[#303030]" /></label>
               </div>
             )}
           </section>
 
-          <section className="card p-5">
-            <div className="mb-1 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-[650]">Options</h2>
-              {options.length < 3 && (
-                <button type="button" className="btn btn-sm" onClick={() => setOptions((o) => [...o, { name: o.length === 0 ? "Taille" : o.length === 1 ? "Couleur" : "Matière", values: [] }])}>+ Ajouter une option</button>
-              )}
+          {!hasOptions && single && (
+            <>
+              <section className="card p-4">
+                <h2 className="mb-3 text-sm font-[650]">Prix</h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="label">Prix
+                    <span className="relative"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">{currency === "EUR" ? "€" : currency}</span>
+                    <input id="price" className="input num pl-9" inputMode="decimal" required value={single.price} onChange={(e) => setRow([], { price: e.target.value })} placeholder="0,00" /></span>
+                  </label>
+                  <label className="label">Prix avant réduction
+                    <span className="relative"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">{currency === "EUR" ? "€" : currency}</span>
+                    <input id="compare-at" className="input num pl-9" inputMode="decimal" value={single.compareAt} onChange={(e) => setRow([], { compareAt: e.target.value })} placeholder="0,00" /></span>
+                  </label>
+                </div>
+              </section>
+              <section className="card p-4">
+                <h2 className="mb-3 text-sm font-[650]">Stock</h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="label">SKU (référence)<input id="sku" className="input" maxLength={60} value={single.sku} onChange={(e) => setRow([], { sku: e.target.value })} /></label>
+                  <label className="label">Quantité<input id="stock" className="input num" type="number" min={0} value={single.stock} onChange={(e) => setRow([], { stock: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} /></label>
+                </div>
+              </section>
+            </>
+          )}
+
+          <section className="card min-w-0 overflow-hidden">
+            <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-4">
+              <h2 className="text-sm font-[650]">Variantes</h2>
             </div>
-            <p className="mb-4 text-sm text-muted">Tailles, couleurs… Chaque combinaison devient une variante avec son prix et son stock.</p>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2 px-4 pb-4">
               {options.map((o, i) => (
                 <OptionEditor
                   key={i}
@@ -127,74 +168,73 @@ export function ProductForm({ initial, collections, currency }: { initial: Produ
                   onRemove={() => setOptions((all) => all.filter((_, j) => j !== i))}
                 />
               ))}
-            </div>
-          </section>
-
-          <section className="card min-w-0">
-            <div className="card-h">
-              <h2 className="text-sm font-[650]">{hasOptions ? `Variantes (${variants.length})` : "Prix et stock"}</h2>
-              {hasOptions && variants.length > 1 && (
-                <div className="flex items-center gap-2">
-                  <input id="bulk-price" className="input w-28 py-1.5" placeholder="Prix pour tout" value={bulkPrice} onChange={(e) => setBulkPrice(e.target.value)} inputMode="decimal" />
-                  <button type="button" className="btn btn-sm" disabled={!bulkPrice} onClick={() => { setRows((r) => { const n = { ...r }; for (const v of variants) n[key(v.optionValues)] = { ...v, price: bulkPrice }; return n; }); setBulkPrice(""); }}>Appliquer</button>
-                </div>
+              {options.length < 3 && (
+                <button type="button" className="flex items-center gap-1.5 self-start rounded-lg px-1 py-1 text-[13px] font-[550] text-pine hover:underline" onClick={() => setOptions((o) => [...o, { name: o.length === 0 ? "Taille" : o.length === 1 ? "Couleur" : "Matière", values: [] }])}>
+                  <span className="grid h-4 w-4 place-items-center rounded-full border border-current text-[11px] leading-none">+</span>
+                  {options.length ? "Ajouter une autre option" : "Ajouter des options comme la taille ou la couleur"}
+                </button>
               )}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px]">
-                <thead>
-                  <tr>
-                    {hasOptions && <th className="th">Variante</th>}
-                    <th className="th">Prix ({currency})</th>
-                    <th className="th">Prix barré</th>
-                    <th className="th">Stock</th>
-                    <th className="th">Référence</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {variants.map((v) => (
-                    <tr key={key(v.optionValues)}>
-                      {hasOptions && <td className="td font-semibold">{v.optionValues.join(" / ")}</td>}
-                      <td className="td"><input aria-label="Prix" className="input num" inputMode="decimal" required value={v.price} onChange={(e) => setRow(v.optionValues, { price: e.target.value })} placeholder="0,00" /></td>
-                      <td className="td"><input aria-label="Prix barré" className="input num" inputMode="decimal" value={v.compareAt} onChange={(e) => setRow(v.optionValues, { compareAt: e.target.value })} placeholder="Optionnel" /></td>
-                      <td className="td"><input aria-label="Stock" className="input num w-24" type="number" min={0} value={v.stock} onChange={(e) => setRow(v.optionValues, { stock: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} /></td>
-                      <td className="td"><input aria-label="Référence" className="input" value={v.sku} maxLength={60} onChange={(e) => setRow(v.optionValues, { sku: e.target.value })} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {hasOptions && (
+              <>
+                {variants.length > 1 && (
+                  <div className="flex items-center gap-2 border-t border-line bg-[#f7f7f7] px-4 py-2">
+                    <span className="text-xs text-muted">Modifier tous les prix</span>
+                    <input id="bulk-price" className="input h-7 w-28 py-1" placeholder="0,00" value={bulkPrice} onChange={(e) => setBulkPrice(e.target.value)} inputMode="decimal" />
+                    <button type="button" className="btn btn-sm" disabled={!bulkPrice} onClick={() => { setRows((r) => { const n = { ...r }; for (const v of variants) n[key(v.optionValues)] = { ...v, price: bulkPrice }; return n; }); setBulkPrice(""); }}>Appliquer</button>
+                  </div>
+                )}
+                <div className="overflow-x-auto border-t border-line">
+                  <table className="w-full min-w-[560px]">
+                    <thead><tr><th className="th">Variante</th><th className="th">Prix</th><th className="th">Prix avant réduction</th><th className="th">Disponible</th><th className="th">SKU</th></tr></thead>
+                    <tbody>
+                      {variants.map((v) => (
+                        <tr key={key(v.optionValues)}>
+                          <td className="td font-[550]">{v.optionValues.join(" / ")}</td>
+                          <td className="td"><input aria-label={`Prix ${v.optionValues.join(" / ")}`} className="input num w-28" inputMode="decimal" required value={v.price} onChange={(e) => setRow(v.optionValues, { price: e.target.value })} placeholder="0,00" /></td>
+                          <td className="td"><input aria-label={`Prix avant réduction ${v.optionValues.join(" / ")}`} className="input num w-28" inputMode="decimal" value={v.compareAt} onChange={(e) => setRow(v.optionValues, { compareAt: e.target.value })} placeholder="0,00" /></td>
+                          <td className="td"><input aria-label={`Disponible ${v.optionValues.join(" / ")}`} className="input num w-20" type="number" min={0} value={v.stock} onChange={(e) => setRow(v.optionValues, { stock: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} /></td>
+                          <td className="td"><input aria-label={`SKU ${v.optionValues.join(" / ")}`} className="input w-28" value={v.sku} maxLength={60} onChange={(e) => setRow(v.optionValues, { sku: e.target.value })} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="border-t border-line px-4 py-2.5 text-center text-xs text-muted">Stock total : {totalStock} disponible{totalStock > 1 ? "s" : ""}</div>
+              </>
+            )}
           </section>
         </div>
 
-        <aside className="flex flex-col gap-5">
-          <section className="card flex flex-col gap-3 p-5">
+        <aside className="flex flex-col gap-4">
+          <section className="card flex flex-col gap-2 p-4">
             <h2 className="text-sm font-[650]">Statut</h2>
             <select id="status" className="input" value={status} onChange={(e) => setStatus(e.target.value as "draft" | "active")}>
               <option value="active">Actif</option>
               <option value="draft">Brouillon</option>
             </select>
+            <p className="text-xs text-muted">{status === "active" ? "Visible dans la boutique en ligne." : "Masqué tant qu'il est en brouillon."}</p>
           </section>
-          <section className="card flex flex-col gap-3 p-5">
-            <h2 className="text-sm font-[650]">Collections</h2>
+          <section className="card flex flex-col gap-2 p-4">
+            <h2 className="text-sm font-[650]">Organisation du produit</h2>
+            <span className="text-[13px]">Collections</span>
             {collections.length ? (
-              collections.map((c) => (
-                <label key={c.id} className="flex items-center gap-2.5 text-sm">
-                  <input type="checkbox" className="h-4 w-4 accent-[#303030]" checked={collectionIds.includes(c.id)} onChange={(e) => setCollectionIds((ids) => (e.target.checked ? [...ids, c.id] : ids.filter((x) => x !== c.id)))} />
-                  {c.title}
-                </label>
-              ))
+              <div className="flex flex-col gap-1.5">
+                {collections.map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 text-[13px]">
+                    <input type="checkbox" className="h-4 w-4 accent-[#303030]" checked={collectionIds.includes(c.id)} onChange={(e) => setCollectionIds((ids) => (e.target.checked ? [...ids, c.id] : ids.filter((x) => x !== c.id)))} />
+                    {c.title}
+                  </label>
+                ))}
+              </div>
             ) : (
-              <p className="text-sm text-muted">Aucune collection. <Link href="/admin/collections/new" className="font-semibold text-pine">En créer une</Link></p>
+              <p className="text-xs text-muted">Aucune collection. <Link href="/admin/collections/new" className="text-pine hover:underline">En créer une</Link></p>
             )}
           </section>
         </aside>
       </div>
-
-      <div className="sticky bottom-0 -mx-4 flex items-center justify-end gap-3 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur md:mx-0 md:rounded-xl md:border">
-        {state?.error && <p role="alert" className="mr-auto text-sm font-semibold text-red-700">{state.error}</p>}
-        <Link href="/admin/products" className="btn">Annuler</Link>
-        <button className="btn btn-primary" disabled={pending || uploading}>{pending ? "Enregistrement…" : initial.id ? "Enregistrer" : "Ajouter le produit"}</button>
+      <div className="flex justify-end border-t border-[#d4d4d4] pt-4">
+        <button className="btn btn-primary" disabled={pending || uploading || !dirty}>{pending ? "Enregistrement…" : "Enregistrer"}</button>
       </div>
     </form>
   );
@@ -208,10 +248,10 @@ function OptionEditor({ option, onChange, onRemove }: { option: Option; onChange
     setDraft("");
   };
   return (
-    <div className="rounded-lg border border-line p-4">
+    <div className="rounded-lg border border-line p-3">
       <div className="flex gap-2">
         <input aria-label="Nom de l'option" className="input font-semibold" value={option.name} maxLength={30} onChange={(e) => onChange({ ...option, name: e.target.value })} />
-        <button type="button" className="btn btn-danger" onClick={onRemove}>Retirer</button>
+        <button type="button" className="btn btn-danger" onClick={onRemove}>Supprimer</button>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {option.values.map((v) => (

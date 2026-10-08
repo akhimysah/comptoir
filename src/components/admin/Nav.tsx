@@ -71,7 +71,7 @@ export function AdminNav({ toShip, storeSlug }: { toShip: number; storeSlug: str
   const main: Item[] = [
     { href: "/admin", label: "Accueil", icon: "home" },
     { href: "/admin/orders", label: "Commandes", icon: "orders", badge: toShip },
-    { href: "/admin/products", label: "Produits", icon: "products", match: ["/admin/products", "/admin/collections"], children: [{ href: "/admin/collections", label: "Collections" }] },
+    { href: "/admin/products", label: "Produits", icon: "products", match: ["/admin/products", "/admin/collections", "/admin/inventory"], children: [{ href: "/admin/collections", label: "Collections" }, { href: "/admin/inventory", label: "Stock" }] },
     { href: "/admin/customers", label: "Clients", icon: "customers" },
     { href: "/admin/discounts", label: "Remises", icon: "discounts" },
   ];

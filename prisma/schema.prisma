@@ -109,6 +109,7 @@ model Customer {
   store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   email     String
   name      String
+  note      String   @default("") // note interne, visible seulement dans l'admin
   createdAt DateTime @default(now())
   orders    Order[]
 
@@ -156,8 +157,20 @@ model Order {
   paidAt            DateTime?
   createdAt         DateTime    @default(now())
   items             OrderItem[]
+  events            OrderEvent[]
 
   @@unique([storeId, number])
+}
+
+/// Chronologie d'une commande : actions du marchand et commentaires internes.
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      String // comment | fulfilled | unfulfilled | cancelled | refunded
+  message   String   @default("")
+  author    String   @default("")
+  createdAt DateTime @default(now())
 }
 
 model OrderItem {

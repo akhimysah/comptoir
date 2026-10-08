@@ -19,11 +19,12 @@ export default async function EditProductPage({ params, searchParams }: { params
   return (
     <>
       <PageHeader
+        back="/admin/products"
         title={product.title}
-        subtitle={saved ? <span className="font-semibold text-pine">Produit enregistré.</span> : undefined}
+        subtitle={saved ? <span className="font-[550] text-[#0c5132]">Produit enregistré</span> : undefined}
         actions={
           <>
-            {product.status === "active" && <Link href={`/s/${store.slug}/p/${product.handle}`} target="_blank" className="btn">Voir dans la boutique</Link>}
+            {product.status === "active" && <Link href={`/s/${store.slug}/p/${product.handle}`} target="_blank" className="btn">Aperçu</Link>}
             <form action={deleteProduct}>
               <input type="hidden" name="id" value={product.id} />
               <ConfirmSubmit label="Supprimer" confirmLabel="Confirmer la suppression" />
