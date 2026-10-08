@@ -36,9 +36,15 @@ export type PricedCart = {
   shippingRateId: string | null;
   shippingMethod: string;
   shippingError: string | null;
+  giftCardCode: string | null;
+  giftCardCents: number;
+  giftCardBalanceCents: number;
+  giftCardError: string | null;
 };
 
 export type ShippingChoice = { country?: string | null; rateId?: string | null };
+
+export const normalizeGiftCode = (c: string) => c.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
 export function discountAmount(d: Discount, subtotalCents: number) {
   const raw = d.type === "percent" ? Math.round((subtotalCents * Math.min(d.value, 100)) / 100) : d.value;
@@ -57,7 +63,7 @@ export function discountProblem(d: Discount | null, subtotalCents: number): stri
  * Recalcule toujours le panier côté serveur à partir de la base :
  * les prix envoyés par le navigateur ne sont jamais utilisés.
  */
-export async function priceCart(store: Store, items: CartInput, code?: string | null, ship: ShippingChoice = {}): Promise<PricedCart> {
+export async function priceCart(store: Store, items: CartInput, code?: string | null, ship: ShippingChoice = {}, giftCode?: string | null): Promise<PricedCart> {
   const qty = new Map<string, number>();
   for (const it of items) {
     if (!it || typeof it.variantId !== "string") continue;
@@ -116,6 +122,18 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
 
   const afterDiscount = subtotalCents - discountCents;
   const shipping = await computeShipping(store, afterDiscount, lines.length > 0, ship);
+  const due = afterDiscount + shipping.shippingCents;
+
+  // Carte cadeau : elle paie tout ou partie du total, livraison comprise.
+  let giftCardCode: string | null = null, giftCardCents = 0, giftCardBalanceCents = 0, giftCardError: string | null = null;
+  const g = giftCode ? normalizeGiftCode(giftCode) : "";
+  if (g) {
+    const card = await db.giftCard.findUnique({ where: { storeId_code: { storeId: store.id, code: g } } });
+    if (!card || card.disabled) giftCardError = "Cette carte cadeau n'existe pas.";
+    else if (card.expiresAt && card.expiresAt < new Date()) giftCardError = "Cette carte cadeau a expiré.";
+    else if (card.balanceCents <= 0) giftCardError = "Cette carte cadeau est épuisée.";
+    else { giftCardCode = card.code; giftCardBalanceCents = card.balanceCents; giftCardCents = Math.min(card.balanceCents, due); }
+  }
 
   return {
     lines,
@@ -124,7 +142,11 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     discountCode,
     discountError,
     ...shipping,
-    totalCents: afterDiscount + shipping.shippingCents,
+    giftCardCode,
+    giftCardCents,
+    giftCardBalanceCents,
+    giftCardError,
+    totalCents: due - giftCardCents,
     freeShippingFromCents: store.freeShippingFromCents,
     notices,
   };

@@ -36,6 +36,8 @@ export async function createOrder(
           subtotalCents: cart.subtotalCents,
           discountCents: cart.discountCents,
           discountCode: cart.discountCode,
+          giftCardCode: cart.giftCardCode,
+          giftCardCents: cart.giftCardCents,
           shippingCents: cart.shippingCents,
           shippingMethod: cart.shippingMethod,
           totalCents: cart.totalCents,
@@ -80,6 +82,10 @@ export async function markOrderPaid(orderId: string) {
       if (!item.variantId) continue;
       const v = await tx.variant.findUnique({ where: { id: item.variantId } });
       if (v) await tx.variant.update({ where: { id: v.id }, data: { stock: Math.max(0, v.stock - item.quantity) } });
+    }
+    if (order.giftCardCode && order.giftCardCents > 0) {
+      const card = await tx.giftCard.findUnique({ where: { storeId_code: { storeId: order.storeId, code: order.giftCardCode } } });
+      if (card) await tx.giftCard.update({ where: { id: card.id }, data: { balanceCents: Math.max(0, card.balanceCents - order.giftCardCents) } });
     }
     if (order.discountCode) {
       await tx.discount.updateMany({

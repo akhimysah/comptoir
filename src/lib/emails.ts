@@ -28,7 +28,7 @@ function itemsTable(order: Order & { items: OrderItem[] }, currency: string) {
     .join("");
   const line = (k: string, v: string, bold = false) => `<tr><td style="padding:4px 0;${bold ? "font-weight:700" : "color:#616161"}">${k}</td><td align="right" style="padding:4px 0;${bold ? "font-weight:700" : ""}">${v}</td></tr>`;
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;margin:16px 0">${rows}
-${line("Sous-total", m(order.subtotalCents))}${order.discountCents ? line(`Remise ${esc(order.discountCode ?? "")}`, `−${m(order.discountCents)}`) : ""}${line("Livraison", order.shippingCents ? m(order.shippingCents) : "Offerte")}${line("Total", m(order.totalCents), true)}</table>`;
+${line("Sous-total", m(order.subtotalCents))}${order.discountCents ? line(`Remise ${esc(order.discountCode ?? "")}`, `−${m(order.discountCents)}`) : ""}${line("Livraison", order.shippingCents ? m(order.shippingCents) : "Offerte")}${order.giftCardCents ? line(`Carte cadeau ····${esc((order.giftCardCode ?? "").slice(-4))}`, `−${m(order.giftCardCents)}`) : ""}${line("Total payé", m(order.totalCents), true)}</table>`;
 }
 
 function addressBlock(order: Order) {
@@ -90,5 +90,21 @@ export function abandonedCartEmail(store: Store, name: string, lines: { title: s
       `<p style="font-size:14px;line-height:1.5">Vous avez laissé des articles dans votre panier. Nous les avons gardés pour vous.</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;margin:16px 0">${rows}</table>
 <p>${button(link, "Reprendre ma commande")}</p>`),
+  };
+}
+
+export function giftCardEmail(store: Store, code: string, amountCents: number, note: string, expiresAt: Date | null) {
+  const pretty = code.match(/.{1,4}/g)?.join(" ") ?? code;
+  return {
+    subject: `Votre carte cadeau ${store.name} de ${formatMoney(amountCents, store.currency)}`,
+    html: layout(store.name, `Vous avez reçu une carte cadeau de ${formatMoney(amountCents, store.currency)}`,
+      `${note ? `<p style="font-size:14px;line-height:1.5;font-style:italic">« ${esc(note)} »</p>` : ""}
+<div style="margin:20px 0;padding:18px;border:2px dashed #b5b5b5;border-radius:12px;text-align:center">
+<div style="font-size:12px;color:#616161;text-transform:uppercase;letter-spacing:.08em">Code de la carte</div>
+<div style="font-size:22px;font-weight:700;letter-spacing:.12em;font-family:monospace;margin-top:6px">${pretty}</div>
+${expiresAt ? `<div style="font-size:12px;color:#616161;margin-top:6px">Valable jusqu'au ${expiresAt.toLocaleDateString("fr-FR")}</div>` : ""}
+</div>
+<p style="font-size:14px;line-height:1.5">Saisissez ce code dans votre panier, champ « Carte cadeau ». Le montant non utilisé reste sur la carte.</p>
+<p>${button(`${appUrl()}/s/${store.slug}`, "Découvrir la boutique")}</p>`),
   };
 }

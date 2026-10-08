@@ -17,6 +17,7 @@ const schema = z.object({
   country: z.string().trim().min(2).max(60),
   note: z.string().max(500).optional().default(""),
   rateId: z.string().max(40).optional().nullable(),
+  giftCode: z.string().max(40).optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -27,14 +28,17 @@ export async function POST(req: Request) {
   const store = await db.store.findUnique({ where: { slug: b.slug } });
   if (!store) return NextResponse.json({ error: "Boutique introuvable." }, { status: 404 });
 
-  const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId });
+  const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode);
+  if (b.giftCode && cart.giftCardError) return NextResponse.json({ error: cart.giftCardError }, { status: 400 });
   if (cart.shippingError) return NextResponse.json({ error: cart.shippingError }, { status: 400 });
   if (!cart.lines.length) return NextResponse.json({ error: "Votre panier est vide." }, { status: 400 });
   if (b.code && cart.discountError) return NextResponse.json({ error: cart.discountError }, { status: 400 });
   if (cart.notices.length) return NextResponse.json({ error: cart.notices[0], refresh: true }, { status: 409 });
 
   const stripe = getStripe();
-  const useStripe = Boolean(stripe && store.stripeAccountId && store.stripeChargesEnabled);
+  // Rien à payer (carte cadeau qui couvre tout) : pas de passage par Stripe.
+  const useStripe = Boolean(stripe && store.stripeAccountId && store.stripeChargesEnabled && cart.totalCents > 0);
+  if (useStripe && cart.totalCents < 50) return NextResponse.json({ error: "Le montant restant est trop faible pour un paiement par carte (50 centimes minimum)." }, { status: 400 });
   const order = await createOrder(
     store,
     cart,
@@ -49,7 +53,8 @@ export async function POST(req: Request) {
   }
 
   const currency = store.currency.toLowerCase();
-  const coupon = cart.discountCents > 0 ? await stripe.coupons.create({ amount_off: cart.discountCents, currency, duration: "once", name: cart.discountCode ?? "Réduction" }) : null;
+  const reduction = cart.discountCents + cart.giftCardCents;
+  const coupon = reduction > 0 ? await stripe.coupons.create({ amount_off: reduction, currency, duration: "once", name: [cart.discountCode, cart.giftCardCode && "Carte cadeau"].filter(Boolean).join(" + ") || "Réduction" }) : null;
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     customer_email: b.email,

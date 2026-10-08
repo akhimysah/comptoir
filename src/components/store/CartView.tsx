@@ -20,6 +20,8 @@ export function CartView({ slug, currency, cancelled, demo, recovered }: { slug:
   const [country, setCountry] = useState("France");
   const [rateId, setRateId] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
+  const [giftInput, setGiftInput] = useState("");
+  const [gift, setGift] = useState("");
 
   // Lien « Reprendre ma commande » reçu par e-mail : on remet le panier mémorisé.
   useEffect(() => {
@@ -36,7 +38,7 @@ export function CartView({ slug, currency, cancelled, demo, recovered }: { slug:
 
   const refresh = useCallback(async () => {
     if (!ready) return;
-    const res = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, items, code: applied, country, rateId }) });
+    const res = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, items, code: applied, country, rateId, giftCode: gift }) });
     if (!res.ok) return;
     const priced: PricedCart = await res.json();
     setCart(priced);
@@ -45,7 +47,7 @@ export function CartView({ slug, currency, cancelled, demo, recovered }: { slug:
     const next = priced.lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity }));
     const same = next.length === items.length && next.every((n) => items.some((i) => i.variantId === n.variantId && i.quantity === n.quantity));
     if (!same) replace(next);
-  }, [ready, slug, items, applied, country, rateId, replace]);
+  }, [ready, slug, items, applied, country, rateId, gift, replace]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -54,7 +56,7 @@ export function CartView({ slug, currency, cancelled, demo, recovered }: { slug:
     setBusy(true);
     setError(null);
     const data = Object.fromEntries(new FormData(e.currentTarget));
-    const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, country, rateId: cart?.shippingRateId ?? rateId, slug, items, code: applied }) });
+    const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, country, rateId: cart?.shippingRateId ?? rateId, giftCode: gift, slug, items, code: applied }) });
     const json = await res.json().catch(() => ({}));
     if (res.ok && json.url) { window.location.href = json.url; return; }
     setError(json.error ?? "La commande n'a pas pu être créée. Réessayez.");
@@ -110,11 +112,17 @@ export function CartView({ slug, currency, cancelled, demo, recovered }: { slug:
               <button className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-4 text-sm font-semibold">Appliquer</button>
             </form>
             {applied && cart?.discountError && <p className="text-sm text-red-600">{cart.discountError}</p>}
+            <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setGift(giftInput.trim()); }}>
+              <input id="gift-card" aria-label="Carte cadeau" className={`${field} uppercase`} placeholder="Carte cadeau" value={giftInput} onChange={(e) => setGiftInput(e.target.value)} />
+              <button className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-4 text-sm font-semibold">Utiliser</button>
+            </form>
+            {gift && cart?.giftCardError && <p className="text-sm text-red-600">{cart.giftCardError}</p>}
             {cart && (
               <dl className="grid grid-cols-[1fr_auto] gap-y-1.5 text-sm tabular-nums">
                 <dt className="text-[var(--c-muted)]">Sous-total</dt><dd className="text-right">{m(cart.subtotalCents)}</dd>
                 {cart.discountCents > 0 && <><dt className="text-[var(--c-muted)]">Code {cart.discountCode} <button type="button" className="underline" onClick={() => { setApplied(""); setCode(""); }}>retirer</button></dt><dd className="text-right">−{m(cart.discountCents)}</dd></>}
                 <dt className="text-[var(--c-muted)]">{cart.shippingMethod || "Livraison"}</dt><dd className="text-right">{cart.shippingError ? "—" : cart.shippingCents ? m(cart.shippingCents) : "Offerte"}</dd>
+                {cart.giftCardCents > 0 && <><dt className="text-[var(--c-muted)]">Carte cadeau ····{cart.giftCardCode?.slice(-4)} <button type="button" className="underline" onClick={() => { setGift(""); setGiftInput(""); }}>retirer</button><span className="block text-xs">Solde restant après achat : {m(cart.giftCardBalanceCents - cart.giftCardCents)}</span></dt><dd className="text-right">−{m(cart.giftCardCents)}</dd></>}
                 <dt className="mt-2 border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-2 text-base font-semibold">Total</dt>
                 <dd className="mt-2 border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-2 text-right text-base font-semibold">{m(cart.totalCents)}</dd>
               </dl>
