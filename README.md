@@ -16,7 +16,7 @@ npm run dev
 Ensuite, ouvrez http://localhost:3000.
 
 - Boutique de démonstration : http://localhost:3000/s/atelier-argile
-- Admin de démonstration : http://localhost:3000/login avec `demo@comptoir.test` / `demo1234`. Ce compte de test est créé par `prisma/seed.ts`.
+- Admin de démonstration : http://localhost:3000/login avec `demo@comptoir.test` / `demo1234`. Ce compte de test est créé par `prisma/seed.ts`, avec 3 boutiques : Atelier Argile, Maison Lin et Thé & Co.
 - Code promo de démonstration : `BIENVENUE10`
 
 `npm run db:seed` remet la boutique de démonstration à zéro.
@@ -36,6 +36,12 @@ Ensuite, ouvrez http://localhost:3000.
 | Commandes : actions groupées, création manuelle, chronologie et commentaires internes | |
 | Stock modifiable sur place, page Statistiques | |
 | Équipe : invitation de collaborateurs par lien (Paramètres → Utilisateurs) | |
+
+## Plusieurs boutiques et rapport quotidien
+
+Un même compte peut gérer plusieurs boutiques : menu en haut à droite → **Créer une boutique**, et on passe de l'une à l'autre depuis ce même menu. La page **Toutes les boutiques** regroupe le chiffre d'affaires et les commandes (aujourd'hui, 7, 30 ou 90 jours), boutique par boutique et au total, avec le CA jour par jour et les dernières commandes de toutes les boutiques.
+
+Le **rapport quotidien** (CA et commandes de la veille, produits les plus vendus, commandes à expédier) part chaque matin par e-mail. En ligne sur Vercel, `vercel.json` déclenche `/api/cron/daily-report` tous les jours à 6 h UTC : définissez `CRON_SECRET` dans les variables Vercel. Ailleurs, appelez cette adresse chaque matin avec l'en-tête `Authorization: Bearer <CRON_SECRET>`. Le bouton « M'envoyer le rapport d'hier » l'envoie tout de suite.
 
 ## Travailler à plusieurs sur une boutique
 

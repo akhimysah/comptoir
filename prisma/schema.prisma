@@ -13,6 +13,7 @@ model User {
   email        String    @unique
   name         String
   passwordHash String
+  dailyReport  Boolean   @default(true) // rapport quotidien par e-mail (toutes ses boutiques)
   createdAt    DateTime  @default(now())
   sessions     Session[]
   stores       Store[]

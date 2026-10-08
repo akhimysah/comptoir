@@ -44,15 +44,24 @@ export async function requireUser() {
   return user;
 }
 
-/** Le marchand connecté, sa boutique (dont il est propriétaire ou collaborateur) et son rôle. */
+export const STORE_COOKIE = "comptoir_store";
+
+/** Toutes les boutiques auxquelles l'utilisateur a accès (propriétaire ou collaborateur). */
+export const accessibleStores = cache(async (userId: string) =>
+  db.store.findMany({
+    where: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] },
+    orderBy: { createdAt: "asc" },
+  }),
+);
+
+/** Le marchand connecté, la boutique active (choisie dans le menu du haut) et son rôle. */
 export const requireStore = cache(async () => {
   const user = await requireUser();
-  const store = await db.store.findFirst({
-    where: { OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }] },
-    orderBy: { createdAt: "asc" },
-  });
-  if (!store) redirect("/signup?step=store");
-  return { user, store, isOwner: store.ownerId === user.id };
+  const stores = await accessibleStores(user.id);
+  if (!stores.length) redirect("/signup?step=store");
+  const wanted = (await cookies()).get(STORE_COOKIE)?.value;
+  const store = stores.find((s) => s.id === wanted) ?? stores[0];
+  return { user, store, stores, isOwner: store.ownerId === user.id };
 });
 
 /** Pages réservées au propriétaire : paiements, collaborateurs. */

@@ -15,6 +15,7 @@ const ICONS: Record<string, string> = {
   settings: "M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM15.5 10a5.5 5.5 0 0 0-.08-.92l1.58-1.24-1.5-2.6-1.88.75a5.5 5.5 0 0 0-1.6-.92L11.75 3h-3l-.27 2.07a5.5 5.5 0 0 0-1.6.92L5 5.24l-1.5 2.6 1.58 1.24a5.5 5.5 0 0 0 0 1.84L3.5 12.16l1.5 2.6 1.88-.75a5.5 5.5 0 0 0 1.6.92L8.75 17h3l.27-2.07a5.5 5.5 0 0 0 1.6-.92l1.88.75 1.5-2.6-1.58-1.24c.05-.3.08-.6.08-.92z",
   search: "M9 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM17 17l-3.75-3.75",
   chart: "M4 16V9M8.5 16V4.5M13 16v-5M17 16V7.5M3 16.5h14.5",
+  stores: "M3.5 8.5 4.5 4h11l1 4.5M3.5 8.5h13M4.5 8.5V16h11V8.5M8 16v-4h4v4",
   bell: "M10 3.5a4.5 4.5 0 0 0-4.5 4.5v3L4 13.5h12L14.5 11V8A4.5 4.5 0 0 0 10 3.5zM8.5 16a1.5 1.5 0 0 0 3 0",
   plus: "M10 4.5v11M4.5 10h11",
   back: "M12 4.5 6.5 10l5.5 5.5",
@@ -67,7 +68,7 @@ function NavLink({ item, path }: { item: Item; path: string }) {
   );
 }
 
-export function AdminNav({ toShip, storeSlug, isOwner }: { toShip: number; storeSlug: string; isOwner: boolean }) {
+export function AdminNav({ toShip, storeSlug, isOwner, storeCount }: { toShip: number; storeSlug: string; isOwner: boolean; storeCount: number }) {
   const path = usePathname();
   const main: Item[] = [
     { href: "/admin", label: "Accueil", icon: "home" },
@@ -78,7 +79,12 @@ export function AdminNav({ toShip, storeSlug, isOwner }: { toShip: number; store
     { href: "/admin/discounts", label: "Remises", icon: "discounts" },
   ];
   return (
-    <nav className="flex h-full flex-col gap-4 px-3 py-3">
+    <nav className="flex h-full flex-col gap-4 overflow-y-auto px-3 py-3">
+      {storeCount > 1 && (
+        <ul className="-mb-2 flex flex-col gap-0.5 border-b border-[#d4d4d4] pb-2">
+          <NavLink item={{ href: "/admin/overview", label: `Toutes les boutiques (${storeCount})`, icon: "stores" }} path={path} />
+        </ul>
+      )}
       <ul className="flex flex-col gap-0.5">{main.map((i) => <NavLink key={i.href} item={i} path={path} />)}</ul>
       <div>
         <div className="mb-1 flex items-center justify-between px-2 text-xs font-[550] text-muted">Canaux de vente</div>

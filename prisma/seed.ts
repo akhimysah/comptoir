@@ -97,6 +97,7 @@ async function main() {
   await db.discount.create({ data: { storeId: store.id, code: "BIENVENUE10", type: "percent", value: 10 } });
   await seedShipping(db, store.id);
   await seedReviews(db, store.id);
+  await seedExtraStores(db, user.id);
 
   // Commandes d'exemple réparties sur les 3 dernières semaines
   const buyers = [
@@ -166,5 +167,50 @@ export async function seedReviews(client: PrismaClient, storeId: string) {
   for (const [h, name, email, rating, title, body, verified, status] of R) {
     const productId = await byHandle(h);
     if (productId) await client.review.create({ data: { storeId, productId, name, email, rating, title, body, verified, status } });
+  }
+}
+
+/** Deux boutiques de plus pour le compte de démo, avec des ventes sur 30 jours (vue « Toutes les boutiques »). */
+export async function seedExtraStores(client: PrismaClient, ownerId: string) {
+  const SHOPS = [
+    { slug: "maison-lin", name: "Maison Lin", preset: "papier", products: [["Nappe en lin", 6900, 5], ["Torchons (lot de 3)", 2400, 140], ["Housse de coussin", 3200, 320], ["Tablier en lin", 3900, 25]] },
+    { slug: "the-et-co", name: "Thé & Co", preset: "minuit", products: [["Thé vert Sencha 100 g", 1290, 120], ["Rooibos vanille 100 g", 990, 20], ["Coffret découverte", 3490, 200], ["Théière en fonte", 5900, 260]] },
+  ] as const;
+  const names = [["Julie Bernard", "julie@exemple.fr"], ["Marc Lefèvre", "marc@exemple.fr"], ["Amina Diallo", "amina@exemple.fr"], ["Hugo Roux", "hugo@exemple.fr"], ["Clara Fontaine", "clara@exemple.fr"]];
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  for (const shop of SHOPS) {
+    await client.store.deleteMany({ where: { slug: shop.slug } });
+    const p = PRESETS[shop.preset];
+    const theme: Theme = { ...defaultTheme(shop.name), colors: p.colors, font: p.font, radius: p.radius };
+    const store = await client.store.create({ data: { slug: shop.slug, name: shop.name, ownerId, theme: JSON.stringify(theme) } });
+    const products = [];
+    for (const [title, price, hue] of shop.products) {
+      products.push(await client.product.create({
+        data: { storeId: store.id, title, handle: title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""), status: "active", hue, variants: { create: [{ title: "Par défaut", priceCents: price, stock: 50 }] } },
+        include: { variants: true },
+      }));
+    }
+    let number = 1001;
+    for (let day = 29; day >= 0; day--) {
+      const perDay = Math.floor(rnd() * 4);
+      for (let k = 0; k < perDay; k++) {
+        const [name, email] = names[Math.floor(rnd() * names.length)];
+        const pr = products[Math.floor(rnd() * products.length)];
+        const q = 1 + Math.floor(rnd() * 2);
+        const sub = pr.variants[0].priceCents * q, ship = sub >= 6000 ? 0 : 490;
+        const createdAt = new Date(Date.now() - day * 86400_000 - Math.floor(rnd() * 8) * 3600_000);
+        const customer = await client.customer.upsert({ where: { storeId_email: { storeId: store.id, email } }, update: {}, create: { storeId: store.id, email, name } });
+        await client.order.create({
+          data: {
+            storeId: store.id, number: number++, customerId: customer.id, email, name,
+            address: JSON.stringify({ line1: "8 rue de la Paix", zip: "75002", city: "Paris", country: "France" }),
+            paymentStatus: "paid", paidAt: createdAt, fulfillmentStatus: day > 2 ? "fulfilled" : "unfulfilled",
+            subtotalCents: sub, shippingCents: ship, totalCents: sub + ship, createdAt,
+            items: { create: [{ variantId: pr.variants[0].id, productTitle: pr.title, variantTitle: "Par défaut", priceCents: pr.variants[0].priceCents, quantity: q, hue: pr.hue }] },
+          },
+        });
+      }
+    }
   }
 }
