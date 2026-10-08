@@ -1,5 +1,6 @@
 import { Thumb } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
+import { Stars } from "./Stars";
 import type { CardProduct, StoreInfo } from "./types";
 
 export function ProductCard({ p, store }: { p: CardProduct; store: StoreInfo }) {
@@ -15,6 +16,7 @@ export function ProductCard({ p, store }: { p: CardProduct; store: StoreInfo }) 
       </div>
       <div className="flex flex-col gap-0.5">
         <span className="font-medium leading-snug">{p.title}</span>
+        {p.rating && <span className="flex items-center gap-1.5 text-xs text-[var(--c-muted)]"><Stars value={p.rating.avg} size="text-xs" />({p.rating.count})</span>}
         <span className="flex items-baseline gap-2 text-sm">
           <span>{p.maxPriceCents > p.priceCents ? `Dès ${formatMoney(p.priceCents, store.currency)}` : formatMoney(p.priceCents, store.currency)}</span>
           {p.compareAtCents && p.compareAtCents > p.priceCents && <s className="text-[var(--c-muted)]">{formatMoney(p.compareAtCents, store.currency)}</s>}

@@ -108,6 +108,7 @@ model Review {
   title     String   @default("")
   body      String
   status    String   @default("pending") // pending | published | hidden
+  verified  Boolean  @default(false) // le client a acheté ce produit
   createdAt DateTime @default(now())
 }
 

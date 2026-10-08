@@ -96,6 +96,7 @@ async function main() {
 
   await db.discount.create({ data: { storeId: store.id, code: "BIENVENUE10", type: "percent", value: 10 } });
   await seedShipping(db, store.id);
+  await seedReviews(db, store.id);
 
   // Commandes d'exemple réparties sur les 3 dernières semaines
   const buyers = [
@@ -151,4 +152,19 @@ export async function seedShipping(client: PrismaClient, storeId: string) {
       rates: { create: [{ name: "Standard international", priceCents: 1290, freeAboveCents: 12000, position: 0 }] },
     },
   });
+}
+
+export async function seedReviews(client: PrismaClient, storeId: string) {
+  const byHandle = async (h: string) => (await client.product.findFirst({ where: { storeId, handle: h } }))?.id;
+  const R = [
+    ["tasse-gres-sable", "Léa", "lea@exemple.fr", 5, "Parfaite pour le café du matin", "Très belle finition, la couleur sable est encore plus jolie en vrai.", true, "published"],
+    ["tasse-gres-sable", "Karim", "karim@exemple.fr", 4, "", "Bonne tenue en main, un peu plus petite que je pensais.", false, "published"],
+    ["bol-celadon", "Sophie", "sophie@exemple.fr", 5, "Magnifique", "L'émail craquelé est superbe. Emballage très soigné.", true, "published"],
+    ["theiere-brume", "Thomas", "thomas@exemple.fr", 5, "Coup de cœur", "Le filtre est pratique et la théière verse sans couler.", true, "published"],
+    ["vase-galet", "Inès", "ines@exemple.fr", 3, "Joli mais fragile", "Le vase est beau mais arrivé avec un petit éclat, le service client a été réactif.", false, "pending"],
+  ] as const;
+  for (const [h, name, email, rating, title, body, verified, status] of R) {
+    const productId = await byHandle(h);
+    if (productId) await client.review.create({ data: { storeId, productId, name, email, rating, title, body, verified, status } });
+  }
 }

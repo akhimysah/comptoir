@@ -72,7 +72,7 @@ export function AdminNav({ toShip, storeSlug, isOwner }: { toShip: number; store
   const main: Item[] = [
     { href: "/admin", label: "Accueil", icon: "home" },
     { href: "/admin/orders", label: "Commandes", icon: "orders", badge: toShip, match: ["/admin/orders", "/admin/checkouts"], children: [{ href: "/admin/checkouts", label: "Paniers abandonnés" }] },
-    { href: "/admin/products", label: "Produits", icon: "products", match: ["/admin/products", "/admin/collections", "/admin/inventory"], children: [{ href: "/admin/collections", label: "Collections" }, { href: "/admin/inventory", label: "Stock" }] },
+    { href: "/admin/products", label: "Produits", icon: "products", match: ["/admin/products", "/admin/collections", "/admin/inventory", "/admin/reviews"], children: [{ href: "/admin/collections", label: "Collections" }, { href: "/admin/inventory", label: "Stock" }, { href: "/admin/reviews", label: "Avis" }] },
     { href: "/admin/customers", label: "Clients", icon: "customers" },
     { href: "/admin/analytics", label: "Statistiques", icon: "chart" },
     { href: "/admin/discounts", label: "Remises", icon: "discounts" },

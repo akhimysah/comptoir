@@ -4,11 +4,12 @@ import { useMemo, useState } from "react";
 import { Thumb } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
 import { useCart } from "./cart";
+import { Stars } from "./Stars";
 
 type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number };
 
-export function ProductBuy({ slug, currency, title, description, images, hue, options, variants }: {
-  slug: string; currency: string; title: string; description: string; images: string[]; hue: number;
+export function ProductBuy({ slug, currency, title, description, images, hue, options, variants, rating }: {
+  slug: string; currency: string; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null;
   options: { name: string; values: string[] }[]; variants: V[];
 }) {
   const { add, items } = useCart(slug);
@@ -50,6 +51,7 @@ export function ProductBuy({ slug, currency, title, description, images, hue, op
       <div className="flex flex-col gap-6 md:sticky md:top-24 md:self-start">
         <div className="flex flex-col gap-2">
           <h1 className="font-[family-name:var(--t-display)] text-3xl font-semibold leading-tight md:text-4xl">{title}</h1>
+          {rating && <a href="#avis" className="flex items-center gap-2 text-sm text-[var(--c-muted)] hover:underline"><Stars value={rating.avg} />{rating.avg.toFixed(1).replace(".", ",")} · {rating.count} avis</a>}
           <div className="flex items-baseline gap-3 text-xl">
             <span>{formatMoney(shown.priceCents, currency)}</span>
             {shown.compareAtCents && shown.compareAtCents > shown.priceCents && <s className="text-base text-[var(--c-muted)]">{formatMoney(shown.compareAtCents, currency)}</s>}

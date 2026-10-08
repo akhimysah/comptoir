@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductBuy } from "@/components/store/ProductBuy";
+import { Reviews } from "@/components/store/Reviews";
 import { db } from "@/lib/db";
 import { getStore } from "@/lib/storefront";
 import { parseJson } from "@/lib/utils";
@@ -21,7 +22,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function ProductPage({ params }: { params: Promise<{ slug: string; handle: string }> }) {
   const { slug, handle } = await params;
   const { store, product } = await load(slug, handle);
+  const agg = await db.review.aggregate({ where: { productId: product.id, status: "published" }, _avg: { rating: true }, _count: true });
   return (
+    <>
     <ProductBuy
       slug={slug}
       currency={store.currency}
@@ -29,8 +32,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       description={product.description}
       images={parseJson(product.images, [])}
       hue={product.hue}
+      rating={agg._count ? { avg: agg._avg.rating ?? 0, count: agg._count } : null}
       options={parseJson(product.options, [])}
       variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: v.priceCents, compareAtCents: v.compareAtCents, stock: v.stock }))}
     />
+    <Reviews slug={slug} productId={product.id} />
+    </>
   );
 }

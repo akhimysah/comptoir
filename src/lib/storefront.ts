@@ -13,14 +13,16 @@ export const getStore = cache(async (slug: string) => {
 });
 
 export const getCatalog = cache(async (storeId: string) => {
-  const [products, collections] = await Promise.all([
+  const [products, collections, ratings] = await Promise.all([
     db.product.findMany({
       where: { storeId, status: "active" },
       include: { variants: true, collections: { include: { collection: { select: { handle: true } } } } },
       orderBy: { createdAt: "desc" },
     }),
     db.collection.findMany({ where: { storeId }, include: { products: { where: { product: { status: "active" } } } }, orderBy: { title: "asc" } }),
+    db.review.groupBy({ by: ["productId"], where: { storeId, status: "published" }, _avg: { rating: true }, _count: true }),
   ]);
+  const ratingBy = new Map(ratings.map((r) => [r.productId, { avg: r._avg.rating ?? 0, count: r._count }]));
   const cards: CardProduct[] = products
     .filter((p) => p.variants.length)
     .map((p) => {
@@ -36,6 +38,7 @@ export const getCatalog = cache(async (storeId: string) => {
         hue: p.hue,
         soldOut: p.variants.every((v) => v.stock <= 0),
         collectionHandles: p.collections.map((c) => c.collection.handle),
+        rating: ratingBy.get(p.id) ?? null,
       };
     });
   const cols: CardCollection[] = collections.map((c) => ({ handle: c.handle, title: c.title, image: c.image, count: c.products.length }));

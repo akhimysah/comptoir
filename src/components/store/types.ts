@@ -9,6 +9,7 @@ export type CardProduct = {
   hue: number;
   soldOut: boolean;
   collectionHandles: string[];
+  rating: { avg: number; count: number } | null;
 };
 
 export type CardCollection = { handle: string; title: string; image: string | null; count: number };
