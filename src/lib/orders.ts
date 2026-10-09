@@ -12,7 +12,7 @@ export async function createOrder(
   store: Store,
   cart: PricedCart,
   buyer: { email: string; name: string; address: Address; note: string },
-  paymentMethod: "demo" | "stripe" | "manual",
+  paymentMethod: "demo" | "stripe" | "manual" | "pos_cash" | "pos_card",
 ) {
   const email = buyer.email.trim().toLowerCase();
   const customer = await db.customer.upsert({
@@ -135,7 +135,7 @@ async function issuePurchasedGiftCards(orderId: string) {
       let code = newGiftCode();
       while (await db.giftCard.findUnique({ where: { storeId_code: { storeId: order.storeId, code } } })) code = newGiftCode();
       await db.giftCard.create({ data: { storeId: order.storeId, code, initialCents: item.priceCents, balanceCents: item.priceCents, email: order.email, orderId: order.id, note: `Achetée avec la commande #${order.number}` } });
-      await sendMail({ to: order.email, storeId: order.storeId, ...giftCardEmail(order.store, code, item.priceCents, "", null) });
+      if (!order.email.endsWith(".local")) await sendMail({ to: order.email, storeId: order.storeId, ...giftCardEmail(order.store, code, item.priceCents, "", null) });
     }
   }
   if (giftItems.length === order.items.length) {
@@ -153,11 +153,12 @@ const newGiftCode = () => Array.from({ length: 16 }, () => GIFT_ALPHABET[randomI
 async function notifyOrderPaid(orderId: string) {
   const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true, store: { include: { owner: true } } } });
   if (!order) return;
+  const anonymous = order.email.endsWith(".local"); // vente en caisse sans e-mail client
   const confirm = orderConfirmationEmail(order.store, order);
   const alert = newOrderAlertEmail(order.store, order);
   await Promise.all([
-    sendMail({ to: order.email, storeId: order.storeId, ...confirm }),
-    sendMail({ to: order.store.owner.email, storeId: order.storeId, ...alert }),
+    anonymous ? Promise.resolve() : sendMail({ to: order.email, storeId: order.storeId, ...confirm }),
+    order.paymentMethod.startsWith("pos") ? Promise.resolve() : sendMail({ to: order.store.owner.email, storeId: order.storeId, ...alert }),
   ]);
 }
 

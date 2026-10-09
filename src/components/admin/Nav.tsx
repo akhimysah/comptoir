@@ -18,6 +18,7 @@ const ICONS: Record<string, string> = {
   stores: "M3.5 8.5 4.5 4h11l1 4.5M3.5 8.5h13M4.5 8.5V16h11V8.5M8 16v-4h4v4",
   channels: "M10 3.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM3.5 10h13M10 3.5c1.8 1.8 2.6 4 2.6 6.5S11.8 14.7 10 16.5M10 3.5C8.2 5.3 7.4 7.5 7.4 10s.8 4.7 2.6 6.5",
   marketing: "M4 8.5v3l9 4V4.5zM13 7.5h1.5a2.5 2.5 0 0 1 0 5H13M6.5 12l1 4h2l-.8-3.2",
+  pos: "M4 4.5h12v8H4zM7 16.5h6M10 12.5v4M6.5 7.5h3M6.5 10h7",
   bell: "M10 3.5a4.5 4.5 0 0 0-4.5 4.5v3L4 13.5h12L14.5 11V8A4.5 4.5 0 0 0 10 3.5zM8.5 16a1.5 1.5 0 0 0 3 0",
   plus: "M10 4.5v11M4.5 10h11",
   back: "M12 4.5 6.5 10l5.5 5.5",
@@ -96,6 +97,7 @@ export function AdminNav({ toShip, storeSlug, isOwner, storeCount, perms }: { to
         <ul className="flex flex-col gap-0.5">
           <NavLink item={{ href: "/admin/theme", label: "Boutique en ligne", icon: "store", match: ["/admin/theme", "/admin/pages", "/admin/blog"], children: [{ href: "/admin/theme", label: "Thèmes" }, { href: "/admin/pages", label: "Pages" }, { href: "/admin/blog", label: "Articles de blog" }] }} path={path} />
           <NavLink item={{ href: "/admin/channels", label: "Google et réseaux", icon: "channels" }} path={path} />
+          {perms.includes("orders") && <NavLink item={{ href: "/admin/pos", label: "Point de vente", icon: "pos" }} path={path} />}
         </ul>
         <a href={`/s/${storeSlug}`} target="_blank" className="mt-0.5 flex h-7 items-center gap-2 rounded-lg pl-9 pr-2 text-[13px] text-muted hover:bg-[#f1f1f1] hover:text-ink">
           Voir la boutique <Icon name="eye" className="h-4 w-4" />

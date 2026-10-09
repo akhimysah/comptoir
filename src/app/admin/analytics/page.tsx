@@ -65,7 +65,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const topMax = Math.max(...top.map((t) => t.cents), 1);
 
   const channels = [
-    { label: "Boutique en ligne", cents: orders.filter((o) => o.paymentMethod !== "manual").reduce((s, o) => s + o.totalCents - o.refundedCents, 0) },
+    { label: "Boutique en ligne", cents: orders.filter((o) => !["manual", "pos_cash", "pos_card"].includes(o.paymentMethod)).reduce((s, o) => s + o.totalCents - o.refundedCents, 0) },
+    { label: "Point de vente", cents: orders.filter((o) => o.paymentMethod.startsWith("pos")).reduce((s, o) => s + o.totalCents - o.refundedCents, 0) },
     { label: "Commandes manuelles", cents: orders.filter((o) => o.paymentMethod === "manual").reduce((s, o) => s + o.totalCents - o.refundedCents, 0) },
   ];
 

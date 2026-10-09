@@ -18,6 +18,7 @@ const EVENT_TEXT: Record<string, string> = {
   refund: "a effectué un remboursement :",
   cancelled_refund: "a annulé la commande et remboursé :",
   created_manual: "a créé cette commande manuellement.",
+  pos_sale: "a encaissé cette vente au point de vente :",
   giftcards_sent: "",
 };
 
@@ -38,8 +39,8 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   // Les étapes automatiques (création, paiement) viennent des champs de la commande ; le reste de la table des événements.
   const timeline = [
     ...o.events.map((e) => ({ at: e.createdAt, kind: e.type, text: e.type === "comment" ? e.message : `${e.author || "Quelqu'un"} ${EVENT_TEXT[e.type] ?? e.type}${e.message && e.type !== "comment" ? ` ${e.message}` : ""}`, author: e.author })),
-    ...(o.paidAt && !o.events.some((e) => e.type === "paid_manual") ? [{ at: o.paidAt, kind: "paid", text: `Paiement de ${m(o.totalCents)} reçu${o.paymentMethod === "stripe" ? " par carte (Stripe)" : o.paymentMethod === "manual" ? " (paiement hors ligne)" : " (démonstration)"}.`, author: "" }] : []),
-    ...(o.paymentMethod === "manual" ? [] : [{ at: o.createdAt, kind: "created", text: `${o.name} a passé cette commande sur la boutique en ligne.`, author: "" }]),
+    ...(o.paidAt && !o.events.some((e) => e.type === "paid_manual") ? [{ at: o.paidAt, kind: "paid", text: `Paiement de ${m(o.totalCents)} reçu${o.paymentMethod === "stripe" ? " par carte (Stripe)" : o.paymentMethod === "manual" ? " (paiement hors ligne)" : o.paymentMethod === "pos_cash" ? " en espèces" : o.paymentMethod === "pos_card" ? " par carte (terminal)" : " (démonstration)"}.`, author: "" }] : []),
+    ...(o.paymentMethod === "manual" || o.paymentMethod.startsWith("pos") ? [] : [{ at: o.createdAt, kind: "created", text: `${o.name} a passé cette commande sur la boutique en ligne.`, author: "" }]),
   ].sort((x, y) => y.at.getTime() - x.at.getTime());
 
   return (
@@ -47,7 +48,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       <PageHeader
         back="/admin/orders"
         title={`#${o.number}`}
-        subtitle={`${formatDateTime(o.createdAt)} · ${o.paymentMethod === "manual" ? "Créée dans l'admin" : "Boutique en ligne"}`}
+        subtitle={`${formatDateTime(o.createdAt)} · ${o.paymentMethod === "manual" ? "Créée dans l'admin" : o.paymentMethod.startsWith("pos") ? "Point de vente" : "Boutique en ligne"}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <a href={`/print/packing?ids=${o.id}`} target="_blank" className="btn h-8">Bon de préparation</a>
