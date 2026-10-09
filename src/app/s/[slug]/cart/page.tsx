@@ -13,7 +13,7 @@ export default async function CartPage({ params, searchParams }: { params: Promi
   const { store } = await getStore(slug);
   const saved = recover ? await db.checkout.findFirst({ where: { token: recover, storeId: store.id, orderId: null } }) : null;
   const customer = await getCustomer(store.id);
-  const recovered = saved ? { items: parseJson<{ variantId: string; quantity: number }[]>(saved.items, []), email: saved.email, name: saved.name } : null;
+  const recovered = saved ? { items: parseJson<{ variantId: string; quantity: number }[]>(saved.items, []), email: saved.email, name: saved.name, token: saved.token } : null;
   const cur = await displayCurrency(store);
   const demo = !(stripeConfigured() && store.stripeChargesEnabled);
   return <CartView slug={slug} currency={store.currency} display={cur} loyalty={store.loyaltyEnabled ? { perUnit: store.loyaltyPointsPerUnit } : null} cancelled={Boolean(cancelled)} demo={demo} recovered={recovered} customer={customer ? { email: customer.email, name: customer.name } : null} />;

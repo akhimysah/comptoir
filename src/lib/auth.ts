@@ -95,3 +95,16 @@ export async function requireOwner() {
   if (!ctx.isOwner) redirect("/admin?denied=1");
   return ctx;
 }
+
+/** Boutiques où l'utilisateur a une zone donnée : celles qu'il possède, et celles où ce droit lui a été accordé. */
+export async function storesWithPerm(userId: string, area: Area) {
+  const stores = await db.store.findMany({
+    where: { OR: [{ ownerId: userId }, { members: { some: { userId } } }] },
+    include: { members: { where: { userId }, select: { permissions: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  return stores.filter((s) => {
+    if (s.ownerId === userId) return true;
+    try { return (JSON.parse(s.members[0]?.permissions ?? "[]") as string[]).includes(area); } catch { return false; }
+  }).map(({ members: _m, ...store }) => store);
+}

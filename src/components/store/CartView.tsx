@@ -8,7 +8,7 @@ import { useCart } from "./cart";
 
 const field = "w-full rounded-[var(--t-radius)] border border-[color-mix(in_srgb,var(--c-text)_22%,transparent)] bg-[var(--c-surface)] px-3 py-2.5 outline-none focus:border-[var(--c-text)]";
 
-type Recovered = { items: { variantId: string; quantity: number }[]; email: string; name: string } | null;
+type Recovered = { items: { variantId: string; quantity: number }[]; email: string; name: string; token: string } | null;
 
 export function CartView({ slug, currency, display, loyalty, cancelled, demo, recovered, customer }: { slug: string; currency: string; display?: { code: string; rate: number }; loyalty?: { perUnit: number } | null; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null }) {
   const { items, ready, setQuantity, replace } = useCart(slug);
@@ -26,14 +26,20 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
 
   // Lien « Reprendre ma commande » reçu par e-mail : on remet le panier mémorisé.
   useEffect(() => {
-    if (ready && recovered && !restored) { replace(recovered.items); setRestored(true); }
-  }, [ready, recovered, restored, replace]);
+    if (ready && recovered && !restored) { replace(recovered.items); setRestored(true); try { localStorage.setItem(`comptoir:checkout:${slug}`, recovered.token); } catch {} }
+  }, [ready, recovered, restored, replace, slug]);
 
   const saveCheckout = (form: HTMLFormElement | null) => {
     if (!form || !items.length) return;
     const email = String(new FormData(form).get("email") ?? "");
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return;
-    fetch("/api/checkouts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, email, name: String(new FormData(form).get("name") ?? ""), items }) }).catch(() => {});
+    const key = `comptoir:checkout:${slug}`;
+    let token: string | null = null;
+    try { token = localStorage.getItem(key); } catch {}
+    fetch("/api/checkouts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, email, name: String(new FormData(form).get("name") ?? ""), items, token }) })
+      .then((r) => r.json())
+      .then((r: { token?: string }) => { if (r.token) try { localStorage.setItem(key, r.token); } catch {} })
+      .catch(() => {});
   };
   // Montants affichés dans la devise choisie ; le paiement se fait dans la devise de la boutique.
   const shown = display && display.code !== currency ? display : null;

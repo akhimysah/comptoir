@@ -1,3 +1,4 @@
+import { storesWithPerm } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendMail } from "@/lib/mail";
@@ -14,7 +15,7 @@ export async function GET(req: Request) {
   const users = await db.user.findMany({ where: { dailyReport: true, OR: [{ stores: { some: {} } }, { memberships: { some: {} } }] } });
   let sent = 0;
   for (const u of users) {
-    const stores = await db.store.findMany({ where: { OR: [{ ownerId: u.id }, { members: { some: { userId: u.id } } }] }, orderBy: { createdAt: "asc" } });
+    const stores = await storesWithPerm(u.id, "analytics");
     if (!stores.length) continue;
     await sendMail({ to: u.email, storeId: stores[0].id, ...(await buildDailyReport(stores)) });
     sent++;

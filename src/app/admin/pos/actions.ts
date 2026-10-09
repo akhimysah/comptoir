@@ -44,7 +44,7 @@ export async function posCheckout(input: z.infer<typeof schema>): Promise<{ erro
   const total = subtotal - discount;
   const giftItems = lines.filter((l) => l.isGiftCard).reduce((s, l) => s + l.priceCents * l.quantity, 0);
   const cart: PricedCart = {
-    lines, subtotalCents: subtotal, discountCents: discount, discountCode: discount ? "Remise en caisse" : null, discountError: null,
+    lines, subtotalCents: subtotal, discountCents: discount, discountCode: discount ? "Remise en caisse" : null, discountError: null, discountId: null,
     shippingCents: 0, totalCents: total, freeShippingFromCents: 0, notices: [], countries: null, shippingOptions: [], shippingRateId: null,
     shippingMethod: "Retrait en boutique", shippingError: null, giftCardCode: null, giftCardCents: 0, giftCardBalanceCents: 0, giftCardError: null,
     taxRateBps: store.taxRateBps, taxCents: includedTax(total - giftItems, store.taxRateBps),

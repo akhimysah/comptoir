@@ -8,6 +8,7 @@ import { loginCodeEmail } from "@/lib/emails";
 import { sendMail } from "@/lib/mail";
 import { redeemReward } from "@/lib/loyalty";
 import { setSubscriptionStatus } from "@/lib/renewals";
+import { clientIp, hit } from "@/lib/rate-limit";
 
 async function storeOf(slug: string) {
   const store = await db.store.findUnique({ where: { slug } });
@@ -21,6 +22,8 @@ export async function requestCode(slug: string, emailRaw: string): Promise<{ err
   const store = await storeOf(slug);
   const recent = await db.customerLoginCode.findFirst({ where: { storeId: store.id, email: parsed.data, createdAt: { gt: new Date(Date.now() - 30_000) } } });
   if (recent) return { error: "Un code vient d'être envoyé. Patientez 30 secondes avant d'en demander un autre." };
+  if (!(await hit(`code:${store.id}:${parsed.data}`, 5, 3600_000)) || !(await hit(`code:ip:${await clientIp()}`, 20, 3600_000)))
+    return { error: "Trop de codes demandés. Réessayez dans une heure." };
   const code = await createLoginCode(store.id, parsed.data);
   if (!process.env.RESEND_API_KEY && process.env.NODE_ENV !== "production") console.log(`[compte client] Code pour ${parsed.data} sur ${store.name} : ${code}`);
   await sendMail({ to: parsed.data, storeId: store.id, ...loginCodeEmail(store, code) });

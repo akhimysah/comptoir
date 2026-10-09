@@ -24,7 +24,8 @@ export async function revokePoints(orderId: string, refundedCents: number) {
   if (!o?.customer || !o.store.loyaltyEnabled) return;
   const earned = await db.loyaltyEntry.findFirst({ where: { orderId: o.id, points: { gt: 0 } } });
   if (!earned) return;
-  const pts = Math.min(o.customer.points, pointsFor(o.store, refundedCents));
+  // Le solde peut devenir négatif : sinon on pourrait gagner des points, les échanger, puis se faire rembourser.
+  const pts = pointsFor(o.store, refundedCents);
   if (pts <= 0) return;
   await db.$transaction([
     db.customer.update({ where: { id: o.customer.id }, data: { points: { decrement: pts } } }),

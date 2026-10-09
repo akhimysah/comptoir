@@ -5,7 +5,7 @@ import { logActivity } from "@/lib/activity";
 import { revalidatePath } from "next/cache";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { markOrderPaid, notifyOrderShipped } from "@/lib/orders";
+import { cancelUnpaidOrder, markOrderPaid, notifyOrderShipped } from "@/lib/orders";
 import { PAID_STATUSES, refundableCents, refundOrder } from "@/lib/refunds";
 
 async function ownOrder(form: FormData) {
@@ -41,10 +41,7 @@ export async function cancelOrder(form: FormData): Promise<void> {
   const { user, store, order } = await ownOrder(form);
   if (order.cancelledAt) return;
   if (!PAID_STATUSES.includes(order.paymentStatus)) {
-    await db.$transaction([
-      db.order.update({ where: { id: order.id }, data: { cancelledAt: new Date() } }),
-      db.orderEvent.create({ data: { orderId: order.id, type: "cancelled", author: user.name } }),
-    ]);
+    await cancelUnpaidOrder(order.id, user.name);
   } else {
     const items = await db.orderItem.findMany({ where: { orderId: order.id } });
     const res = await refundOrder({

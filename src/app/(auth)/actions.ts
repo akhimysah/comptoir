@@ -5,8 +5,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSession, destroySession, getUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { clearLimit, clientIp, hit } from "@/lib/rate-limit";
+import { safeNext } from "@/lib/utils";
 import { defaultTheme } from "@/lib/theme";
 import { slugify } from "@/lib/utils";
+
+const DUMMY_HASH = "$2a$12$LRNI5jXnNXHBdTdjOeDWEuHqzmygNFTNZtD.BT/aNit.FWuhT08Q2";
 
 export type AuthState = { error?: string } | undefined;
 
@@ -61,15 +65,20 @@ export async function createStore(_: AuthState, form: FormData): Promise<AuthSta
 export async function login(_: AuthState, form: FormData): Promise<AuthState> {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
+  const ip = await clientIp();
+  // 10 essais par adresse e-mail et 30 par appareil, par quart d'heure.
+  const allowed = (await hit(`login:email:${email}`, 10, 15 * 60_000)) && (await hit(`login:ip:${ip}`, 30, 15 * 60_000));
+  if (!allowed) return { error: "Trop de tentatives. Réessayez dans 15 minutes ou réinitialisez votre mot de passe." };
   const user = await db.user.findUnique({ where: { email } });
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) return { error: "E-mail ou mot de passe incorrect." };
+  // Même temps de réponse que le compte existe ou non.
+  const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
+  if (!user || !ok) return { error: "E-mail ou mot de passe incorrect." };
+  await clearLimit(`login:email:${email}`);
   await createSession(user.id);
-  const next = String(form.get("next") ?? "");
-  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/admin");
+  redirect(safeNext(String(form.get("next") ?? ""), "/admin"));
 }
 
 export async function logout(form?: FormData) {
   await destroySession();
-  const next = String(form?.get("next") ?? "");
-  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/");
+  redirect(safeNext(String(form?.get("next") ?? ""), "/"));
 }

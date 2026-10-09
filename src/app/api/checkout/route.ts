@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { createOrder, markOrderPaid } from "@/lib/orders";
+import { createOrder, markOrderPaid, OrderError } from "@/lib/orders";
 import { priceCart } from "@/lib/pricing";
 import { subscribe } from "@/lib/marketing";
-import { appUrl, getStripe, platformFee } from "@/lib/stripe";
+import { appUrl, demoPaymentsAllowed, feePercent, getStripe, platformFee } from "@/lib/stripe";
 
 const schema = z.object({
   slug: z.string(),
@@ -46,16 +46,28 @@ export async function POST(req: Request) {
   }
   if (cart.notices.length) return NextResponse.json({ error: cart.notices[0], refresh: true }, { status: 409 });
 
+  const subIntervals = [...new Set(cart.lines.filter((l) => l.subscription).map((l) => l.subscription!))];
+  if (subIntervals.length > 1 || cart.lines.filter((l) => l.subscription).length > 1) return NextResponse.json({ error: "Un seul produit en abonnement par commande : passez une commande séparée pour le suivant." }, { status: 400 });
+
   const stripe = getStripe();
+  const stripeReady = Boolean(stripe && store.stripeAccountId && store.stripeChargesEnabled);
   // Rien à payer (carte cadeau qui couvre tout) : pas de passage par Stripe.
-  const useStripe = Boolean(stripe && store.stripeAccountId && store.stripeChargesEnabled && cart.totalCents > 0);
+  const useStripe = stripeReady && cart.totalCents > 0;
   if (useStripe && cart.totalCents < 50) return NextResponse.json({ error: "Le montant restant est trop faible pour un paiement par carte (50 centimes minimum)." }, { status: 400 });
-  const order = await createOrder(
-    store,
-    cart,
-    { email: b.email, name: b.name, address: { line1: b.line1, zip: b.zip, city: b.city, country: b.country }, note: b.note },
-    useStripe ? "stripe" : "demo",
-  );
+  // Sans Stripe, une vraie boutique ne doit jamais valider une commande sans paiement.
+  if (cart.totalCents > 0 && !useStripe && !demoPaymentsAllowed()) return NextResponse.json({ error: "Le paiement en ligne n'est pas encore activé pour cette boutique." }, { status: 400 });
+  let order;
+  try {
+    order = await createOrder(
+      store,
+      cart,
+      { email: b.email, name: b.name, address: { line1: b.line1, zip: b.zip, city: b.city, country: b.country }, note: b.note },
+      useStripe ? "stripe" : "demo",
+    );
+  } catch (e) {
+    if (e instanceof OrderError) return NextResponse.json({ error: e.message, refresh: true }, { status: 409 });
+    throw e;
+  }
   if (b.marketing) await subscribe(store.id, b.email, b.name);
   const thanks = `${appUrl()}/s/${store.slug}/order/${order.id}`;
 
@@ -65,8 +77,6 @@ export async function POST(req: Request) {
   }
 
   const currency = store.currency.toLowerCase();
-  const subIntervals = [...new Set(cart.lines.filter((l) => l.subscription).map((l) => l.subscription!))];
-  if (subIntervals.length > 1) return NextResponse.json({ error: "Passez une commande séparée pour chaque fréquence d'abonnement." }, { status: 400 });
   const reduction = cart.discountCents + cart.giftCardCents;
   const coupon = reduction > 0 ? await stripe.coupons.create({ amount_off: reduction, currency, duration: "once", name: [cart.discountCode, cart.giftCardCode && "Carte cadeau"].filter(Boolean).join(" + ") || "Réduction" }) : null;
   // Abonnement : Stripe prélève ensuite le client à chaque échéance et reverse l'argent au marchand.
@@ -89,7 +99,7 @@ export async function POST(req: Request) {
     ],
     ...(coupon ? { discounts: [{ coupon: coupon.id }] } : {}),
     ...(isSub
-      ? { subscription_data: { application_fee_percent: Number(process.env.PLATFORM_FEE_PERCENT ?? "2") || 0, transfer_data: { destination: store.stripeAccountId! }, metadata: { orderId: order.id, storeId: store.id } } }
+      ? { subscription_data: { application_fee_percent: feePercent(), transfer_data: { destination: store.stripeAccountId! }, metadata: { orderId: order.id, storeId: store.id } } }
       : { payment_intent_data: { application_fee_amount: platformFee(cart.totalCents), transfer_data: { destination: store.stripeAccountId! }, metadata: { orderId: order.id, storeId: store.id } } }),
     metadata: { orderId: order.id, storeId: store.id },
     success_url: `${thanks}?session_id={CHECKOUT_SESSION_ID}`,

@@ -6,33 +6,54 @@ import { nextDate } from "./subscriptions";
 import { includedTax } from "./tax";
 import { parseJson } from "./utils";
 
+type StripeRenewal = { invoiceId: string; amountPaidCents: number; paymentIntentId: string | null };
+
 /**
- * Crée la commande d'une échéance d'abonnement.
- * Sans Stripe (démonstration, paiement hors ligne), la commande est marquée payée comme les commandes de démonstration ;
- * avec Stripe, c'est le webhook « invoice.paid » qui appelle cette fonction après le prélèvement.
+ * Crée la commande d'une échéance d'abonnement, toujours dans la boutique de l'abonnement.
+ * - Sans Stripe (démonstration, paiement hors ligne) : l'échéance est d'abord « réservée » en avançant sa date
+ *   par une mise à jour conditionnelle, pour qu'un double déclenchement ne crée pas deux commandes.
+ * - Avec Stripe : appelée par le webhook « invoice.paid » ; la facture Stripe (unique par commande) empêche les doublons
+ *   et le montant de la commande est celui réellement prélevé.
  */
-export async function renewSubscription(subscriptionId: string, opts: { paidByStripe?: boolean } = {}) {
-  const sub = await db.subscription.findUnique({ where: { id: subscriptionId }, include: { store: true } });
+export async function renewSubscription(storeId: string, subscriptionId: string, stripe?: StripeRenewal) {
+  const sub = await db.subscription.findFirst({ where: { id: subscriptionId, storeId }, include: { store: true } });
   if (!sub || sub.status !== "active") return null;
+  if (stripe) {
+    if (await db.order.findUnique({ where: { stripeInvoiceId: stripe.invoiceId } })) return null; // déjà traitée
+  } else {
+    if (sub.stripeSubscriptionId) return null; // prélevé par Stripe : jamais de commande « gratuite » ici
+    const claimed = await db.subscription.updateMany({
+      where: { id: sub.id, status: "active", nextBillingAt: sub.nextBillingAt },
+      data: { nextBillingAt: nextDate(sub.nextBillingAt > new Date() ? sub.nextBillingAt : new Date(), sub.interval) },
+    });
+    if (!claimed.count) return null;
+  }
   const store = sub.store;
   const v = await db.variant.findUnique({ where: { id: sub.variantId }, include: { product: true } });
   const subtotal = sub.priceCents * sub.quantity;
-  const shipping = store.freeShippingFromCents === 0 || subtotal >= store.freeShippingFromCents ? 0 : store.shippingCents;
+  // Stripe ne prélève que le prix récurrent : la livraison n'est ajoutée qu'aux renouvellements hors Stripe.
+  const shipping = stripe || store.freeShippingFromCents === 0 || subtotal >= store.freeShippingFromCents ? 0 : store.shippingCents;
+  const total = stripe ? stripe.amountPaidCents : subtotal + shipping;
   const cart: PricedCart = {
     lines: [{
       variantId: sub.variantId, baseVariantId: sub.variantId, subscription: null, productId: v?.productId ?? "", productTitle: sub.productTitle, productHandle: v?.product.handle ?? "",
       variantTitle: sub.variantTitle, priceCents: sub.priceCents, compareAtCents: null, quantity: sub.quantity, available: 999,
       image: v ? parseJson<string[]>(v.product.images, [])[0] ?? null : null, hue: v?.product.hue ?? 200, isGiftCard: false,
     }],
-    subtotalCents: subtotal, discountCents: 0, discountCode: null, discountError: null, shippingCents: shipping, totalCents: subtotal + shipping,
+    subtotalCents: subtotal, discountCents: Math.max(0, subtotal + shipping - total), discountCode: null, discountError: null, discountId: null, shippingCents: shipping, totalCents: total,
     freeShippingFromCents: store.freeShippingFromCents, notices: [], countries: null, shippingOptions: [], shippingRateId: null,
     shippingMethod: "Livraison abonnement", shippingError: null, giftCardCode: null, giftCardCents: 0, giftCardBalanceCents: 0, giftCardError: null,
-    taxRateBps: store.taxRateBps, taxCents: includedTax(subtotal + shipping, store.taxRateBps),
+    taxRateBps: store.taxRateBps, taxCents: includedTax(total, store.taxRateBps),
   };
-  const order = await createOrder(store, cart, { email: sub.email, name: sub.name, address: parseJson<Address>(sub.address, { line1: "", zip: "", city: "", country: "" }), note: `Renouvellement d'abonnement (${sub.productTitle})` }, opts.paidByStripe ? "stripe" : "demo");
-  await db.order.update({ where: { id: order.id }, data: { subscriptionId: sub.id } });
+  const order = await createOrder(store, cart, { email: sub.email, name: sub.name, address: parseJson<Address>(sub.address, { line1: "", zip: "", city: "", country: "" }), note: `Renouvellement d'abonnement (${sub.productTitle})` }, stripe ? "stripe" : "demo");
+  try {
+    await db.order.update({ where: { id: order.id }, data: { subscriptionId: sub.id, ...(stripe ? { stripeInvoiceId: stripe.invoiceId, stripePaymentIntentId: stripe.paymentIntentId } : {}) } });
+  } catch {
+    await db.order.delete({ where: { id: order.id } }); // facture déjà enregistrée par un appel simultané
+    return null;
+  }
   await markOrderPaid(order.id);
-  await db.subscription.update({ where: { id: sub.id }, data: { nextBillingAt: nextDate(sub.nextBillingAt > new Date() ? sub.nextBillingAt : new Date(), sub.interval), ordersCount: { increment: 1 } } });
+  await db.subscription.update({ where: { id: sub.id }, data: { ordersCount: { increment: 1 }, ...(stripe ? { nextBillingAt: nextDate(new Date(), sub.interval) } : {}) } });
   return order;
 }
 
@@ -40,7 +61,7 @@ export async function renewSubscription(subscriptionId: string, opts: { paidBySt
 export async function renewDueSubscriptions() {
   const due = await db.subscription.findMany({ where: { status: "active", stripeSubscriptionId: null, nextBillingAt: { lte: new Date() } } });
   let n = 0;
-  for (const s of due) if (await renewSubscription(s.id)) n++;
+  for (const s of due) if (await renewSubscription(s.storeId, s.id)) n++;
   return n;
 }
 

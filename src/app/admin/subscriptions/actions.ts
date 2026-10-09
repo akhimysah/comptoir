@@ -17,8 +17,8 @@ export async function changeSubscription(form: FormData) {
 
 /** Crée tout de suite la commande de la prochaine échéance (utile pour tester ou avancer une livraison). */
 export async function renewNow(form: FormData) {
-  await requirePerm("orders");
-  const order = await renewSubscription(String(form.get("id")));
+  const { store } = await requirePerm("orders");
+  const order = await renewSubscription(store.id, String(form.get("id")));
   if (order) await logActivity(`Échéance d'abonnement créée : commande #${order.number}`, `/admin/orders/${order.id}`);
   revalidatePath("/admin/subscriptions");
 }

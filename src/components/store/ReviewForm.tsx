@@ -19,7 +19,7 @@ export function ReviewForm({ slug, productId }: { slug: string; productId: strin
     setState("sending");
     setError(null);
     const d = Object.fromEntries(new FormData(e.currentTarget));
-    const res = await fetch("/api/reviews", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...d, slug, productId, rating }) });
+    const res = await fetch(`/s/${slug}/reviews`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...d, slug, productId, rating }) });
     const json = await res.json().catch(() => ({}));
     if (res.ok) setState("done");
     else { setError(json.error ?? "L'envoi a échoué. Réessayez."); setState("idle"); }

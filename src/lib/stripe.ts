@@ -16,7 +16,15 @@ export const isTestMode = () => (process.env.STRIPE_SECRET_KEY ?? "").startsWith
 
 export const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
+/** Commission de la plateforme en %, bornée entre 0 et 50. */
+export const feePercent = () => Math.max(0, Math.min(50, Number(process.env.PLATFORM_FEE_PERCENT ?? "2") || 0));
+
 export function platformFee(totalCents: number) {
-  const pct = Math.max(0, Math.min(50, Number(process.env.PLATFORM_FEE_PERCENT ?? "2") || 0));
-  return Math.round((totalCents * pct) / 100);
+  return Math.round((totalCents * feePercent()) / 100);
 }
+
+/**
+ * Paiement de démonstration (commande validée sans paiement) : autorisé en développement,
+ * ou en production seulement si ALLOW_DEMO_PAYMENTS=1 (boutique de test).
+ */
+export const demoPaymentsAllowed = () => process.env.NODE_ENV !== "production" || process.env.ALLOW_DEMO_PAYMENTS === "1";

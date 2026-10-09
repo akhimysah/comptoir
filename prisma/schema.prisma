@@ -375,6 +375,9 @@ model Order {
   discountCode      String?
   giftCardCode      String?
   giftCardCents     Int         @default(0)
+  discountId        String? // remise appliquée (code ou automatique), pour compter ses utilisations
+  stripePaymentIntentId String? // paiement Stripe à rembourser (y compris pour les abonnements)
+  stripeInvoiceId   String?     @unique // facture Stripe d'un renouvellement (évite les doublons)
   shippingCents     Int
   totalCents        Int
   paymentMethod     String      @default("demo") // demo | stripe | manual
@@ -514,4 +517,11 @@ model LoyaltyEntry {
   createdAt  DateTime @default(now())
 
   @@index([customerId, createdAt])
+}
+
+/// Compteur de limitation (tentatives de connexion, demandes de code) : une ligne par clé et par fenêtre.
+model RateLimit {
+  key     String   @id
+  count   Int      @default(0)
+  resetAt DateTime
 }

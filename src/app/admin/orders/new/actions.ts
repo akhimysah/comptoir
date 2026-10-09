@@ -48,7 +48,7 @@ export async function createManualOrder(input: ManualOrderInput): Promise<{ erro
   }
   const subtotalCents = lines.reduce((s, l) => s + l.priceCents * l.quantity, 0);
   const cart: PricedCart = {
-    lines, subtotalCents, discountCents: 0, discountCode: null, discountError: null, shippingCents,
+    lines, subtotalCents, discountCents: 0, discountCode: null, discountError: null, discountId: null, shippingCents,
     totalCents: subtotalCents + shippingCents, freeShippingFromCents: store.freeShippingFromCents, notices: [],
     countries: null, shippingOptions: [], shippingRateId: null, shippingMethod: shippingCents ? "Livraison" : "", shippingError: null,
     giftCardCode: null, giftCardCents: 0, giftCardBalanceCents: 0, giftCardError: null,

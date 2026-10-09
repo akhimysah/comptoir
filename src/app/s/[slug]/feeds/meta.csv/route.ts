@@ -1,6 +1,6 @@
 import { feedItems } from "@/lib/feeds";
 
-const c = (v: string | null) => { const s = v ?? ""; return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+const c = (v: string | null) => { let s = v ?? ""; if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`; return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 
 /** Catalogue Meta (Facebook et Instagram Shopping) au format CSV : /s/<boutique>/feeds/meta.csv */
 export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {

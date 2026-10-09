@@ -124,6 +124,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </section>
       )}
 
+      {perms.includes("orders") && (
       <section className="card overflow-hidden">
         <div className="card-h"><h2 className="text-sm font-[650]">Commandes récentes</h2><Link href="/admin/orders" className="text-[13px] text-pine hover:underline">Tout afficher</Link></div>
         {recent.length > 0 && (
@@ -160,6 +161,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <p className="px-4 py-10 text-center text-muted">Aucune commande pour l'instant. Partagez votre boutique : chaque achat apparaîtra ici.</p>
         )}
       </section>
+      )}
     </>
   );
 }

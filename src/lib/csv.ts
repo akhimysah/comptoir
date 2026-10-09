@@ -1,7 +1,9 @@
 /** CSV au format Excel français : séparateur « ; », guillemets si besoin, BOM UTF-8 pour les accents. */
 export function toCsv(rows: (string | number | null | undefined)[][]) {
   const cell = (v: string | number | null | undefined) => {
-    const s = v === null || v === undefined ? "" : String(v);
+    let s = v === null || v === undefined ? "" : String(v);
+    // Un texte qui commence par = + - @ serait exécuté comme formule par Excel : on le neutralise.
+    if (typeof v === "string" && /^[=+\-@\t\r]/.test(s) && !/^-?\d+([.,]\d+)?$/.test(s)) s = `'${s}`;
     return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return "﻿" + rows.map((r) => r.map(cell).join(";")).join("\r\n");

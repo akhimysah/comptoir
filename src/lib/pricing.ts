@@ -31,6 +31,8 @@ export type PricedCart = {
   subtotalCents: number;
   discountCents: number;
   discountCode: string | null;
+  /** Remise réellement appliquée (pour réserver et compter ses utilisations). */
+  discountId: string | null;
   discountError: string | null;
   shippingCents: number;
   totalCents: number;
@@ -124,6 +126,25 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     });
   }
 
+  // Stock vérifié sur l'ensemble du panier : une même variante peut apparaître en achat unique, en abonnement
+  // ou dans un lot ; on additionne les besoins par variante réelle avant de valider chaque ligne.
+  const stockLeft = new Map<string, number>();
+  for (const v of variants) stockLeft.set(v.id, v.stock);
+  for (const parts of bundles.values()) for (const p of parts) if (!stockLeft.has(p.variantId)) stockLeft.set(p.variantId, p.stock);
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    const v = variants.find((x) => x.id === l.baseVariantId)!;
+    if (v.product.isGiftCard || v.product.continueSelling) continue;
+    const needs = bundles.has(v.productId) ? bundles.get(v.productId)!.map((p) => ({ id: p.variantId, per: Math.max(1, p.quantity) })) : [{ id: v.id, per: 1 }];
+    const allowed = Math.min(l.quantity, ...needs.map((n) => Math.floor(Math.max(0, stockLeft.get(n.id) ?? 0) / n.per)));
+    if (allowed < l.quantity) {
+      notices.push(allowed > 0 ? `Il ne reste que ${allowed} × ${l.productTitle} pour cette ligne.` : `${l.productTitle} n'est plus disponible en quantité suffisante et a été retiré.`);
+      l.quantity = allowed;
+    }
+    for (const n of needs) stockLeft.set(n.id, (stockLeft.get(n.id) ?? 0) - allowed * n.per);
+  }
+  for (let i = lines.length - 1; i >= 0; i--) if (lines[i].quantity <= 0) lines.splice(i, 1);
+
   const subtotalCents = lines.reduce((s, l) => s + l.priceCents * l.quantity, 0);
   // Les remises ne s'appliquent pas aux cartes cadeaux achetées (comme sur Shopify).
   const giftItemsCents = lines.filter((l) => l.isGiftCard).reduce((s, l) => s + l.priceCents * l.quantity, 0);
@@ -131,6 +152,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
 
   let discountCents = 0;
   let discountCode: string | null = null;
+  let discountId: string | null = null;
   let discountError: string | null = null;
   let freeShipping = false;
   const normalized = code?.trim().toUpperCase();
@@ -141,6 +163,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       if (d.type === "free_shipping") freeShipping = true;
       else discountCents = discountAmount(d, discountable);
       discountCode = d.code;
+      discountId = d.id;
     }
   }
   // Remise automatique : la plus avantageuse, si aucun code n'est appliqué.
@@ -154,6 +177,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     }
     if (best) {
       discountCode = best.d.title || "Remise automatique";
+      discountId = best.d.id;
       if (best.d.type === "free_shipping") freeShipping = true;
       else discountCents = best.amount;
     }
@@ -186,6 +210,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     subtotalCents,
     discountCents,
     discountCode,
+    discountId,
     discountError,
     ...shipping,
     giftCardCode,

@@ -1,6 +1,6 @@
 import { PackingSlip } from "@/components/print/OrderDocs";
 import { PrintButton } from "@/components/print/PrintButton";
-import { accessibleStores, requireUser } from "@/lib/auth";
+import { requireUser, storesWithPerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export const metadata = { title: "Bons de préparation" };
@@ -9,7 +9,7 @@ export const metadata = { title: "Bons de préparation" };
 export default async function PackingPage({ searchParams }: { searchParams: Promise<{ ids?: string }> }) {
   const { ids = "" } = await searchParams;
   const user = await requireUser();
-  const stores = await accessibleStores(user.id);
+  const stores = await storesWithPerm(user.id, "orders");
   const orders = await db.order.findMany({
     where: { id: { in: ids.split(",").filter(Boolean).slice(0, 200) }, storeId: { in: stores.map((s) => s.id) } },
     include: { items: true, store: true },

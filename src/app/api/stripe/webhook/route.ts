@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { markOrderPaid } from "@/lib/orders";
+import { cancelUnpaidOrder, markOrderPaid } from "@/lib/orders";
 import { renewSubscription } from "@/lib/renewals";
 import { getStripe } from "@/lib/stripe";
 
@@ -26,10 +26,24 @@ export async function POST(req: Request) {
     case "checkout.session.async_payment_succeeded": {
       const session = event.data.object;
       if (session.payment_status === "paid" && session.metadata?.orderId) {
-        await markOrderPaid(session.metadata.orderId);
+        const orderId = session.metadata.orderId;
+        // On garde la référence du paiement pour pouvoir rembourser (en mode abonnement, elle est sur la facture).
+        let pi = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null;
+        if (!pi && session.invoice) {
+          const inv = await stripe.invoices.retrieve(typeof session.invoice === "string" ? session.invoice : session.invoice.id);
+          pi = typeof inv.payment_intent === "string" ? inv.payment_intent : inv.payment_intent?.id ?? null;
+        }
+        if (pi) await db.order.updateMany({ where: { id: orderId }, data: { stripePaymentIntentId: pi } });
+        await markOrderPaid(orderId);
         const subId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
-        if (subId) await db.subscription.updateMany({ where: { firstOrderId: session.metadata.orderId }, data: { stripeSubscriptionId: subId } });
+        if (subId) await db.subscription.updateMany({ where: { firstOrderId: orderId }, data: { stripeSubscriptionId: subId } });
       }
+      break;
+    }
+    case "checkout.session.expired": {
+      // Paiement abandonné : la commande est annulée et la carte cadeau / le code promo réservés sont rendus.
+      const session = event.data.object;
+      if (session.metadata?.orderId) await cancelUnpaidOrder(session.metadata.orderId, "Stripe");
       break;
     }
     case "invoice.paid": {
@@ -37,7 +51,10 @@ export async function POST(req: Request) {
       const invoice = event.data.object;
       const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
       if (subId && invoice.billing_reason === "subscription_cycle") {
-        for (const s of await db.subscription.findMany({ where: { stripeSubscriptionId: subId } })) await renewSubscription(s.id, { paidByStripe: true });
+        const subs = await db.subscription.findMany({ where: { stripeSubscriptionId: subId } });
+        const pi = typeof invoice.payment_intent === "string" ? invoice.payment_intent : invoice.payment_intent?.id ?? null;
+        // Une facture Stripe = une commande, même si Stripe renvoie l'événement plusieurs fois.
+        if (subs[0]) await renewSubscription(subs[0].storeId, subs[0].id, { invoiceId: invoice.id!, amountPaidCents: invoice.amount_paid, paymentIntentId: pi });
       }
       break;
     }

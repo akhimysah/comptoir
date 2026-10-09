@@ -8,7 +8,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const url = new URL(req.url);
   const store = await db.store.findUnique({ where: { slug } });
   const back = req.headers.get("referer");
-  const target = back && new URL(back).origin === url.origin ? back : `${url.origin}/s/${slug}`;
+  let target = `${url.origin}/s/${slug}`;
+  try { if (back && new URL(back).origin === url.origin) target = back; } catch {}
   const res = NextResponse.redirect(target);
   const code = url.searchParams.get("c") ?? "";
   if (store && storeCurrencies(store).some((c) => c.code === code)) {

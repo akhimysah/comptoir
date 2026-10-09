@@ -27,7 +27,7 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
 
   const rows: Row[] = table.slice(1).map((cells, i) => {
     const r = { line: i + 2 } as Row;
-    PRODUCT_COLUMNS.forEach((c) => { const k = header.indexOf(c); r[c] = k >= 0 ? (cells[k] ?? "").trim() : ""; });
+    PRODUCT_COLUMNS.forEach((c) => { const k = header.indexOf(c); r[c] = k >= 0 ? (cells[k] ?? "").trim().slice(0, c === "Description" ? 20000 : 255) : ""; });
     return r;
   });
 

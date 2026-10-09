@@ -10,11 +10,13 @@ import { passwordResetEmail } from "@/lib/emails";
 import { sendMail } from "@/lib/mail";
 import { findReset, hashResetToken as hash } from "@/lib/password-reset";
 import { appUrl } from "@/lib/stripe";
+import { clientIp, hit } from "@/lib/rate-limit";
 
 
 export async function requestReset(_: { sent?: boolean; error?: string } | undefined, form: FormData) {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   if (!z.string().email().safeParse(email).success) return { error: "Indiquez une adresse e-mail valide." };
+  if (!(await hit(`reset:${email}`, 3, 3600_000)) || !(await hit(`reset:ip:${await clientIp()}`, 10, 3600_000))) return { sent: true };
   const user = await db.user.findUnique({ where: { email } });
   // Même réponse que le compte existe ou non, pour ne pas révéler qui est inscrit.
   if (user) {
@@ -36,7 +38,7 @@ export async function resetPassword(_: { error?: string } | undefined, form: For
   if (!r) return { error: "Ce lien n'est plus valable. Refaites une demande." };
   await db.$transaction([
     db.user.update({ where: { id: r.userId }, data: { passwordHash: await bcrypt.hash(password, 12) } }),
-    db.passwordReset.update({ where: { id: r.id }, data: { usedAt: new Date() } }),
+    db.passwordReset.updateMany({ where: { userId: r.userId, usedAt: null }, data: { usedAt: new Date() } }), // tous les liens envoyés
     db.session.deleteMany({ where: { userId: r.userId } }), // déconnecte les autres appareils
   ]);
   await createSession(r.userId);

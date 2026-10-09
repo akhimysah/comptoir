@@ -29,3 +29,14 @@ export const formatDate = (d: Date) =>
   d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 export const formatDateTime = (d: Date) =>
   d.toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/** Chemin de redirection sûr : uniquement une page de ce site (jamais « //autre-site » ni « /\autre-site »). */
+export function safeNext(next: string, fallback: string) {
+  if (!/^\/[^/\\\t\r\n]/.test(next) && next !== "/") return fallback;
+  try {
+    const u = new URL(next, "http://x");
+    return u.origin === "http://x" ? u.pathname + u.search + u.hash : fallback;
+  } catch {
+    return fallback;
+  }
+}

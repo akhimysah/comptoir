@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { getCustomer } from "@/lib/customer-auth";
 
 const schema = z.object({
   slug: z.string(),
@@ -20,8 +21,9 @@ export async function POST(req: Request) {
   if (!product) return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });
   const already = await db.review.count({ where: { productId: product.id, email: b.email } });
   if (already >= 2) return NextResponse.json({ error: "Vous avez déjà donné votre avis sur ce produit." }, { status: 429 });
-  // « Achat vérifié » : une commande payée de cette adresse contient ce produit.
-  const verified = (await db.orderItem.count({ where: { productTitle: product.title, order: { storeId: product.storeId, email: b.email, paymentStatus: { in: ["paid", "partially_refunded"] } } } })) > 0;
+  // « Achat vérifié » : client connecté (adresse prouvée par son code) dont une commande payée contient ce produit.
+  const customer = await getCustomer(product.storeId);
+  const verified = Boolean(customer?.email === b.email) && (await db.orderItem.count({ where: { productTitle: product.title, order: { storeId: product.storeId, email: b.email, paymentStatus: { in: ["paid", "partially_refunded"] } } } })) > 0;
   await db.review.create({ data: { storeId: product.storeId, productId: product.id, name: b.name, email: b.email, rating: b.rating, title: b.title, body: b.body, verified } });
   return NextResponse.json({ ok: true });
 }
