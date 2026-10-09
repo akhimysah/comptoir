@@ -8,6 +8,7 @@ import { z } from "zod";
 import { isImageUrl } from "@/lib/images";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { addAutoRedirect } from "@/lib/navigation";
 import { slugify } from "@/lib/utils";
 
 const schema = z.object({
@@ -43,6 +44,7 @@ export async function saveCollection(_: { error?: string } | undefined, form: Fo
   if (id) {
     const existing = await db.collection.findFirst({ where: { id, storeId: store.id } });
     if (!existing) return { error: "Cette collection n'existe plus." };
+    if (existing.handle !== handle) await addAutoRedirect(store.id, `/c/${existing.handle}`, `/c/${handle}`);
     await db.$transaction([
       db.productCollection.deleteMany({ where: { collectionId: id } }),
       db.collection.update({ where: { id }, data: { title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, products: { create: links } } }),

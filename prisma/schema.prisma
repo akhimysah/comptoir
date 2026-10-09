@@ -49,6 +49,7 @@ model Store {
   cartReminderHours     Int             @default(4)
   autoReviewRequest     Boolean         @default(false) // demande d'avis après expédition
   reviewRequestDays     Int             @default(7)
+  menus                 String          @default("") // JSON { main, footer } : menus de navigation (vide = menus par défaut)
   returnsEnabled        Boolean         @default(true) // retours en libre-service depuis « Mon compte »
   returnWindowDays      Int             @default(30)
   returnInstructions    String          @default("") // adresse de retour, emballage… envoyé à l'acceptation
@@ -77,6 +78,7 @@ model Store {
   campaigns             Campaign[]
   subscriptions         Subscription[]
   returns               ReturnRequest[]
+  redirects             Redirect[]
 }
 
 /// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
@@ -550,4 +552,17 @@ model ReturnRequest {
 
   @@index([storeId, status])
   @@index([orderId])
+}
+
+/// Redirection d'URL de la boutique : un ancien chemin (ex. /p/ancien-nom) renvoie vers un nouveau.
+model Redirect {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  fromPath  String // relatif à la boutique, commence par /
+  toPath    String // relatif à la boutique (/c/bols) ou adresse complète https://
+  hits      Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([storeId, fromPath])
 }

@@ -1,12 +1,12 @@
 import { displayCurrency } from "@/lib/currency";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { ProductBuy } from "@/components/store/ProductBuy";
 import { Reviews } from "@/components/store/Reviews";
 import { ProductGrid } from "@/components/store/ProductCard";
 import { getCatalog } from "@/lib/storefront";
 import type { Store } from "@prisma/client";
 import { db } from "@/lib/db";
+import { notFoundOrRedirect } from "@/lib/navigation";
 import { getStore } from "@/lib/storefront";
 import { bundleStock } from "@/lib/bundles";
 import { parseJson } from "@/lib/utils";
@@ -14,7 +14,7 @@ import { parseJson } from "@/lib/utils";
 async function load(slug: string, handle: string) {
   const { store } = await getStore(slug);
   const product = await db.product.findUnique({ where: { storeId_handle: { storeId: store.id, handle } }, include: { variants: { orderBy: { position: "asc" } } } });
-  if (!product || product.status !== "active" || !product.variants.length) notFound();
+  if (!product || product.status !== "active" || !product.variants.length) return notFoundOrRedirect(store, `/p/${handle}`);
   return { store, product };
 }
 

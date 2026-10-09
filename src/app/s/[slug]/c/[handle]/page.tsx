@@ -1,9 +1,9 @@
 import { displayCurrency } from "@/lib/currency";
-import { notFound } from "next/navigation";
 import { ListingHeader, sortProducts } from "@/components/store/Listing";
 import { ProductGrid } from "@/components/store/ProductCard";
 import { db } from "@/lib/db";
 import { getCatalog, getStore } from "@/lib/storefront";
+import { notFoundOrRedirect } from "@/lib/navigation";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string; handle: string }> }) {
   const { slug, handle } = await params;
@@ -17,7 +17,7 @@ export default async function CollectionPage({ params, searchParams }: { params:
   const [{ slug, handle }, { sort }] = await Promise.all([params, searchParams]);
   const { store } = await getStore(slug);
   const collection = await db.collection.findUnique({ where: { storeId_handle: { storeId: store.id, handle } } });
-  if (!collection) notFound();
+  if (!collection) return notFoundOrRedirect(store, `/c/${handle}`);
   const { products } = await getCatalog(store.id);
   const list = products.filter((p) => p.collectionHandles.includes(handle));
   const cur = await displayCurrency(store);

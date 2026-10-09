@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { addAutoRedirect } from "@/lib/navigation";
 import { isImageUrl } from "@/lib/images";
 import { slugify } from "@/lib/utils";
 
@@ -43,6 +44,8 @@ export async function saveContent(_: { error?: string } | undefined, form: FormD
     if (!hit || hit.id === c.id) break;
     handle = `${base}-${i}`;
   }
+  const before = c.id ? await (model as typeof db.page).findFirst({ where: { id: c.id, storeId: store.id }, select: { handle: true } }) : null;
+  if (before && before.handle !== handle) await addAutoRedirect(store.id, `/${c.kind === "page" ? "pages" : "blog"}/${before.handle}`, `/${c.kind === "page" ? "pages" : "blog"}/${handle}`);
   const common = { title: c.title, handle, body: c.body, published: c.published, seoTitle: c.seoTitle, seoDescription: c.seoDescription };
   let id = c.id;
   if (c.kind === "page") {

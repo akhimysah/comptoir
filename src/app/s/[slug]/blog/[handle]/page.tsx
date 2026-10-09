@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { RichText } from "@/components/store/RichText";
 import { db } from "@/lib/db";
+import { notFoundOrRedirect } from "@/lib/navigation";
 import { getStore } from "@/lib/storefront";
 
 async function load(slug: string, handle: string) {
   const { store } = await getStore(slug);
   const post = await db.blogPost.findUnique({ where: { storeId_handle: { storeId: store.id, handle } } });
-  if (!post || !post.published) notFound();
+  if (!post || !post.published) return notFoundOrRedirect(store, `/blog/${handle}`);
   return post;
 }
 

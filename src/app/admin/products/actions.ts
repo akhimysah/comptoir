@@ -8,6 +8,7 @@ import { z } from "zod";
 import { isImageUrl } from "@/lib/images";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { addAutoRedirect } from "@/lib/navigation";
 import { parseMoney } from "@/lib/money";
 import { slugify } from "@/lib/utils";
 
@@ -88,6 +89,8 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
   if (p.id) {
     const existing = await db.product.findFirst({ where: { id: p.id, storeId: store.id }, include: { variants: true } });
     if (!existing) return { error: "Ce produit n'existe plus." };
+    const handle = await uniqueHandle(store.id, p.title, p.id);
+    if (existing.handle !== handle) await addAutoRedirect(store.id, `/p/${existing.handle}`, `/p/${handle}`);
     const keep = new Set(variants.map((v) => v.id).filter((id): id is string => !!id && existing.variants.some((e) => e.id === id)));
     await db.$transaction([
       db.variant.deleteMany({ where: { productId: p.id, id: { notIn: [...keep] } } }),
@@ -99,7 +102,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
         where: { id: p.id },
         data: {
           title: p.title,
-          handle: await uniqueHandle(store.id, p.title, p.id),
+          handle,
           description: p.description,
           status: p.status,
           hue: p.hue,

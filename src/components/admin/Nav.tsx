@@ -95,7 +95,7 @@ export function AdminNav({ toShip, returnsToHandle = 0, storeSlug, isOwner, stor
       {perms.includes("content") && <div>
         <div className="mb-1 flex items-center justify-between px-2 text-xs font-[550] text-muted">Canaux de vente</div>
         <ul className="flex flex-col gap-0.5">
-          <NavLink item={{ href: "/admin/theme", label: "Boutique en ligne", icon: "store", match: ["/admin/theme", "/admin/pages", "/admin/blog"], children: [{ href: "/admin/theme", label: "Thèmes" }, { href: "/admin/pages", label: "Pages" }, { href: "/admin/blog", label: "Articles de blog" }] }} path={path} />
+          <NavLink item={{ href: "/admin/theme", label: "Boutique en ligne", icon: "store", match: ["/admin/theme", "/admin/pages", "/admin/blog", "/admin/navigation"], children: [{ href: "/admin/theme", label: "Thèmes" }, { href: "/admin/pages", label: "Pages" }, { href: "/admin/blog", label: "Articles de blog" }, { href: "/admin/navigation", label: "Navigation" }] }} path={path} />
           <NavLink item={{ href: "/admin/channels", label: "Google et réseaux", icon: "channels" }} path={path} />
           {perms.includes("orders") && <NavLink item={{ href: "/admin/pos", label: "Point de vente", icon: "pos" }} path={path} />}
         </ul>
