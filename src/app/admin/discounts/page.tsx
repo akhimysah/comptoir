@@ -2,13 +2,13 @@ import { deleteDiscount, toggleDiscount } from "./actions";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { DiscountForm } from "@/components/admin/DiscountForm";
 import { Empty, PageHeader, Pill } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
 
 export default async function DiscountsPage() {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("discounts");
   const discounts = await db.discount.findMany({ where: { storeId: store.id }, orderBy: { createdAt: "desc" } });
   const now = new Date();
   return (

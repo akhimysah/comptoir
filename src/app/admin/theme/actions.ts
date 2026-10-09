@@ -1,13 +1,15 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { revalidatePath } from "next/cache";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isImageUrl } from "@/lib/images";
 import { themeSchema } from "@/lib/theme";
 
 export async function saveTheme(json: string): Promise<{ error?: string; ok?: boolean }> {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("content");
   let raw: unknown;
   try { raw = JSON.parse(json); } catch { return { error: "Thème illisible." }; }
   const parsed = themeSchema.safeParse(raw);
@@ -16,6 +18,7 @@ export async function saveTheme(json: string): Promise<{ error?: string; ok?: bo
     if ("image" in s && s.image && !isImageUrl(s.image)) return { error: "Une image du thème n'est pas valide." };
   }
   await db.store.update({ where: { id: store.id }, data: { theme: JSON.stringify(parsed.data), themeUpdatedAt: new Date() } });
+  await logActivity("Thème publié", "/admin/theme");
   revalidatePath(`/s/${store.slug}`, "layout");
   revalidatePath("/admin");
   return { ok: true };

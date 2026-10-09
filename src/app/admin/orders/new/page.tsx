@@ -1,12 +1,12 @@
 import { ManualOrderForm } from "@/components/admin/ManualOrderForm";
 import { PageHeader } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { Address } from "@/lib/orders";
 import { parseJson } from "@/lib/utils";
 
 export default async function NewOrderPage() {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("orders");
   const [variants, customers] = await Promise.all([
     db.variant.findMany({ where: { product: { storeId: store.id } }, include: { product: true }, orderBy: [{ product: { title: "asc" } }, { position: "asc" }] }),
     db.customer.findMany({ where: { storeId: store.id }, include: { orders: { orderBy: { createdAt: "desc" }, take: 1, select: { address: true } } }, orderBy: { name: "asc" } }),

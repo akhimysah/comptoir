@@ -61,8 +61,32 @@ export const requireStore = cache(async () => {
   if (!stores.length) redirect("/signup?step=store");
   const wanted = (await cookies()).get(STORE_COOKIE)?.value;
   const store = stores.find((s) => s.id === wanted) ?? stores[0];
-  return { user, store, stores, isOwner: store.ownerId === user.id };
+  const isOwner = store.ownerId === user.id;
+  let perms: Area[] = [...AREAS];
+  if (!isOwner) {
+    const m = await db.storeMember.findUnique({ where: { storeId_userId: { storeId: store.id, userId: user.id } } });
+    try { perms = (JSON.parse(m?.permissions ?? "[]") as Area[]).filter((a) => AREAS.includes(a)); } catch { perms = []; }
+  }
+  return { user, store, stores, isOwner, perms };
 });
+
+export const AREAS = ["orders", "products", "customers", "discounts", "analytics", "content"] as const;
+export type Area = (typeof AREAS)[number];
+export const AREA_LABELS: Record<Area, string> = {
+  orders: "Commandes et paniers abandonnés",
+  products: "Produits, stock, cartes cadeaux et avis",
+  customers: "Clients",
+  discounts: "Remises",
+  analytics: "Statistiques et vue d'ensemble",
+  content: "Boutique en ligne (thème, pages, blog)",
+};
+
+/** Accès à une zone de l'admin : le propriétaire a tout, un collaborateur seulement ce qui lui a été accordé. */
+export async function requirePerm(area: Area) {
+  const ctx = await requireStore();
+  if (!ctx.perms.includes(area)) redirect("/admin?denied=1");
+  return ctx;
+}
 
 /** Pages réservées au propriétaire : paiements, collaborateurs. */
 export async function requireOwner() {

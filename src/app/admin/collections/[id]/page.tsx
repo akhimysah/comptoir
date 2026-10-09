@@ -3,14 +3,14 @@ import { deleteCollection } from "../actions";
 import { CollectionForm } from "@/components/admin/CollectionForm";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { PageHeader } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { appUrl } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { parseJson } from "@/lib/utils";
 
 export default async function CollectionPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> }) {
   const [{ id }, { saved }] = await Promise.all([params, searchParams]);
-  const { store } = await requireStore();
+  const { store } = await requirePerm("products");
   const isNew = id === "new";
   const collection = isNew ? null : await db.collection.findFirst({ where: { id, storeId: store.id }, include: { products: true } });
   if (!isNew && !collection) notFound();

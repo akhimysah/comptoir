@@ -2,7 +2,7 @@ import Link from "next/link";
 import { deleteReview, setReviewStatus } from "./actions";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { Empty, PageHeader, Pill } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cx, formatDateTime } from "@/lib/utils";
 
@@ -10,7 +10,7 @@ const TABS = [["pending", "En attente"], ["published", "Publiés"], ["hidden", "
 
 export default async function ReviewsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab = "pending" } = await searchParams;
-  const { store } = await requireStore();
+  const { store } = await requirePerm("products");
   const [reviews, counts] = await Promise.all([
     db.review.findMany({ where: { storeId: store.id, status: tab }, include: { product: true }, orderBy: { createdAt: "desc" }, take: 200 }),
     db.review.groupBy({ by: ["status"], where: { storeId: store.id }, _count: true }),

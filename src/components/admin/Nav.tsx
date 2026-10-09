@@ -68,9 +68,10 @@ function NavLink({ item, path }: { item: Item; path: string }) {
   );
 }
 
-export function AdminNav({ toShip, storeSlug, isOwner, storeCount }: { toShip: number; storeSlug: string; isOwner: boolean; storeCount: number }) {
+export function AdminNav({ toShip, storeSlug, isOwner, storeCount, perms }: { toShip: number; storeSlug: string; isOwner: boolean; storeCount: number; perms: string[] }) {
   const path = usePathname();
-  const main: Item[] = [
+  const need: Record<string, string> = { "/admin/orders": "orders", "/admin/products": "products", "/admin/customers": "customers", "/admin/analytics": "analytics", "/admin/discounts": "discounts" };
+  const all: Item[] = [
     { href: "/admin", label: "Accueil", icon: "home" },
     { href: "/admin/orders", label: "Commandes", icon: "orders", badge: toShip, match: ["/admin/orders", "/admin/checkouts"], children: [{ href: "/admin/checkouts", label: "Paniers abandonnés" }] },
     { href: "/admin/products", label: "Produits", icon: "products", match: ["/admin/products", "/admin/collections", "/admin/inventory", "/admin/reviews", "/admin/gift-cards"], children: [{ href: "/admin/collections", label: "Collections" }, { href: "/admin/inventory", label: "Stock" }, { href: "/admin/gift-cards", label: "Cartes cadeaux" }, { href: "/admin/reviews", label: "Avis" }] },
@@ -78,15 +79,16 @@ export function AdminNav({ toShip, storeSlug, isOwner, storeCount }: { toShip: n
     { href: "/admin/analytics", label: "Statistiques", icon: "chart" },
     { href: "/admin/discounts", label: "Remises", icon: "discounts" },
   ];
+  const main = all.filter((i) => !need[i.href] || perms.includes(need[i.href]));
   return (
     <nav className="flex h-full flex-col gap-4 overflow-y-auto px-3 py-3">
-      {storeCount > 1 && (
+      {storeCount > 1 && perms.includes("analytics") && (
         <ul className="-mb-2 flex flex-col gap-0.5 border-b border-[#d4d4d4] pb-2">
           <NavLink item={{ href: "/admin/overview", label: `Toutes les boutiques (${storeCount})`, icon: "stores" }} path={path} />
         </ul>
       )}
       <ul className="flex flex-col gap-0.5">{main.map((i) => <NavLink key={i.href} item={i} path={path} />)}</ul>
-      <div>
+      {perms.includes("content") && <div>
         <div className="mb-1 flex items-center justify-between px-2 text-xs font-[550] text-muted">Canaux de vente</div>
         <ul className="flex flex-col gap-0.5">
           <NavLink item={{ href: "/admin/theme", label: "Boutique en ligne", icon: "store", match: ["/admin/theme", "/admin/pages", "/admin/blog"], children: [{ href: "/admin/theme", label: "Thèmes" }, { href: "/admin/pages", label: "Pages" }, { href: "/admin/blog", label: "Articles de blog" }] }} path={path} />
@@ -94,7 +96,7 @@ export function AdminNav({ toShip, storeSlug, isOwner, storeCount }: { toShip: n
         <a href={`/s/${storeSlug}`} target="_blank" className="mt-0.5 flex h-7 items-center gap-2 rounded-lg pl-9 pr-2 text-[13px] text-muted hover:bg-[#f1f1f1] hover:text-ink">
           Voir la boutique <Icon name="eye" className="h-4 w-4" />
         </a>
-      </div>
+      </div>}
       {isOwner && (
         <ul className="mt-auto flex flex-col gap-0.5">
           <NavLink item={{ href: "/admin/settings", label: "Paramètres", icon: "settings" }} path={path} />

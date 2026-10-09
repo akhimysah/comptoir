@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { StockInput } from "@/components/admin/StockInput";
 import { Empty, PageHeader, Thumb } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cx, parseJson } from "@/lib/utils";
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ q?: string; filter?: string }> }) {
   const { q = "", filter = "all" } = await searchParams;
-  const { store } = await requireStore();
+  const { store } = await requirePerm("products");
   const variants = await db.variant.findMany({
     where: {
       product: { storeId: store.id, ...(q ? { title: { contains: q } } : {}) },

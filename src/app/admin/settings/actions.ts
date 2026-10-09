@@ -1,5 +1,7 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth";
@@ -26,6 +28,7 @@ export async function saveSettings(_: { error?: string; ok?: boolean } | undefin
   if (shippingCents === null) return { error: "Indiquez des frais de livraison valides (0 pour gratuit)." };
   if (freeShippingFromCents === null) return { error: "Le seuil de livraison offerte n'est pas valide." };
   await db.store.update({ where: { id: store.id }, data: { name: s.name, tagline: s.tagline, currency: s.currency, shippingCents, freeShippingFromCents } });
+  await logActivity("Paramètres de la boutique modifiés", "/admin/settings");
   revalidatePath("/admin", "layout");
   revalidatePath(`/s/${store.slug}`, "layout");
   return { ok: true };
@@ -40,6 +43,7 @@ export async function saveTaxes(_: { error?: string; ok?: boolean } | undefined,
     where: { id: store.id },
     data: { taxRateBps: bps, legalName: str("legalName", 120), legalAddress: str("legalAddress", 300), siret: str("siret", 20), vatNumber: str("vatNumber", 20) },
   });
+  await logActivity("Taxes et mentions légales modifiées", "/admin/settings");
   revalidatePath("/admin/settings");
   return { ok: true };
 }

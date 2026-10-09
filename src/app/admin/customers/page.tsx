@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { Empty, PageHeader } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
 
 export default async function CustomersPage() {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("customers");
   const customers = await db.customer.findMany({
     where: { storeId: store.id },
     include: { orders: { where: { paymentStatus: { in: ["paid", "partially_refunded"] }, cancelledAt: null }, select: { totalCents: true, refundedCents: true, createdAt: true } } },

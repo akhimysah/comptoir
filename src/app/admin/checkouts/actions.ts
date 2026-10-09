@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { abandonedCartEmail } from "@/lib/emails";
 import { sendMail } from "@/lib/mail";
@@ -10,7 +10,7 @@ import { appUrl } from "@/lib/stripe";
 import { parseJson } from "@/lib/utils";
 
 export async function sendReminder(form: FormData) {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("orders");
   const c = await db.checkout.findFirst({ where: { id: String(form.get("id")), storeId: store.id, orderId: null } });
   if (!c) return;
   const cart = await priceCart(store, parseJson<CartInput>(c.items, []));
@@ -23,7 +23,7 @@ export async function sendReminder(form: FormData) {
 }
 
 export async function deleteCheckout(form: FormData) {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("orders");
   await db.checkout.deleteMany({ where: { id: String(form.get("id")), storeId: store.id } });
   revalidatePath("/admin/checkouts");
 }

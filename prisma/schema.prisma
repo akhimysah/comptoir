@@ -183,6 +183,7 @@ model StoreMember {
   store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissions String @default("[\"orders\",\"products\",\"customers\",\"discounts\",\"analytics\",\"content\"]") // JSON : zones accessibles
   createdAt DateTime @default(now())
 
   @@unique([storeId, userId])
@@ -410,4 +411,17 @@ model CustomerSession {
   storeId    String
   expiresAt  DateTime
   createdAt  DateTime @default(now())
+}
+
+/// Journal d'activité : qui a fait quoi dans l'admin d'une boutique.
+model ActivityLog {
+  id        String   @id @default(cuid())
+  storeId   String
+  userId    String?
+  userName  String
+  action    String
+  url       String?
+  createdAt DateTime @default(now())
+
+  @@index([storeId, createdAt])
 }

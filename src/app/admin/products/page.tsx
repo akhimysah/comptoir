@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { Empty, PageHeader, Pill, Thumb } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { parseJson } from "@/lib/utils";
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
   const { q = "", status = "all" } = await searchParams;
-  const { store } = await requireStore();
+  const { store } = await requirePerm("products");
   const products = await db.product.findMany({
     where: { storeId: store.id, ...(status !== "all" ? { status } : {}), ...(q ? { title: { contains: q } } : {}) },
     include: { variants: true, collections: { include: { collection: true } } },

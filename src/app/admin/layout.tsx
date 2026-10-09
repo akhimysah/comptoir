@@ -10,7 +10,7 @@ import { initials } from "@/lib/utils";
 export const metadata = { title: "Admin" };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, store, stores, isOwner } = await requireStore();
+  const { user, store, stores, isOwner, perms } = await requireStore();
   const toShip = await db.order.count({ where: { storeId: store.id, paymentStatus: { in: ["paid", "partially_refunded"] }, fulfillmentStatus: "unfulfilled", cancelledAt: null } });
   return (
     <div className="min-h-screen bg-canvas">
@@ -58,7 +58,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </header>
       <div className="flex">
         <aside id="admin-nav" className="fixed bottom-0 left-0 top-14 z-30 hidden w-64 bg-side shadow-[8px_0_24px_rgba(0,0,0,.2)] md:shadow-none data-[open=true]:block md:sticky md:top-14 md:block md:h-[calc(100vh-56px)] md:shrink-0">
-          <AdminNav toShip={toShip} storeSlug={store.slug} isOwner={isOwner} storeCount={stores.length} />
+          <AdminNav toShip={toShip} storeSlug={store.slug} isOwner={isOwner} storeCount={stores.length} perms={perms} />
         </aside>
         <main className="min-w-0 flex-1 px-4 pb-16 pt-5 md:px-8">
           <div className="mx-auto flex max-w-[1000px] flex-col gap-4">{children}</div>

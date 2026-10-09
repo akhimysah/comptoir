@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ThemeEditor } from "@/components/admin/ThemeEditor";
 import { PageHeader } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { getCatalog } from "@/lib/storefront";
 import { readTheme } from "@/lib/theme";
 
 export default async function ThemePage() {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("content");
   const { products, collections } = await getCatalog(store.id);
   return (
     <>

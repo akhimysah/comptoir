@@ -1,8 +1,10 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseMoney } from "@/lib/money";
 import { createOrder, markOrderPaid } from "@/lib/orders";
@@ -25,7 +27,7 @@ const schema = z.object({
 export type ManualOrderInput = z.infer<typeof schema>;
 
 export async function createManualOrder(input: ManualOrderInput): Promise<{ error?: string }> {
-  const { user, store } = await requireStore();
+  const { user, store } = await requirePerm("orders");
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
@@ -58,5 +60,6 @@ export async function createManualOrder(input: ManualOrderInput): Promise<{ erro
     await markOrderPaid(order.id);
     await db.orderEvent.create({ data: { orderId: order.id, type: "paid_manual", author: user.name } });
   }
+  await logActivity(`Commande #${order.number} créée manuellement`, `/admin/orders/${order.id}`);
   redirect(`/admin/orders/${order.id}`);
 }

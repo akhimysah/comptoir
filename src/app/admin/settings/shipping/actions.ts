@@ -1,5 +1,7 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth";
 import { COUNTRIES } from "@/lib/countries";
@@ -23,6 +25,7 @@ export async function saveZone(_: ZoneState, form: FormData): Promise<ZoneState>
   const id = String(form.get("id") ?? "");
   if (id) await db.shippingZone.updateMany({ where: { id, storeId: store.id }, data: { name, countries: JSON.stringify(countries) } });
   else await db.shippingZone.create({ data: { storeId: store.id, name, countries: JSON.stringify(countries), rates: { create: [{ name: "Standard", priceCents: store.shippingCents }] } } });
+  await logActivity(`Zone d'expédition « ${name} » enregistrée`, "/admin/settings/shipping");
   refresh();
   return { ok: true };
 }

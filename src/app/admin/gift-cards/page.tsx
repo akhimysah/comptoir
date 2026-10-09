@@ -1,13 +1,13 @@
 import { toggleGiftCard } from "./actions";
 import { GiftCardForm } from "@/components/admin/GiftCardForm";
 import { Empty, PageHeader, Pill } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
 
 export default async function GiftCardsPage() {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("products");
   const cards = await db.giftCard.findMany({ where: { storeId: store.id }, orderBy: { createdAt: "desc" } });
   const m = (c: number) => formatMoney(c, store.currency);
   const now = new Date();

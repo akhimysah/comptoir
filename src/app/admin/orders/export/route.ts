@@ -1,4 +1,4 @@
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { csvResponse, toCsv } from "@/lib/csv";
 import { db } from "@/lib/db";
 import { centsToInput } from "@/lib/money";
@@ -6,7 +6,7 @@ import { FULFILLMENT_LABELS, PAYMENT_LABELS, type Address } from "@/lib/orders";
 import { parseJson } from "@/lib/utils";
 
 export async function GET() {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("orders");
   const orders = await db.order.findMany({ where: { storeId: store.id }, include: { items: true }, orderBy: { number: "desc" } });
   const eur = (c: number) => centsToInput(c).replace(".", ",");
   const rows: (string | number)[][] = [["Numéro", "Date", "Client", "E-mail", "Adresse", "Code postal", "Ville", "Pays", "Paiement", "Traitement", "Articles", "Sous-total", "Remise", "Code promo", "Livraison", "Total", "Annulée"]];

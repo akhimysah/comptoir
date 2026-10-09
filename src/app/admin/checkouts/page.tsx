@@ -1,6 +1,6 @@
 import { deleteCheckout, sendReminder } from "./actions";
 import { Empty, PageHeader, Pill } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { formatDateTime, parseJson } from "@/lib/utils";
@@ -8,7 +8,7 @@ import { formatDateTime, parseJson } from "@/lib/utils";
 const DELAY_MIN = 30; // un panier est « abandonné » après 30 minutes sans commande
 
 export default async function CheckoutsPage() {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("orders");
   const before = new Date(Date.now() - DELAY_MIN * 60_000);
   const [abandoned, recovered] = await Promise.all([
     db.checkout.findMany({ where: { storeId: store.id, orderId: null, activityAt: { lt: before } }, orderBy: { activityAt: "desc" }, take: 200 }),

@@ -1,9 +1,11 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseMoney } from "@/lib/money";
 
@@ -19,7 +21,7 @@ const schema = z.object({
 });
 
 export async function createDiscount(_: { error?: string; ok?: boolean } | undefined, form: FormData) {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("discounts");
   const parsed = schema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
@@ -49,19 +51,20 @@ export async function createDiscount(_: { error?: string; ok?: boolean } | undef
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { error: `Le code ${code} existe déjà.` };
     throw e;
   }
+  await logActivity(d.method === "automatic" ? `Remise automatique « ${d.title} » créée` : `Code promo ${code} créé`, "/admin/discounts");
   revalidatePath("/admin/discounts");
   return { ok: true };
 }
 
 export async function toggleDiscount(form: FormData) {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("discounts");
   const d = await db.discount.findFirst({ where: { id: String(form.get("id")), storeId: store.id } });
   if (d) await db.discount.update({ where: { id: d.id }, data: { active: !d.active } });
   revalidatePath("/admin/discounts");
 }
 
 export async function deleteDiscount(form: FormData) {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("discounts");
   await db.discount.deleteMany({ where: { id: String(form.get("id")), storeId: store.id } });
   revalidatePath("/admin/discounts");
 }

@@ -1,10 +1,12 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { isImageUrl } from "@/lib/images";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { slugify } from "@/lib/utils";
 
@@ -20,7 +22,7 @@ const schema = z.object({
 export type CollectionPayload = z.infer<typeof schema>;
 
 export async function saveCollection(_: { error?: string } | undefined, form: FormData) {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("products");
   let raw: unknown = null;
   try { raw = JSON.parse(String(form.get("payload") ?? "")); } catch {}
   const parsed = schema.safeParse(raw);
@@ -49,11 +51,12 @@ export async function saveCollection(_: { error?: string } | undefined, form: Fo
     id = (await db.collection.create({ data: { storeId: store.id, title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, products: { create: links } } })).id;
   }
   revalidatePath(`/s/${store.slug}`, "layout");
+  await logActivity(`Collection « ${c.title} » enregistrée`, `/admin/collections/${id}`);
   redirect(`/admin/collections/${id}?saved=1`);
 }
 
 export async function deleteCollection(form: FormData) {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("products");
   await db.collection.deleteMany({ where: { id: String(form.get("id")), storeId: store.id } });
   revalidatePath(`/s/${store.slug}`, "layout");
   redirect("/admin/collections");

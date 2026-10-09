@@ -1,13 +1,15 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { revalidatePath } from "next/cache";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { markOrderPaid, notifyOrderShipped } from "@/lib/orders";
 import { PAID_STATUSES, refundableCents, refundOrder } from "@/lib/refunds";
 
 async function ownOrder(form: FormData) {
-  const { user, store } = await requireStore();
+  const { user, store } = await requirePerm("orders");
   const order = await db.order.findFirst({ where: { id: String(form.get("id")), storeId: store.id } });
   if (!order) throw new Error("Commande introuvable.");
   return { user, store, order };
@@ -29,6 +31,7 @@ export async function setFulfilled(form: FormData) {
     db.orderEvent.create({ data: { orderId: order.id, type: fulfilled ? "fulfilled" : "unfulfilled", author: user.name } }),
   ]);
   if (fulfilled) await notifyOrderShipped(order.id);
+  await logActivity(`Commande #${order.number} marquée comme ${fulfilled ? "traitée" : "non traitée"}`, `/admin/orders/${order.id}`);
   revalidatePath(`/admin/orders/${order.id}`);
   revalidatePath("/admin", "layout");
 }
@@ -51,13 +54,14 @@ export async function cancelOrder(form: FormData): Promise<void> {
     });
     if (res.error) throw new Error(res.error);
   }
+  await logActivity(`Commande #${order.number} annulée`, `/admin/orders/${order.id}`);
   revalidatePath(`/admin/orders/${order.id}`);
   revalidatePath("/admin", "layout");
 }
 
 /** Actions groupées depuis la liste des commandes. Renvoie le nombre de commandes modifiées. */
 export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" | "markPaid"): Promise<{ count: number }> {
-  const { user, store } = await requireStore();
+  const { user, store } = await requirePerm("orders");
   const own = await db.order.findMany({ where: { id: { in: ids.slice(0, 500) }, storeId: store.id, cancelledAt: null } });
   let count = 0;
   for (const o of own) {
@@ -79,6 +83,7 @@ export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" 
     if (target === "fulfilled") await notifyOrderShipped(o.id);
     count++;
   }
+  if (count) await logActivity(`${count} commande(s) : ${action === "fulfill" ? "marquées traitées" : action === "unfulfill" ? "marquées non traitées" : "marquées payées"}`);
   revalidatePath("/admin", "layout");
   return { count };
 }

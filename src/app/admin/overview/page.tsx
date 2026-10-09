@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { sendMyDailyReport, setDailyReport } from "./actions";
 import { PageHeader, Pill } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/orders";
@@ -17,7 +17,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const { p, sent } = await searchParams;
   const period: Period = p && p in PERIODS ? (p as Period) : "30";
   const days = Number(period);
-  const { user, stores } = await requireStore();
+  const { user, stores } = await requirePerm("analytics");
   const ids = stores.map((s) => s.id);
 
   const today = new Date(); today.setHours(0, 0, 0, 0);

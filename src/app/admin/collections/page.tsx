@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Empty, PageHeader, Thumb } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export default async function CollectionsPage() {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("products");
   const collections = await db.collection.findMany({ where: { storeId: store.id }, include: { _count: { select: { products: true } } }, orderBy: { title: "asc" } });
   return (
     <>

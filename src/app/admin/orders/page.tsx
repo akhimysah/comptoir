@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { OrdersTable } from "@/components/admin/OrdersTable";
 import { Empty, PageHeader } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/orders";
@@ -28,7 +28,7 @@ function filter(storeId: string, tab: string): Prisma.OrderWhereInput {
 
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ tab?: string; q?: string }> }) {
   const { tab = "all", q = "" } = await searchParams;
-  const { store } = await requireStore();
+  const { store } = await requirePerm("orders");
   const counts = await Promise.all(TABS.map((t) => db.order.count({ where: filter(store.id, t.key) })));
   const n = Number(q.replace("#", ""));
   const orders = await db.order.findMany({

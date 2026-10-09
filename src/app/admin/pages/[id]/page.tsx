@@ -3,13 +3,13 @@ import { deleteContent } from "@/app/admin/content-actions";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { ContentForm } from "@/components/admin/ContentForm";
 import { PageHeader } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { appUrl } from "@/lib/stripe";
 
 export default async function EditPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> }) {
   const [{ id }, { saved }] = await Promise.all([params, searchParams]);
-  const { store, user } = await requireStore();
+  const { store, user } = await requirePerm("content");
   const item = id === "new" ? null : await db.page.findFirst({ where: { id, storeId: store.id } });
   if (id !== "new" && !item) notFound();
   const extra = item as (typeof item & { excerpt?: string; author?: string; image?: string | null; showInFooter?: boolean }) | null;

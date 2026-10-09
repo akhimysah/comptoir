@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PageHeader, Thumb } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { cx } from "@/lib/utils";
@@ -12,7 +12,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const { p } = await searchParams;
   const period: Period = p && p in PERIODS ? (p as Period) : "30";
   const days = Number(period);
-  const { store } = await requireStore();
+  const { store } = await requirePerm("analytics");
   const since = new Date(); since.setHours(0, 0, 0, 0); since.setDate(since.getDate() - (days - 1));
   const prevSince = new Date(since); prevSince.setDate(prevSince.getDate() - days);
 

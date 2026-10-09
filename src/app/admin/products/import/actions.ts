@@ -1,7 +1,9 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { revalidatePath } from "next/cache";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { parseCsv, PRODUCT_COLUMNS } from "@/lib/csv";
 import { db } from "@/lib/db";
 import { parseMoney } from "@/lib/money";
@@ -12,7 +14,7 @@ export type ImportResult = { created: number; updated: number; errors: string[] 
 type Row = Record<(typeof PRODUCT_COLUMNS)[number], string> & { line: number };
 
 export async function importProducts(_: ImportResult, form: FormData): Promise<ImportResult> {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("products");
   const file = form.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choisissez un fichier CSV." };
   if (file.size > 2 * 1024 * 1024) return { error: "Le fichier dépasse 2 Mo." };
@@ -124,6 +126,7 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
       created++;
     }
   }
+  await logActivity(`Import CSV : ${created} produit(s) créé(s), ${updated} mis à jour`, "/admin/products");
   revalidatePath("/admin/products");
   revalidatePath(`/s/${store.slug}`, "layout");
   return { created, updated, errors: errors.slice(0, 50) };

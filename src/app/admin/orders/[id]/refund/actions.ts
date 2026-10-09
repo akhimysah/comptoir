@@ -1,8 +1,10 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { parseMoney } from "@/lib/money";
 import { refundOrder } from "@/lib/refunds";
 
@@ -17,7 +19,7 @@ const schema = z.object({
 });
 
 export async function processRefund(input: z.infer<typeof schema>): Promise<{ error?: string }> {
-  const { user, store } = await requireStore();
+  const { user, store } = await requirePerm("orders");
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { error: "Formulaire invalide." };
   const d = parsed.data;
@@ -28,5 +30,6 @@ export async function processRefund(input: z.infer<typeof schema>): Promise<{ er
     amountCents: amount, restock: d.restock, notify: d.notify, reason: d.reason.trim(),
   });
   if (res.error) return res;
+  await logActivity(`Remboursement de ${d.amount.replace(".", ",")} ${store.currency}`, `/admin/orders/${d.orderId}`);
   redirect(`/admin/orders/${d.orderId}`);
 }

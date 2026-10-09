@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { saveCustomerNote } from "../actions";
 import { PageHeader, Pill, Thumb } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS, type Address } from "@/lib/orders";
@@ -10,7 +10,7 @@ import { formatDate, formatDateTime, parseJson } from "@/lib/utils";
 
 export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { store } = await requireStore();
+  const { store } = await requirePerm("customers");
   const c = await db.customer.findFirst({ where: { id, storeId: store.id }, include: { orders: { orderBy: { createdAt: "desc" }, include: { items: true } } } });
   if (!c) notFound();
   const m = (x: number) => formatMoney(x, store.currency);

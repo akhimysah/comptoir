@@ -1,13 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 import { RefundForm } from "./RefundForm";
 import { PageHeader } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { PAID_STATUSES, refundableCents, suggestedItemRefund } from "@/lib/refunds";
 
 export default async function RefundPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { store } = await requireStore();
+  const { store } = await requirePerm("orders");
   const o = await db.order.findFirst({ where: { id, storeId: store.id }, include: { items: true } });
   if (!o) notFound();
   if (!PAID_STATUSES.includes(o.paymentStatus) || refundableCents(o) === 0) redirect(`/admin/orders/${o.id}`);

@@ -1,11 +1,11 @@
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { csvResponse, PRODUCT_COLUMNS, toCsv } from "@/lib/csv";
 import { db } from "@/lib/db";
 import { centsToInput } from "@/lib/money";
 import { parseJson } from "@/lib/utils";
 
 export async function GET() {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("products");
   const products = await db.product.findMany({
     where: { storeId: store.id },
     include: { variants: { orderBy: { position: "asc" } }, collections: { include: { collection: true } } },

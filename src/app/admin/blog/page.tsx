@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { Empty, PageHeader, Pill } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/utils";
 
 export default async function ListPage() {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("content");
   const items = await db.blogPost.findMany({ where: { storeId: store.id }, orderBy: { updatedAt: "desc" } });
   return (
     <>

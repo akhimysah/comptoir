@@ -1,8 +1,10 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireOwner } from "@/lib/auth";
+import { AREA_LABELS, AREAS, requireOwner, type Area } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { inviteEmail } from "@/lib/emails";
 import { hashToken, newToken } from "@/lib/invites";
@@ -25,6 +27,7 @@ export async function inviteMember(_: InviteState, form: FormData): Promise<Invi
   await db.storeInvite.create({ data: { storeId: store.id, email, token: hashToken(token), invitedBy: user.name, expiresAt: new Date(Date.now() + 7 * 86400_000) } });
   const link = `${appUrl()}/invite/${token}`;
   await sendMail({ to: email, storeId: store.id, ...inviteEmail(store.name, user.name, link) });
+  await logActivity(`Invitation envoyée à ${email}`, "/admin/settings/users");
   revalidatePath("/admin/settings/users");
   return { link, email };
 }
@@ -39,10 +42,22 @@ export async function removeMember(form: FormData) {
   const { store } = await requireOwner();
   const member = await db.storeMember.findFirst({ where: { id: String(form.get("id")), storeId: store.id } });
   if (member) {
+    const u = await db.user.findUnique({ where: { id: member.userId } });
+    await logActivity(`${u?.name ?? "Un collaborateur"} retiré de l'équipe`, "/admin/settings/users");
     await db.$transaction([
       db.storeMember.delete({ where: { id: member.id } }),
       db.session.deleteMany({ where: { userId: member.userId } }), // déconnecte la personne retirée
     ]);
   }
+  revalidatePath("/admin/settings/users");
+}
+
+export async function setPermissions(form: FormData) {
+  const { store } = await requireOwner();
+  const member = await db.storeMember.findFirst({ where: { id: String(form.get("id")), storeId: store.id }, include: { user: true } });
+  if (!member) return;
+  const perms = form.getAll("perm").map(String).filter((a) => (AREAS as readonly string[]).includes(a));
+  await db.storeMember.update({ where: { id: member.id }, data: { permissions: JSON.stringify(perms) } });
+  await logActivity(`Autorisations de ${member.user.name} modifiées : ${perms.map((a) => AREA_LABELS[a as Area].split(" ")[0]).join(", ") || "aucune"}`, "/admin/settings/users");
   revalidatePath("/admin/settings/users");
 }

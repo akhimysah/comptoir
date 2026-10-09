@@ -1,10 +1,12 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { isImageUrl } from "@/lib/images";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseMoney } from "@/lib/money";
 import { slugify } from "@/lib/utils";
@@ -51,7 +53,7 @@ async function uniqueHandle(storeId: string, title: string, exceptId?: string) {
 }
 
 export async function saveProduct(_: SaveState, form: FormData): Promise<SaveState> {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("products");
   let raw: unknown;
   try {
     raw = JSON.parse(String(form.get("payload")));
@@ -126,6 +128,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
     });
     p.id = created.id;
   }
+  await logActivity(`Produit « ${p.title} » enregistré`, `/admin/products/${p.id}`);
   revalidatePath("/admin/products");
   revalidatePath(`/s/${store.slug}`, "layout");
   redirect(`/admin/products/${p.id}?saved=1`);
@@ -137,8 +140,9 @@ async function validCollections(storeId: string, ids: string[]) {
 }
 
 export async function deleteProduct(form: FormData) {
-  const { store } = await requireStore();
-  await db.product.deleteMany({ where: { id: String(form.get("id")), storeId: store.id } });
+  const { store } = await requirePerm("products");
+  await db.product.deleteMany({ where: { id: String(form.get("id")), storeId: store.id } });  await logActivity("Produit supprimé");
+
   revalidatePath(`/s/${store.slug}`, "layout");
   redirect("/admin/products");
 }

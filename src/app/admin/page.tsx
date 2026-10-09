@@ -12,7 +12,7 @@ const DAYS = 30;
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ welcome?: string; denied?: string }> }) {
   const { welcome, denied } = await searchParams;
-  const { user, store, isOwner } = await requireStore();
+  const { user, store, isOwner, perms } = await requireStore();
   const since = new Date(Date.now() - DAYS * 86400_000);
   since.setHours(0, 0, 0, 0);
   const prevSince = new Date(since.getTime() - DAYS * 86400_000);
@@ -71,7 +71,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         {welcome && <span className="ml-auto text-[13px] font-[550]">Bienvenue, {user.name.split(" ")[0]} !</span>}
       </div>
 
-      {denied && <p role="alert" className="card bg-[#fff8db] px-4 py-3 text-[13px]">Cette page est réservée au propriétaire de la boutique.</p>}
+      {denied && <p role="alert" className="card bg-[#fff8db] px-4 py-3 text-[13px]">Vous n'avez pas accès à cette page. Demandez l'accès au propriétaire de la boutique.</p>}
 
       {isOwner && setup.some((s) => !s.done) && (
         <section className="card p-4">
@@ -96,7 +96,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </section>
       )}
 
-      <section className="card overflow-hidden">
+      {perms.includes("analytics") && <section className="card overflow-hidden">
         <div className="grid grid-cols-2 border-b border-line lg:grid-cols-4">
           {metrics.map((mt, i) => (
             <div key={mt.label} className={cx("flex flex-col gap-1 p-4", i % 2 === 1 && "border-l border-line", i === 2 && "lg:border-l", i >= 2 && "border-t border-line lg:border-t-0")}>
@@ -110,7 +110,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           ))}
         </div>
         <div className="p-4"><SalesChart days={days} currency={store.currency} /></div>
-      </section>
+      </section>}
 
       {todo.length > 0 && (
         <section className="flex flex-wrap gap-2">

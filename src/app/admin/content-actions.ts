@@ -1,9 +1,11 @@
 "use server";
 
+import { logActivity } from "@/lib/activity";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isImageUrl } from "@/lib/images";
 import { slugify } from "@/lib/utils";
@@ -25,7 +27,7 @@ const schema = z.object({
 export type ContentPayload = z.infer<typeof schema>;
 
 export async function saveContent(_: { error?: string } | undefined, form: FormData) {
-  const { user, store } = await requireStore();
+  const { user, store } = await requirePerm("content");
   let raw: unknown = null;
   try { raw = JSON.parse(String(form.get("payload") ?? "")); } catch {}
   const parsed = schema.safeParse(raw);
@@ -54,12 +56,13 @@ export async function saveContent(_: { error?: string } | undefined, form: FormD
     if (existing) await db.blogPost.update({ where: { id: existing.id }, data });
     else id = (await db.blogPost.create({ data: { ...data, storeId: store.id } })).id;
   }
+  await logActivity(`${c.kind === "page" ? "Page" : "Article"} « ${c.title} » enregistré${c.kind === "page" ? "e" : ""}`, `/admin/${c.kind === "page" ? "pages" : "blog"}/${id}`);
   revalidatePath(`/s/${store.slug}`, "layout");
   redirect(`/admin/${c.kind === "page" ? "pages" : "blog"}/${id}?saved=1`);
 }
 
 export async function deleteContent(form: FormData) {
-  const { store } = await requireStore();
+  const { store } = await requirePerm("content");
   const kind = form.get("kind") === "page" ? "page" : "post";
   const id = String(form.get("id"));
   if (kind === "page") await db.page.deleteMany({ where: { id, storeId: store.id } });

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { addOrderComment, cancelOrder, markPaid, setFulfilled } from "../actions";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { PageHeader, Pill, Thumb } from "@/components/ui";
-import { requireStore } from "@/lib/auth";
+import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS, type Address } from "@/lib/orders";
@@ -23,7 +23,7 @@ const EVENT_TEXT: Record<string, string> = {
 
 export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { user, store } = await requireStore();
+  const { user, store } = await requirePerm("orders");
   const o = await db.order.findFirst({
     where: { id, storeId: store.id },
     include: { items: true, events: { orderBy: { createdAt: "desc" } }, customer: { include: { _count: { select: { orders: true } } } } },
