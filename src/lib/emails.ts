@@ -138,3 +138,13 @@ export function lowStockEmail(store: Store, items: { title: string; stock: numbe
 <p>${button(`${appUrl()}/admin/inventory?filter=low`, "Gérer le stock")}</p>`),
   };
 }
+
+export function reviewRequestEmail(store: Store, name: string, products: { title: string; url: string }[]) {
+  return {
+    subject: `Que pensez-vous de votre commande ${store.name} ?`,
+    html: layout(store.name, `${name.split(" ")[0]}, votre avis compte`,
+      `<p style="font-size:14px;line-height:1.5">Votre commande est arrivée il y a quelques jours. Un mot sur vos articles aide d'autres clients à choisir, et nous aide à nous améliorer.</p>
+${products.map((p) => `<p style="margin:10px 0"><a href="${esc(p.url)}" style="display:block;border:1px solid #e3e3e3;border-radius:10px;padding:12px 14px;color:#303030;text-decoration:none"><b>${esc(p.title)}</b><span style="float:right;color:#e3a008;letter-spacing:2px">★★★★★</span></a></p>`).join("")}
+<p style="font-size:13px;color:#616161">Il suffit de cliquer sur un produit puis sur « Écrire un avis ».</p>`),
+  };
+}

@@ -13,7 +13,7 @@ export default async function MarketingPage() {
   ]);
   return (
     <>
-      <PageHeader title="Marketing" subtitle="Envoyez des e-mails à vos abonnés : nouveautés, soldes, histoire de l'atelier." actions={<Link href="/admin/marketing/new" className="btn btn-primary">Créer une campagne</Link>} />
+      <PageHeader title="Marketing" subtitle="Envoyez des e-mails à vos abonnés : nouveautés, soldes, histoire de l'atelier." actions={<><Link href="/admin/marketing/automations" className="btn">Automatisations</Link><Link href="/admin/marketing/new" className="btn btn-primary">Créer une campagne</Link></>} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="card p-4"><div className="text-xs font-[550] text-muted">Abonnés à la newsletter</div><div className="text-lg font-bold">{subscribers}</div><div className="text-xs text-muted">sur {customers} client{customers > 1 ? "s" : ""}</div></div>
         <div className="card p-4"><div className="text-xs font-[550] text-muted">Campagnes envoyées</div><div className="text-lg font-bold">{campaigns.filter((c) => c.status === "sent").length}</div></div>

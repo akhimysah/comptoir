@@ -58,7 +58,7 @@ export async function posCheckout(input: z.infer<typeof schema>): Promise<{ erro
   }
   await markOrderPaid(order.id);
   await db.$transaction([
-    db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "fulfilled" } }),
+    db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "fulfilled", fulfilledAt: new Date(), reviewRequestedAt: new Date() } }),
     db.orderEvent.create({ data: { orderId: order.id, type: "pos_sale", author: user.name, message: d.method === "cash" ? "espèces" : "carte" } }),
   ]);
   await logActivity(`Vente en caisse #${order.number}`, `/admin/orders/${order.id}`);

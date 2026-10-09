@@ -45,10 +45,15 @@ Ensuite, ouvrez http://localhost:3000.
 | Autorisations par collaborateur, journal d'activité | Précommandes, lots de produits |
 | Marketing : newsletter et campagnes e-mail | Inscription à la newsletter, désabonnement en un clic |
 | Flux Google Shopping et Facebook / Instagram | Prix affichés dans la devise du visiteur (paiement dans la devise de la boutique) |
+| Point de vente (caisse, espèces ou carte, ticket 80 mm) | Programme de fidélité (points, bons personnels) |
+| Abonnements (renouvellements, pause, résiliation) | Abonnement au choix sur les fiches produit |
+| Automatisations : relance des paniers, demande d'avis | |
 
 ## Plusieurs boutiques et rapport quotidien
 
 Un même compte peut gérer plusieurs boutiques : menu en haut à droite → **Créer une boutique**, et on passe de l'une à l'autre depuis ce même menu. La page **Toutes les boutiques** regroupe le chiffre d'affaires et les commandes (aujourd'hui, 7, 30 ou 90 jours), boutique par boutique et au total, avec le CA jour par jour et les dernières commandes de toutes les boutiques.
+
+Les tâches planifiées (`vercel.json`) : rapport quotidien, renouvellement des abonnements (`/api/cron/subscriptions`) et automatisations (`/api/cron/automations`), toutes protégées par `CRON_SECRET`.
 
 Le **rapport quotidien** (CA et commandes de la veille, produits les plus vendus, commandes à expédier) part chaque matin par e-mail. En ligne sur Vercel, `vercel.json` déclenche `/api/cron/daily-report` tous les jours à 6 h UTC : définissez `CRON_SECRET` dans les variables Vercel. Ailleurs, appelez cette adresse chaque matin avec l'en-tête `Authorization: Bearer <CRON_SECRET>`. Le bouton « M'envoyer le rapport d'hier » l'envoie tout de suite.
 

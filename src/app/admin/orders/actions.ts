@@ -27,7 +27,7 @@ export async function setFulfilled(form: FormData) {
   const { user, order } = await ownOrder(form);
   const fulfilled = form.get("value") === "fulfilled";
   await db.$transaction([
-    db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: fulfilled ? "fulfilled" : "unfulfilled" } }),
+    db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: fulfilled ? "fulfilled" : "unfulfilled", fulfilledAt: fulfilled ? new Date() : null } }),
     db.orderEvent.create({ data: { orderId: order.id, type: fulfilled ? "fulfilled" : "unfulfilled", author: user.name } }),
   ]);
   if (fulfilled) await notifyOrderShipped(order.id);
@@ -77,7 +77,7 @@ export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" 
     const target = action === "fulfill" ? "fulfilled" : "unfulfilled";
     if (!PAID_STATUSES.includes(o.paymentStatus) || o.fulfillmentStatus === target) continue;
     await db.$transaction([
-      db.order.update({ where: { id: o.id }, data: { fulfillmentStatus: target } }),
+      db.order.update({ where: { id: o.id }, data: { fulfillmentStatus: target, fulfilledAt: target === "fulfilled" ? new Date() : null } }),
       db.orderEvent.create({ data: { orderId: o.id, type: target, author: user.name } }),
     ]);
     if (target === "fulfilled") await notifyOrderShipped(o.id);
