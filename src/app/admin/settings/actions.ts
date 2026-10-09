@@ -48,3 +48,31 @@ export async function saveTaxes(_: { error?: string; ok?: boolean } | undefined,
   revalidatePath("/admin/settings");
   return { ok: true };
 }
+
+/** Devises d'affichage de la boutique : cases cochées et taux saisis (1 unité de la devise de la boutique = taux). */
+export async function saveCurrencies(_: { error?: string; ok?: string } | undefined, form: FormData) {
+  const { store } = await requireOwner();
+  const codes = form.getAll("code").map(String).filter((c) => /^[A-Z]{3}$/.test(c) && c !== store.currency);
+  let list = codes.map((code) => ({ code, rate: Number(String(form.get(`rate_${code}`) ?? "").replace(",", ".")) }));
+  let note = "";
+  if (form.get("auto") === "1" && codes.length) {
+    // Taux du jour de la Banque centrale européenne (via frankfurter.app) ; les devises non couvertes gardent le taux saisi.
+    try {
+      const res = await fetch(`https://api.frankfurter.app/latest?from=${store.currency}&to=${codes.join(",")}`, { cache: "no-store" });
+      const json = res.ok ? ((await res.json()) as { rates?: Record<string, number> }) : {};
+      const rates = json.rates ?? {};
+      list = list.map((c) => (rates[c.code] ? { ...c, rate: rates[c.code] } : c));
+      const missing = codes.filter((c) => !rates[c]);
+      note = missing.length ? `Taux mis à jour, sauf ${missing.join(", ")} (non publiés par la BCE : saisissez-les à la main).` : "Taux du jour appliqués.";
+    } catch {
+      return { error: "Impossible de récupérer les taux du jour. Saisissez-les à la main." };
+    }
+  }
+  const bad = list.find((c) => !(c.rate > 0));
+  if (bad) return { error: `Indiquez un taux pour ${bad.code}.` };
+  await db.store.update({ where: { id: store.id }, data: { displayCurrencies: JSON.stringify(list.map((c) => ({ code: c.code, rate: Math.round(c.rate * 10000) / 10000 }))) } });
+  await logActivity(`Devises affichées : ${list.map((c) => c.code).join(", ") || "aucune"}`, "/admin/settings");
+  revalidatePath("/admin/settings");
+  revalidatePath(`/s/${store.slug}`, "layout");
+  return { ok: note || "Enregistré." };
+}

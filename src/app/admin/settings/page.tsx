@@ -1,5 +1,7 @@
 import { SettingsForm } from "@/components/admin/SettingsForm";
 import { TaxForm } from "@/components/admin/TaxForm";
+import { CurrenciesForm } from "@/components/admin/CurrenciesForm";
+import { parseJson } from "@/lib/utils";
 import { PageHeader, Pill } from "@/components/ui";
 import { requireOwner } from "@/lib/auth";
 import Link from "next/link";
@@ -22,6 +24,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="flex flex-col gap-5">
           <SettingsForm name={store.name} tagline={store.tagline} currency={store.currency} shipping={centsToInput(store.shippingCents)} freeFrom={centsToInput(store.freeShippingFromCents)} lowStockThreshold={store.lowStockThreshold} />
+          <CurrenciesForm base={store.currency} current={parseJson(store.displayCurrencies, [])} />
           <TaxForm taxRateBps={store.taxRateBps} legalName={store.legalName} legalAddress={store.legalAddress} siret={store.siret} vatNumber={store.vatNumber} />
         </div>
 

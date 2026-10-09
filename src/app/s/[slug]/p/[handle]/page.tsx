@@ -1,3 +1,4 @@
+import { displayCurrency } from "@/lib/currency";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProductBuy } from "@/components/store/ProductBuy";
@@ -32,12 +33,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const partVariants = parts.length ? await db.variant.findMany({ where: { id: { in: parts.map((x) => x.variantId) } }, include: { product: true } }) : [];
   const bundleLeft = parts.length ? bundleStock(parts.map((x) => ({ quantity: x.quantity, stock: partVariants.find((v) => v.id === x.variantId)?.stock ?? 0 }))) : null;
   const contents = parts.map((x) => { const v = partVariants.find((pv) => pv.id === x.variantId); return v ? `${x.quantity} × ${v.product.title}${v.title !== "Par défaut" ? ` (${v.title})` : ""}` : null; }).filter((x): x is string => !!x);
+  const cur = await displayCurrency(store);
   const agg = await db.review.aggregate({ where: { productId: product.id, status: "published" }, _avg: { rating: true }, _count: true });
   return (
     <>
     <ProductBuy
       slug={slug}
-      currency={store.currency}
+      currency={cur.code}
+      rate={cur.rate}
       title={product.title}
       description={product.description}
       images={parseJson(product.images, [])}
@@ -49,14 +52,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       preorder={product.continueSelling}
       isGiftCard={product.isGiftCard}
     />
-    <Related slug={slug} storeId={store.id} productId={product.id} store={store} />
+    <Related slug={slug} storeId={store.id} productId={product.id} store={{ ...store, currency: cur.code, rate: cur.rate }} />
     <Reviews slug={slug} productId={product.id} />
     </>
   );
 }
 
 /** « Vous aimerez aussi » : produits des mêmes collections d'abord, puis les plus récents. */
-async function Related({ slug, storeId, productId, store }: { slug: string; storeId: string; productId: string; store: Store }) {
+async function Related({ slug, storeId, productId, store }: { slug: string; storeId: string; productId: string; store: Store & { rate?: number } }) {
   const { products } = await getCatalog(storeId);
   const me = products.find((p) => p.id === productId);
   const shared = (p: (typeof products)[number]) => p.collectionHandles.filter((h) => me?.collectionHandles.includes(h)).length;

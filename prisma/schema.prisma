@@ -40,6 +40,7 @@ model Store {
   themeUpdatedAt        DateTime?
   stripeAccountId       String?
   stripeChargesEnabled  Boolean      @default(false)
+  displayCurrencies     String       @default("[]") // JSON : { code, rate }[] — devises d'affichage et leur taux par rapport à la devise de la boutique
   lowStockThreshold     Int          @default(3) // alerte e-mail quand une variante passe sous ce seuil
   taxRateBps            Int          @default(2000) // TVA incluse dans les prix, en points de base (2000 = 20 %) ; 0 = franchise
   legalName             String       @default("") // pour les factures

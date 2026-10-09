@@ -42,6 +42,9 @@ Ensuite, ouvrez http://localhost:3000.
 | Remboursements partiels et retours, remise en stock | Recherche, « Vous aimerez aussi » |
 | Remises automatiques et livraison offerte | Comptes clients (connexion par code e-mail, historique) |
 | TVA, mentions légales, factures et bons de préparation | Facture téléchargeable après l'achat |
+| Autorisations par collaborateur, journal d'activité | Précommandes, lots de produits |
+| Marketing : newsletter et campagnes e-mail | Inscription à la newsletter, désabonnement en un clic |
+| Flux Google Shopping et Facebook / Instagram | Prix affichés dans la devise du visiteur (paiement dans la devise de la boutique) |
 
 ## Plusieurs boutiques et rapport quotidien
 

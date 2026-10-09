@@ -1,3 +1,4 @@
+import { displayCurrency } from "@/lib/currency";
 import { notFound } from "next/navigation";
 import { ListingHeader, sortProducts } from "@/components/store/Listing";
 import { ProductGrid } from "@/components/store/ProductCard";
@@ -19,6 +20,8 @@ export default async function CollectionPage({ params, searchParams }: { params:
   if (!collection) notFound();
   const { products } = await getCatalog(store.id);
   const list = products.filter((p) => p.collectionHandles.includes(handle));
+  const cur = await displayCurrency(store);
+  const view = { ...store, currency: cur.code, rate: cur.rate };
   return (
     <>
       {collection.image && (
@@ -27,7 +30,7 @@ export default async function CollectionPage({ params, searchParams }: { params:
       )}
       <div className="mx-auto max-w-6xl px-4 py-12">
         <ListingHeader title={collection.title} description={collection.description} count={list.length} sort={sort} />
-        {list.length ? <ProductGrid products={sortProducts(list, sort)} store={store} /> : <p className="text-[var(--c-muted)]">Cette collection est vide pour le moment.</p>}
+        {list.length ? <ProductGrid products={sortProducts(list, sort)} store={view} /> : <p className="text-[var(--c-muted)]">Cette collection est vide pour le moment.</p>}
       </div>
     </>
   );

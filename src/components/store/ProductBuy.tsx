@@ -8,8 +8,8 @@ import { Stars } from "./Stars";
 
 type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number };
 
-export function ProductBuy({ slug, currency, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [] }: {
-  slug: string; currency: string; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[];
+export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [] }: {
+  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[];
   options: { name: string; values: string[] }[]; variants: V[];
 }) {
   const { add, items } = useCart(slug);
@@ -54,8 +54,8 @@ export function ProductBuy({ slug, currency, title, description, images, hue, op
           <h1 className="font-[family-name:var(--t-display)] text-3xl font-semibold leading-tight md:text-4xl">{title}</h1>
           {rating && <a href="#avis" className="flex items-center gap-2 text-sm text-[var(--c-muted)] hover:underline"><Stars value={rating.avg} />{rating.avg.toFixed(1).replace(".", ",")} · {rating.count} avis</a>}
           <div className="flex items-baseline gap-3 text-xl">
-            <span>{formatMoney(shown.priceCents, currency)}</span>
-            {shown.compareAtCents && shown.compareAtCents > shown.priceCents && <s className="text-base text-[var(--c-muted)]">{formatMoney(shown.compareAtCents, currency)}</s>}
+            <span>{formatMoney(Math.round(shown.priceCents * rate), currency)}</span>
+            {shown.compareAtCents && shown.compareAtCents > shown.priceCents && <s className="text-base text-[var(--c-muted)]">{formatMoney(Math.round(shown.compareAtCents * rate), currency)}</s>}
           </div>
         </div>
 

@@ -10,7 +10,7 @@ const field = "w-full rounded-[var(--t-radius)] border border-[color-mix(in_srgb
 
 type Recovered = { items: { variantId: string; quantity: number }[]; email: string; name: string } | null;
 
-export function CartView({ slug, currency, cancelled, demo, recovered, customer }: { slug: string; currency: string; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null }) {
+export function CartView({ slug, currency, display, cancelled, demo, recovered, customer }: { slug: string; currency: string; display?: { code: string; rate: number }; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null }) {
   const { items, ready, setQuantity, replace } = useCart(slug);
   const [cart, setCart] = useState<PricedCart | null>(null);
   const [code, setCode] = useState("");
@@ -35,7 +35,9 @@ export function CartView({ slug, currency, cancelled, demo, recovered, customer 
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return;
     fetch("/api/checkouts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, email, name: String(new FormData(form).get("name") ?? ""), items }) }).catch(() => {});
   };
-  const m = (c: number) => formatMoney(c, currency);
+  // Montants affichés dans la devise choisie ; le paiement se fait dans la devise de la boutique.
+  const shown = display && display.code !== currency ? display : null;
+  const m = (c: number) => (shown ? formatMoney(Math.round(c * shown.rate), shown.code) : formatMoney(c, currency));
 
   const refresh = useCallback(async () => {
     if (!ready) return;
@@ -129,6 +131,7 @@ export function CartView({ slug, currency, cancelled, demo, recovered, customer 
                 <dd className="mt-2 border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-2 text-right text-base font-semibold">{m(cart.totalCents)}</dd>
               </dl>
             )}
+            {cart && shown && <p className="text-xs text-[var(--c-muted)]">Prix indicatifs en {shown.code}. Le paiement est effectué en {currency} : <b className="tabular-nums">{formatMoney(cart.totalCents, currency)}</b>.</p>}
             {cart && !cart.countries && cart.shippingCents > 0 && cart.freeShippingFromCents > 0 && (
               <p className="text-xs text-[var(--c-muted)]">Plus que {m(cart.freeShippingFromCents - (cart.subtotalCents - cart.discountCents))} pour la livraison offerte.</p>
             )}
@@ -174,7 +177,7 @@ export function CartView({ slug, currency, cancelled, demo, recovered, customer 
             <textarea id="co-note" name="note" maxLength={500} placeholder="Note pour la boutique (optionnel)" aria-label="Note" className={`${field} min-h-[70px]`} />
             {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
             <button disabled={busy || !cart?.lines.length || Boolean(cart?.shippingError)} className="h-12 rounded-[var(--t-radius)] bg-[var(--c-accent)] font-semibold text-[var(--c-accent-text)] transition hover:opacity-90 disabled:opacity-40">
-              {busy ? "Un instant…" : demo ? `Valider la commande · ${cart ? m(cart.totalCents) : ""}` : `Payer ${cart ? m(cart.totalCents) : ""}`}
+              {busy ? "Un instant…" : demo ? `Valider la commande · ${cart ? formatMoney(cart.totalCents, currency) : ""}` : `Payer ${cart ? formatMoney(cart.totalCents, currency) : ""}`}
             </button>
             <p className="text-center text-xs text-[var(--c-muted)]">{demo ? "Boutique en démonstration : aucun paiement ne sera demandé." : "Paiement sécurisé par Stripe : carte, Apple Pay, Google Pay."}</p>
           </form>

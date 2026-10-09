@@ -1,7 +1,9 @@
+import { displayCurrency, storeCurrencies } from "@/lib/currency";
 import { db } from "@/lib/db";
 import type { Metadata } from "next";
 import { CartLink } from "@/components/store/Header";
 import { NewsletterForm } from "@/components/store/NewsletterForm";
+import { CurrencySelect } from "@/components/store/CurrencySelect";
 import { storeFontVars } from "@/components/store/fonts";
 import { getCatalog, getStore } from "@/lib/storefront";
 import { themeVars } from "@/lib/theme";
@@ -14,6 +16,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function StoreLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { store, theme } = await getStore(slug);
+  const currencies = storeCurrencies(store);
+  const current = await displayCurrency(store);
   const [{ collections }, footerPages, hasBlog] = await Promise.all([
     getCatalog(store.id),
     db.page.findMany({ where: { storeId: store.id, published: true, showInFooter: true }, orderBy: { createdAt: "asc" }, select: { title: true, handle: true } }),
@@ -30,6 +34,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
             {collections.slice(0, 4).map((c) => <a key={c.handle} href={`/s/${slug}/c/${c.handle}`} className="hover:opacity-70">{c.title}</a>)}
             {hasBlog > 0 && <a href={`/s/${slug}/blog`} className="hover:opacity-70">Blog</a>}
           </nav>
+          {currencies.length > 1 && <CurrencySelect slug={slug} codes={currencies.map((c) => c.code)} current={current.code} />}
           <a href={`/s/${slug}/search`} aria-label="Rechercher" className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
           </a>

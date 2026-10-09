@@ -14,7 +14,10 @@ export type CardProduct = {
 
 export type CardCollection = { handle: string; title: string; image: string | null; count: number };
 
-export type StoreInfo = { slug: string; name: string; currency: string };
+export type StoreInfo = { slug: string; name: string; currency: string; rate?: number };
+
+/** Montant converti dans la devise d'affichage (arrondi au centime). */
+export const conv = (cents: number, store: { rate?: number }) => Math.round(cents * (store.rate ?? 1));
 
 export function storeHref(slug: string, link: string) {
   if (!link) return `/s/${slug}`;
