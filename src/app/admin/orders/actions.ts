@@ -3,10 +3,12 @@
 import { logActivity } from "@/lib/activity";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cancelUnpaidOrder, markOrderPaid, notifyOrderShipped } from "@/lib/orders";
 import { PAID_STATUSES, refundableCents, refundOrder } from "@/lib/refunds";
+import { decideReturn } from "@/lib/returns";
 
 async function ownOrder(form: FormData) {
   const { user, store } = await requirePerm("orders");
@@ -89,4 +91,23 @@ export async function markPaid(form: FormData) {
   const id = String(form.get("id"));
   await bulkOrders([id], "markPaid");
   revalidatePath(`/admin/orders/${id}`);
+}
+
+export async function returnDecision(form: FormData) {
+  const { user, store } = await requirePerm("orders");
+  const id = String(form.get("returnId") ?? "");
+  const action = String(form.get("action") ?? "");
+  const r = await db.returnRequest.findFirst({ where: { id, storeId: store.id }, select: { orderId: true, order: { select: { number: true } } } });
+  if (!r) throw new Error("Retour introuvable.");
+  const decision =
+    action === "decline" ? { action: "decline" as const, reason: String(form.get("reason") ?? "").trim() }
+    : action === "approve" || action === "receive" || action === "reopen" ? { action: action as "approve" | "receive" | "reopen" }
+    : null;
+  if (!decision) throw new Error("Action inconnue.");
+  const res = await decideReturn(store.id, id, user.name, decision);
+  if (res.error) redirect(`/admin/orders/${r.orderId}?err=${encodeURIComponent(res.error)}`);
+  const verb = { approve: "accepté", decline: "refusé", receive: "marqué comme reçu", reopen: "rouvert" }[decision.action];
+  await logActivity(`Retour ${verb} sur la commande #${r.order.number}`, `/admin/orders/${r.orderId}`);
+  revalidatePath(`/admin/orders/${r.orderId}`);
+  revalidatePath("/admin/orders/returns");
 }

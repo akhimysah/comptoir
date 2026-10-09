@@ -2,6 +2,7 @@ import { SettingsForm } from "@/components/admin/SettingsForm";
 import { TaxForm } from "@/components/admin/TaxForm";
 import { LoyaltyForm } from "@/components/admin/LoyaltyForm";
 import { CurrenciesForm } from "@/components/admin/CurrenciesForm";
+import { ReturnsForm } from "@/components/admin/ReturnsForm";
 import { parseJson } from "@/lib/utils";
 import { PageHeader, Pill } from "@/components/ui";
 import { requireOwner } from "@/lib/auth";
@@ -26,6 +27,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <div className="flex flex-col gap-5">
           <SettingsForm name={store.name} tagline={store.tagline} currency={store.currency} shipping={centsToInput(store.shippingCents)} freeFrom={centsToInput(store.freeShippingFromCents)} lowStockThreshold={store.lowStockThreshold} />
           <LoyaltyForm enabled={store.loyaltyEnabled} perUnit={store.loyaltyPointsPerUnit} rewardPoints={store.loyaltyRewardPoints} rewardValue={centsToInput(store.loyaltyRewardCents)} currency={store.currency} />
+          <ReturnsForm enabled={store.returnsEnabled} days={store.returnWindowDays} instructions={store.returnInstructions} />
           <CurrenciesForm base={store.currency} current={parseJson(store.displayCurrencies, [])} />
           <TaxForm taxRateBps={store.taxRateBps} legalName={store.legalName} legalAddress={store.legalAddress} siret={store.siret} vatNumber={store.vatNumber} />
         </div>

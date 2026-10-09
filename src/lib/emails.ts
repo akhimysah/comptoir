@@ -148,3 +148,45 @@ ${products.map((p) => `<p style="margin:10px 0"><a href="${esc(p.url)}" style="d
 <p style="font-size:13px;color:#616161">Il suffit de cliquer sur un produit puis sur « Écrire un avis ».</p>`),
   };
 }
+
+type ReturnItem = { title: string; quantity: number; reason: string };
+const returnList = (items: ReturnItem[]) =>
+  `<ul style="font-size:14px;line-height:1.6;color:#616161">${items.map((i) => `<li>${esc(i.title)} × ${i.quantity} <span style="color:#8a8a8a">· ${esc(i.reason)}</span></li>`).join("")}</ul>`;
+
+export function returnRequestedEmail(store: Store, number: number, items: ReturnItem[]) {
+  return {
+    subject: `Votre demande de retour pour la commande #${number}`,
+    html: layout(store.name, "Nous avons bien reçu votre demande de retour",
+      `<p style="font-size:14px;line-height:1.5">Votre demande pour la commande <b>#${number}</b> est enregistrée. Nous l'examinons et revenons vers vous avec les instructions de retour. <b>N'envoyez rien avant notre réponse.</b></p>${returnList(items)}`),
+  };
+}
+
+export function returnRequestedAlertEmail(store: Store, order: Order, items: ReturnItem[], note: string) {
+  return {
+    subject: `[${store.name}] Demande de retour sur la commande #${order.number}`,
+    html: layout(store.name, "Nouvelle demande de retour",
+      `<p style="font-size:14px;line-height:1.5">${esc(order.name)} (${esc(order.email)}) souhaite retourner des articles de la commande <b>#${order.number}</b>.</p>${returnList(items)}
+${note ? `<p style="font-size:14px;line-height:1.5;color:#616161">« ${esc(note)} »</p>` : ""}
+<p>${button(`${appUrl()}/admin/orders/${order.id}`, "Accepter ou refuser")}</p>`),
+  };
+}
+
+export function returnApprovedEmail(store: Store, number: number, items: ReturnItem[]) {
+  const instructions = store.returnInstructions.trim();
+  return {
+    subject: `Votre retour pour la commande #${number} est accepté`,
+    html: layout(store.name, "Votre retour est accepté",
+      `<p style="font-size:14px;line-height:1.5">Vous pouvez nous renvoyer les articles ci-dessous. Nous vous rembourserons dès leur réception.</p>${returnList(items)}
+${instructions ? `<div style="font-size:14px;line-height:1.5;background:#f7f7f7;border-radius:8px;padding:12px 14px;white-space:pre-line"><b>Comment nous les renvoyer</b><br>${esc(instructions)}</div>` : `<p style="font-size:14px;line-height:1.5">Indiquez le numéro de commande <b>#${number}</b> dans le colis.</p>`}`),
+  };
+}
+
+export function returnDeclinedEmail(store: Store, number: number, reason: string) {
+  return {
+    subject: `Votre demande de retour pour la commande #${number}`,
+    html: layout(store.name, "Nous ne pouvons pas accepter ce retour",
+      `<p style="font-size:14px;line-height:1.5">Après examen, nous ne pouvons pas accepter le retour de la commande <b>#${number}</b>.</p>
+${reason ? `<p style="font-size:14px;line-height:1.5;color:#616161">Motif : ${esc(reason)}</p>` : ""}
+<p style="font-size:14px;line-height:1.5">Une question ? Répondez simplement à cet e-mail.</p>`),
+  };
+}

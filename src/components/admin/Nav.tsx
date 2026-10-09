@@ -71,12 +71,12 @@ function NavLink({ item, path }: { item: Item; path: string }) {
   );
 }
 
-export function AdminNav({ toShip, storeSlug, isOwner, storeCount, perms }: { toShip: number; storeSlug: string; isOwner: boolean; storeCount: number; perms: string[] }) {
+export function AdminNav({ toShip, returnsToHandle = 0, storeSlug, isOwner, storeCount, perms }: { toShip: number; returnsToHandle?: number; storeSlug: string; isOwner: boolean; storeCount: number; perms: string[] }) {
   const path = usePathname();
   const need: Record<string, string> = { "/admin/orders": "orders", "/admin/products": "products", "/admin/customers": "customers", "/admin/analytics": "analytics", "/admin/discounts": "discounts", "/admin/marketing": "marketing" };
   const all: Item[] = [
     { href: "/admin", label: "Accueil", icon: "home" },
-    { href: "/admin/orders", label: "Commandes", icon: "orders", badge: toShip, match: ["/admin/orders", "/admin/checkouts", "/admin/subscriptions"], children: [{ href: "/admin/subscriptions", label: "Abonnements" }, { href: "/admin/checkouts", label: "Paniers abandonnés" }] },
+    { href: "/admin/orders", label: "Commandes", icon: "orders", badge: toShip, match: ["/admin/orders", "/admin/checkouts", "/admin/subscriptions"], children: [{ href: "/admin/orders/returns", label: returnsToHandle ? `Retours (${returnsToHandle})` : "Retours" }, { href: "/admin/subscriptions", label: "Abonnements" }, { href: "/admin/checkouts", label: "Paniers abandonnés" }] },
     { href: "/admin/products", label: "Produits", icon: "products", match: ["/admin/products", "/admin/collections", "/admin/inventory", "/admin/reviews", "/admin/gift-cards"], children: [{ href: "/admin/collections", label: "Collections" }, { href: "/admin/inventory", label: "Stock" }, { href: "/admin/gift-cards", label: "Cartes cadeaux" }, { href: "/admin/reviews", label: "Avis" }] },
     { href: "/admin/customers", label: "Clients", icon: "customers" },
     { href: "/admin/analytics", label: "Statistiques", icon: "chart" },

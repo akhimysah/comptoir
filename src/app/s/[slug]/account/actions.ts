@@ -9,6 +9,7 @@ import { sendMail } from "@/lib/mail";
 import { redeemReward } from "@/lib/loyalty";
 import { setSubscriptionStatus } from "@/lib/renewals";
 import { clientIp, hit } from "@/lib/rate-limit";
+import { requestReturn } from "@/lib/returns";
 
 async function storeOf(slug: string) {
   const store = await db.store.findUnique({ where: { slug } });
@@ -70,4 +71,17 @@ export async function customerSubscription(form: FormData) {
   const status = String(form.get("status")) as "active" | "paused" | "cancelled";
   if (["active", "paused", "cancelled"].includes(status)) await setSubscriptionStatus(store.id, String(form.get("id")), status, customer.id);
   redirect(`/s/${slug}/account`);
+}
+
+export async function submitReturn(form: FormData) {
+  const slug = String(form.get("slug"));
+  const orderId = String(form.get("orderId"));
+  const store = await storeOf(slug);
+  const customer = await getCustomer(store.id);
+  if (!customer) redirect(`/s/${slug}/account/login`);
+  const ids = form.getAll("item").map(String);
+  const lines = ids.map((id) => ({ orderItemId: id, quantity: Math.floor(Number(form.get(`qty_${id}`) ?? 0)) || 0, reason: String(form.get(`reason_${id}`) ?? "") }));
+  const res = await requestReturn(store.id, orderId, customer, lines, String(form.get("note") ?? "").trim());
+  if (res.error) redirect(`/s/${slug}/account/returns/${orderId}?err=${encodeURIComponent(res.error)}`);
+  redirect(`/s/${slug}/account?return=1`);
 }

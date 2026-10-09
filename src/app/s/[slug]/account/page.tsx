@@ -4,18 +4,19 @@ import { getCustomer } from "@/lib/customer-auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { getStore } from "@/lib/storefront";
+import { RETURN_STATUS, returnBlocker, returnLines } from "@/lib/returns";
 
 export const metadata = { title: "Mon compte" };
 
 const STATUS = (o: { cancelledAt: Date | null; paymentStatus: string; fulfillmentStatus: string }) =>
   o.cancelledAt ? "Annulée" : o.paymentStatus === "refunded" ? "Remboursée" : o.paymentStatus === "pending" ? "Paiement en attente" : o.fulfillmentStatus === "fulfilled" ? "Expédiée" : "En préparation";
 
-export default async function AccountPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ saved?: string; code?: string; err?: string }> }) {
-  const [{ slug }, { saved, code, err }] = await Promise.all([params, searchParams]);
+export default async function AccountPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ saved?: string; code?: string; err?: string; return?: string }> }) {
+  const [{ slug }, { saved, code, err, return: returned }] = await Promise.all([params, searchParams]);
   const { store } = await getStore(slug);
   const customer = await getCustomer(store.id);
   if (!customer) redirect(`/s/${slug}/account/login`);
-  const orders = await db.order.findMany({ where: { storeId: store.id, OR: [{ customerId: customer.id }, { email: customer.email }] }, include: { items: true }, orderBy: { createdAt: "desc" } });
+  const orders = await db.order.findMany({ where: { storeId: store.id, OR: [{ customerId: customer.id }, { email: customer.email }] }, include: { items: true, returns: { orderBy: { createdAt: "desc" } } }, orderBy: { createdAt: "desc" } });
   const subs = await db.subscription.findMany({ where: { storeId: store.id, customerId: customer.id, status: { not: "cancelled" } }, orderBy: { createdAt: "desc" } });
   const vouchers = store.loyaltyEnabled ? await db.discount.findMany({ where: { storeId: store.id, customerEmail: customer.email, usageCount: 0 }, orderBy: { createdAt: "desc" } }) : [];
   const progress = Math.min(100, Math.round((customer.points / store.loyaltyRewardPoints) * 100));
@@ -53,6 +54,7 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
           )}
           <div>
           <h2 className="mb-4 font-[family-name:var(--t-display)] text-xl font-semibold">Mes commandes</h2>
+          {returned && <p role="status" className="mb-4 rounded-[var(--t-radius)] border border-[var(--c-accent)] px-4 py-3 text-sm">Votre demande de retour est envoyée. Vous recevrez une réponse par e-mail.</p>}
           {orders.length ? (
             <ul className="flex flex-col divide-y divide-[color-mix(in_srgb,var(--c-text)_12%,transparent)]">
               {orders.map((o) => (
@@ -67,6 +69,13 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
                       <span className="text-sm text-[var(--c-muted)]">{STATUS(o)}</span>
                     </span>
                   </a>
+                  {o.returns.map((r) => (
+                    <p key={r.id} className="-mt-2 pb-3 text-sm text-[var(--c-muted)]">
+                      Retour de {returnLines(r).reduce((s, l) => s + l.quantity, 0)} article(s) · <b className="font-semibold text-[var(--c-text)]">{RETURN_STATUS[r.status as keyof typeof RETURN_STATUS]?.label ?? r.status}</b>
+                      {r.status === "declined" && r.declineReason ? ` · ${r.declineReason}` : ""}
+                    </p>
+                  ))}
+                  {!returnBlocker(store, o) && <a href={`/s/${slug}/account/returns/${o.id}`} className="-mt-2 mb-3 inline-block text-sm underline underline-offset-4">Retourner des articles</a>}
                 </li>
               ))}
             </ul>

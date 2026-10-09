@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addOrderComment, cancelOrder, markPaid, setFulfilled } from "../actions";
+import { addOrderComment, cancelOrder, markPaid, returnDecision, setFulfilled } from "../actions";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { PageHeader, Pill, Thumb } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS, type Address } from "@/lib/orders";
 import { formatDateTime, initials, parseJson } from "@/lib/utils";
+import { RETURN_STATUS, returnLines } from "@/lib/returns";
 
 const EVENT_TEXT: Record<string, string> = {
   fulfilled: "a marqué la commande comme traitée.",
@@ -20,14 +21,20 @@ const EVENT_TEXT: Record<string, string> = {
   created_manual: "a créé cette commande manuellement.",
   pos_sale: "a encaissé cette vente au point de vente :",
   giftcards_sent: "",
+  return_requested: "a demandé un retour :",
+  return_approved: "a accepté le retour.",
+  return_declined: "a refusé le retour.",
+  return_received: "a reçu les articles retournés.",
+  return_reopened: "a rouvert la demande de retour.",
+  return_refunded: "a remboursé le retour.",
 };
 
-export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function OrderPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ err?: string }> }) {
+  const [{ id }, { err }] = await Promise.all([params, searchParams]);
   const { user, store } = await requirePerm("orders");
   const o = await db.order.findFirst({
     where: { id, storeId: store.id },
-    include: { items: true, events: { orderBy: { createdAt: "desc" } }, customer: { include: { _count: { select: { orders: true } } } } },
+    include: { items: true, returns: { orderBy: { createdAt: "desc" } }, events: { orderBy: { createdAt: "desc" } }, customer: { include: { _count: { select: { orders: true } } } } },
   });
   if (!o) notFound();
   const a = parseJson<Address>(o.address, { line1: "", zip: "", city: "", country: "" });
@@ -65,8 +72,57 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         }
       />
 
+      {err && <p role="alert" className="mb-4 rounded-lg border border-[#fedad9] bg-[#fff4f4] px-4 py-3 text-[#8e0b21]">{err}</p>}
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
         <div className="flex min-w-0 flex-col gap-4">
+          {o.returns.map((r) => {
+            const st = RETURN_STATUS[r.status as keyof typeof RETURN_STATUS] ?? { label: r.status, tone: "neutral" as const };
+            const lines = returnLines(r);
+            const hidden = <><input type="hidden" name="returnId" value={r.id} /></>;
+            const decline = (
+              <details className="group">
+                <summary className="btn cursor-pointer list-none">Refuser</summary>
+                <form action={returnDecision} className="mt-2 flex flex-col gap-2">
+                  {hidden}<input type="hidden" name="action" value="decline" />
+                  <textarea name="reason" rows={2} maxLength={500} placeholder="Motif envoyé au client (ex. : délai dépassé, article porté)" className="input" />
+                  <button className="btn self-start">Refuser le retour</button>
+                </form>
+              </details>
+            );
+            return (
+              <section key={r.id} className={`card overflow-hidden ${r.status === "requested" ? "ring-2 ring-[#ffeb78]" : ""}`}>
+                <div className="flex flex-wrap items-center gap-2 px-4 pt-4">
+                  <Pill tone={st.tone}>Retour · {st.label}</Pill>
+                  <span className="text-xs text-muted">Demandé le {formatDateTime(r.createdAt)}</span>
+                </div>
+                <ul className="m-3 rounded-lg border border-line">
+                  {lines.map((l) => {
+                    const i = o.items.find((x) => x.id === l.orderItemId);
+                    return (
+                      <li key={l.orderItemId} className="flex items-center gap-3 border-b border-line px-3 py-2.5 last:border-0">
+                        <Thumb image={i?.image ?? null} hue={i?.hue ?? 200} title={i?.productTitle ?? "?"} className="h-10 w-10 text-[10px]" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-[550]">{i?.productTitle ?? "Article supprimé"}{i && i.variantTitle !== "Par défaut" ? <span className="text-muted"> · {i.variantTitle}</span> : null}</div>
+                          <div className="text-xs text-muted">{l.reason}</div>
+                        </div>
+                        <span className="num text-muted">× {l.quantity}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {r.note && <p className="mx-4 mb-3 whitespace-pre-line rounded-lg bg-[#f7f7f7] px-3 py-2 text-[13px]">« {r.note} »</p>}
+                {r.status === "declined" && r.declineReason && <p className="mx-4 mb-3 text-[13px] text-muted">Motif du refus : {r.declineReason}</p>}
+                {r.status !== "refunded" && (
+                  <div className="flex flex-wrap items-start justify-end gap-2 border-t border-line px-4 py-3">
+                    {r.status === "requested" && <>{decline}<form action={returnDecision}>{hidden}<input type="hidden" name="action" value="approve" /><button className="btn btn-primary">Accepter le retour</button></form></>}
+                    {r.status === "approved" && <>{decline}<a href={`/admin/orders/${o.id}/refund?return=${r.id}`} className="btn">Rembourser sans attendre</a><form action={returnDecision}>{hidden}<input type="hidden" name="action" value="receive" /><button className="btn btn-primary">Marquer comme reçu</button></form></>}
+                    {r.status === "received" && <a href={`/admin/orders/${o.id}/refund?return=${r.id}`} className="btn btn-primary">Rembourser le retour</a>}
+                    {r.status === "declined" && <form action={returnDecision}>{hidden}<input type="hidden" name="action" value="reopen" /><button className="btn">Rouvrir la demande</button></form>}
+                  </div>
+                )}
+              </section>
+            );
+          })}
           <section className="card overflow-hidden">
             <div className="flex items-center gap-2 px-4 pt-4">
               {o.cancelledAt ? <Pill>Annulée</Pill> : <Pill tone={ful.tone}>{ful.label} ({qty})</Pill>}

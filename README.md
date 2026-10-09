@@ -39,7 +39,7 @@ Ensuite, ouvrez http://localhost:3000.
 | Pages de contenu et blog, avec une mise en forme simple | Pages (À propos, CGV…), blog, liens dans le pied de page |
 | Référencement : titre et description Google, aperçu du résultat | Sitemap par boutique (`/s/<boutique>/sitemap.xml`), robots.txt |
 | Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau ; achat de cartes cadeaux dans la boutique |
-| Remboursements partiels et retours, remise en stock | Recherche, « Vous aimerez aussi » |
+| Remboursements partiels, retours en libre-service (demande client, acceptation, réception, remboursement), remise en stock | Recherche, « Vous aimerez aussi » |
 | Remises automatiques et livraison offerte | Comptes clients (connexion par code e-mail, historique) |
 | TVA, mentions légales, factures et bons de préparation | Facture téléchargeable après l'achat |
 | Autorisations par collaborateur, journal d'activité | Précommandes, lots de produits |

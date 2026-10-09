@@ -9,12 +9,12 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
+  id           String        @id @default(cuid())
+  email        String        @unique
   name         String
   passwordHash String
-  dailyReport  Boolean   @default(true) // rapport quotidien par e-mail (toutes ses boutiques)
-  createdAt    DateTime  @default(now())
+  dailyReport  Boolean       @default(true) // rapport quotidien par e-mail (toutes ses boutiques)
+  createdAt    DateTime      @default(now())
   sessions     Session[]
   stores       Store[]
   memberships  StoreMember[]
@@ -29,35 +29,38 @@ model Session {
 }
 
 model Store {
-  id                    String       @id @default(cuid())
-  slug                  String       @unique
+  id                    String          @id @default(cuid())
+  slug                  String          @unique
   name                  String
-  tagline               String       @default("")
-  currency              String       @default("EUR")
-  shippingCents         Int          @default(490)
-  freeShippingFromCents Int          @default(6000)
-  theme                 String       // JSON, voir src/lib/theme.ts
+  tagline               String          @default("")
+  currency              String          @default("EUR")
+  shippingCents         Int             @default(490)
+  freeShippingFromCents Int             @default(6000)
+  theme                 String // JSON, voir src/lib/theme.ts
   themeUpdatedAt        DateTime?
   stripeAccountId       String?
-  stripeChargesEnabled  Boolean      @default(false)
-  displayCurrencies     String       @default("[]") // JSON : { code, rate }[] — devises d'affichage et leur taux par rapport à la devise de la boutique
-  loyaltyEnabled        Boolean      @default(false) // programme de fidélité
-  loyaltyPointsPerUnit  Int          @default(1) // points gagnés par unité de devise dépensée (1 € = 1 point)
-  loyaltyRewardPoints   Int          @default(100) // points nécessaires pour un bon
-  loyaltyRewardCents    Int          @default(500) // valeur du bon
-  autoCartReminder      Boolean      @default(false) // relance automatique des paniers abandonnés
-  cartReminderHours     Int          @default(4)
-  autoReviewRequest     Boolean      @default(false) // demande d'avis après expédition
-  reviewRequestDays     Int          @default(7)
-  lowStockThreshold     Int          @default(3) // alerte e-mail quand une variante passe sous ce seuil
-  taxRateBps            Int          @default(2000) // TVA incluse dans les prix, en points de base (2000 = 20 %) ; 0 = franchise
-  legalName             String       @default("") // pour les factures
-  legalAddress          String       @default("")
-  siret                 String       @default("")
-  vatNumber             String       @default("")
+  stripeChargesEnabled  Boolean         @default(false)
+  displayCurrencies     String          @default("[]") // JSON : { code, rate }[] — devises d'affichage et leur taux par rapport à la devise de la boutique
+  loyaltyEnabled        Boolean         @default(false) // programme de fidélité
+  loyaltyPointsPerUnit  Int             @default(1) // points gagnés par unité de devise dépensée (1 € = 1 point)
+  loyaltyRewardPoints   Int             @default(100) // points nécessaires pour un bon
+  loyaltyRewardCents    Int             @default(500) // valeur du bon
+  autoCartReminder      Boolean         @default(false) // relance automatique des paniers abandonnés
+  cartReminderHours     Int             @default(4)
+  autoReviewRequest     Boolean         @default(false) // demande d'avis après expédition
+  reviewRequestDays     Int             @default(7)
+  returnsEnabled        Boolean         @default(true) // retours en libre-service depuis « Mon compte »
+  returnWindowDays      Int             @default(30)
+  returnInstructions    String          @default("") // adresse de retour, emballage… envoyé à l'acceptation
+  lowStockThreshold     Int             @default(3) // alerte e-mail quand une variante passe sous ce seuil
+  taxRateBps            Int             @default(2000) // TVA incluse dans les prix, en points de base (2000 = 20 %) ; 0 = franchise
+  legalName             String          @default("") // pour les factures
+  legalAddress          String          @default("")
+  siret                 String          @default("")
+  vatNumber             String          @default("")
   ownerId               String
-  owner                 User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt             DateTime     @default(now())
+  owner                 User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt             DateTime        @default(now())
   products              Product[]
   collections           Collection[]
   orders                Order[]
@@ -73,13 +76,14 @@ model Store {
   giftCards             GiftCard[]
   campaigns             Campaign[]
   subscriptions         Subscription[]
+  returns               ReturnRequest[]
 }
 
 /// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
 model Subscription {
-  id                   String    @id @default(cuid())
+  id                   String   @id @default(cuid())
   storeId              String
-  store                Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store                Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   customerId           String?
   email                String
   name                 String
@@ -90,13 +94,13 @@ model Subscription {
   quantity             Int
   priceCents           Int // prix par échéance (remise abonné comprise)
   interval             String // week | month
-  status               String    @default("active") // active | paused | cancelled
+  status               String   @default("active") // active | paused | cancelled
   nextBillingAt        DateTime
-  ordersCount          Int       @default(1)
+  ordersCount          Int      @default(1)
   firstOrderId         String?
   stripeSubscriptionId String?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 /// Campagne e-mail envoyée aux abonnés de la newsletter.
@@ -183,13 +187,13 @@ model ShippingZone {
 }
 
 model ShippingRate {
-  id               String       @id @default(cuid())
-  zoneId           String
-  zone             ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  name             String // « Standard », « Express »…
-  priceCents       Int
-  freeAboveCents   Int? // gratuit à partir de ce montant
-  position         Int          @default(0)
+  id             String       @id @default(cuid())
+  zoneId         String
+  zone           ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  name           String // « Standard », « Express »…
+  priceCents     Int
+  freeAboveCents Int? // gratuit à partir de ce montant
+  position       Int          @default(0)
 }
 
 /// Panier d'un client qui a donné son e-mail sans terminer sa commande.
@@ -231,13 +235,13 @@ model Review {
 
 /// Collaborateurs d'une boutique (le propriétaire reste Store.owner).
 model StoreMember {
-  id        String   @id @default(cuid())
-  storeId   String
-  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  permissions String @default("[\"orders\",\"products\",\"customers\",\"discounts\",\"analytics\",\"content\"]") // JSON : zones accessibles
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissions String   @default("[\"orders\",\"products\",\"customers\",\"discounts\",\"analytics\",\"content\"]") // JSON : zones accessibles
+  createdAt   DateTime @default(now())
 
   @@unique([storeId, userId])
 }
@@ -255,28 +259,28 @@ model StoreInvite {
 }
 
 model Product {
-  id          String              @id @default(cuid())
-  storeId     String
-  store       Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  title       String
-  handle      String
-  description String              @default("")
-  status      String              @default("draft") // draft | active
-  images      String              @default("[]") // JSON: string[]
-  options     String              @default("[]") // JSON: { name, values[] }[]
-  hue         Int                 @default(160) // couleur du visuel quand il n'y a pas de photo
-  seoTitle       String           @default("")
-  seoDescription String           @default("")
-  isGiftCard     Boolean          @default(false) // vendu comme carte cadeau : pas de stock, pas de livraison
-  continueSelling Boolean         @default(false) // précommande : vendable même en rupture de stock
-  subscriptionInterval String?    // abonnement proposé : "week" | "month" (null = pas d'abonnement)
-  subscriptionDiscountBps Int     @default(0) // remise pour les abonnés (1000 = 10 %)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  variants    Variant[]
-  collections ProductCollection[]
-  reviews     Review[]
-  bundleItems BundleItem[]        @relation("BundleItems")
+  id                      String              @id @default(cuid())
+  storeId                 String
+  store                   Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  title                   String
+  handle                  String
+  description             String              @default("")
+  status                  String              @default("draft") // draft | active
+  images                  String              @default("[]") // JSON: string[]
+  options                 String              @default("[]") // JSON: { name, values[] }[]
+  hue                     Int                 @default(160) // couleur du visuel quand il n'y a pas de photo
+  seoTitle                String              @default("")
+  seoDescription          String              @default("")
+  isGiftCard              Boolean             @default(false) // vendu comme carte cadeau : pas de stock, pas de livraison
+  continueSelling         Boolean             @default(false) // précommande : vendable même en rupture de stock
+  subscriptionInterval    String? // abonnement proposé : "week" | "month" (null = pas d'abonnement)
+  subscriptionDiscountBps Int                 @default(0) // remise pour les abonnés (1000 = 10 %)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  variants                Variant[]
+  collections             ProductCollection[]
+  reviews                 Review[]
+  bundleItems             BundleItem[]        @relation("BundleItems")
 
   @@unique([storeId, handle])
 }
@@ -295,17 +299,17 @@ model Variant {
 }
 
 model Collection {
-  id          String              @id @default(cuid())
-  storeId     String
-  store       Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  title       String
-  handle      String
-  description String              @default("")
-  image       String?
-  seoTitle       String           @default("")
-  seoDescription String           @default("")
-  createdAt   DateTime            @default(now())
-  products    ProductCollection[]
+  id             String              @id @default(cuid())
+  storeId        String
+  store          Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  title          String
+  handle         String
+  description    String              @default("")
+  image          String?
+  seoTitle       String              @default("")
+  seoDescription String              @default("")
+  createdAt      DateTime            @default(now())
+  products       ProductCollection[]
 
   @@unique([storeId, handle])
 }
@@ -320,18 +324,18 @@ model ProductCollection {
 }
 
 model Customer {
-  id        String   @id @default(cuid())
-  storeId   String
-  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  email     String
-  name      String
-  note      String   @default("") // note interne, visible seulement dans l'admin
-  acceptsMarketing Boolean @default(false) // abonné à la newsletter
-  points           Int     @default(0) // solde de points de fidélité
-  marketingToken   String? @unique // jeton du lien de désabonnement
+  id               String    @id @default(cuid())
+  storeId          String
+  store            Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  email            String
+  name             String
+  note             String    @default("") // note interne, visible seulement dans l'admin
+  acceptsMarketing Boolean   @default(false) // abonné à la newsletter
+  points           Int       @default(0) // solde de points de fidélité
+  marketingToken   String?   @unique // jeton du lien de désabonnement
   subscribedAt     DateTime?
-  createdAt DateTime @default(now())
-  orders    Order[]
+  createdAt        DateTime  @default(now())
+  orders           Order[]
 
   @@unique([storeId, email])
 }
@@ -357,43 +361,44 @@ model Discount {
 }
 
 model Order {
-  id                String      @id @default(cuid())
-  storeId           String
-  store             Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  number            Int
-  customerId        String?
-  customer          Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  email             String
-  name              String
-  address           String // JSON: { line1, zip, city, country }
-  note              String      @default("")
-  paymentStatus     String      @default("pending") // pending | paid | refunded
-  fulfillmentStatus String      @default("unfulfilled") // unfulfilled | fulfilled
-  cancelledAt       DateTime?
-  subtotalCents     Int
-  discountCents     Int         @default(0)
-  discountCode      String?
-  giftCardCode      String?
-  giftCardCents     Int         @default(0)
-  discountId        String? // remise appliquée (code ou automatique), pour compter ses utilisations
+  id                    String          @id @default(cuid())
+  storeId               String
+  store                 Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  number                Int
+  customerId            String?
+  customer              Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  email                 String
+  name                  String
+  address               String // JSON: { line1, zip, city, country }
+  note                  String          @default("")
+  paymentStatus         String          @default("pending") // pending | paid | refunded
+  fulfillmentStatus     String          @default("unfulfilled") // unfulfilled | fulfilled
+  cancelledAt           DateTime?
+  subtotalCents         Int
+  discountCents         Int             @default(0)
+  discountCode          String?
+  giftCardCode          String?
+  giftCardCents         Int             @default(0)
+  discountId            String? // remise appliquée (code ou automatique), pour compter ses utilisations
   stripePaymentIntentId String? // paiement Stripe à rembourser (y compris pour les abonnements)
-  stripeInvoiceId   String?     @unique // facture Stripe d'un renouvellement (évite les doublons)
-  shippingCents     Int
-  totalCents        Int
-  paymentMethod     String      @default("demo") // demo | stripe | manual
-  shippingMethod    String      @default("")
-  stripeSessionId   String?     @unique
-  paidAt            DateTime?
-  createdAt         DateTime    @default(now())
-  refundedCents     Int         @default(0)
-  subscriptionId    String? // commande de renouvellement d'un abonnement
-  fulfilledAt       DateTime?
-  reviewRequestedAt DateTime?
-  taxRateBps        Int         @default(0) // taux de TVA au moment de la commande
-  taxCents          Int         @default(0) // TVA comprise dans le total
-  items             OrderItem[]
-  events            OrderEvent[]
-  refunds           Refund[]
+  stripeInvoiceId       String?         @unique // facture Stripe d'un renouvellement (évite les doublons)
+  shippingCents         Int
+  totalCents            Int
+  paymentMethod         String          @default("demo") // demo | stripe | manual
+  shippingMethod        String          @default("")
+  stripeSessionId       String?         @unique
+  paidAt                DateTime?
+  createdAt             DateTime        @default(now())
+  refundedCents         Int             @default(0)
+  subscriptionId        String? // commande de renouvellement d'un abonnement
+  fulfilledAt           DateTime?
+  reviewRequestedAt     DateTime?
+  taxRateBps            Int             @default(0) // taux de TVA au moment de la commande
+  taxCents              Int             @default(0) // TVA comprise dans le total
+  items                 OrderItem[]
+  events                OrderEvent[]
+  refunds               Refund[]
+  returns               ReturnRequest[]
 
   @@unique([storeId, number])
 }
@@ -410,18 +415,18 @@ model OrderEvent {
 }
 
 model OrderItem {
-  id           String  @id @default(cuid())
-  orderId      String
-  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  variantId    String? // pas de relation : la commande garde sa trace même si la variante est supprimée
-  productTitle String
-  variantTitle String
-  priceCents   Int
-  quantity     Int
-  image        String?
-  hue          Int     @default(160)
-  refundedQuantity Int @default(0)
-  isGiftCard       Boolean @default(false)
+  id                   String  @id @default(cuid())
+  orderId              String
+  order                Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variantId            String? // pas de relation : la commande garde sa trace même si la variante est supprimée
+  productTitle         String
+  variantTitle         String
+  priceCents           Int
+  quantity             Int
+  image                String?
+  hue                  Int     @default(160)
+  refundedQuantity     Int     @default(0)
+  isGiftCard           Boolean @default(false)
   subscriptionInterval String? // article pris en abonnement
 }
 
@@ -524,4 +529,25 @@ model RateLimit {
   key     String   @id
   count   Int      @default(0)
   resetAt DateTime
+}
+
+/// Demande de retour d'un client : demandé → accepté (ou refusé) → reçu → remboursé.
+model ReturnRequest {
+  id            String    @id @default(cuid())
+  storeId       String
+  store         Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status        String    @default("requested") // requested | approved | declined | received | refunded
+  items         String // JSON: { orderItemId, quantity, reason }[]
+  note          String    @default("") // commentaire du client
+  declineReason String    @default("")
+  approvedAt    DateTime?
+  receivedAt    DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([storeId, status])
+  @@index([orderId])
 }

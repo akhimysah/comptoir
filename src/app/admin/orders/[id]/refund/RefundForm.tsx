@@ -7,13 +7,13 @@ import { centsToInput, formatMoney, parseMoney } from "@/lib/money";
 
 type Item = { id: string; title: string; variant: string; priceCents: number; remaining: number; suggestedUnit: number; image: string | null; hue: number };
 
-export function RefundForm({ orderId, items, currency, refundable, shippingPaid, stripe }: { orderId: string; items: Item[]; currency: string; refundable: number; shippingPaid: number; stripe: boolean }) {
-  const [qty, setQty] = useState<Record<string, number>>({});
+export function RefundForm({ orderId, items, currency, refundable, shippingPaid, stripe, returnId, initialQty, initialReason }: { orderId: string; items: Item[]; currency: string; refundable: number; shippingPaid: number; stripe: boolean; returnId?: string; initialQty?: Record<string, number>; initialReason?: string }) {
+  const [qty, setQty] = useState<Record<string, number>>(initialQty ?? {});
   const [shipping, setShipping] = useState("0");
   const [custom, setCustom] = useState<string | null>(null);
   const [restock, setRestock] = useState(true);
   const [notify, setNotify] = useState(true);
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(initialReason ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const m = (c: number) => formatMoney(c, currency);
@@ -25,7 +25,7 @@ export function RefundForm({ orderId, items, currency, refundable, shippingPaid,
 
   const submit = () => start(async () => {
     setError(null);
-    const res = await processRefund({ orderId, lines: items.map((i) => ({ orderItemId: i.id, quantity: qty[i.id] ?? 0 })), shipping, amount: amountStr, restock, notify, reason });
+    const res = await processRefund({ orderId, lines: items.map((i) => ({ orderItemId: i.id, quantity: qty[i.id] ?? 0 })), shipping, amount: amountStr, restock, notify, reason, returnId });
     if (res?.error) setError(res.error);
   });
 

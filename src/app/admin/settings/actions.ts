@@ -92,3 +92,15 @@ export async function saveLoyalty(_: { error?: string; ok?: boolean } | undefine
   revalidatePath(`/s/${store.slug}`, "layout");
   return { ok: true };
 }
+
+export async function saveReturns(_: { error?: string; ok?: boolean } | undefined, form: FormData) {
+  const { store } = await requireOwner();
+  const enabled = form.get("enabled") === "on";
+  const days = Math.floor(Number(form.get("days") ?? 0));
+  if (!(days >= 1 && days <= 365)) return { error: "Délai de retour : entre 1 et 365 jours." };
+  const instructions = String(form.get("instructions") ?? "").trim().slice(0, 2000);
+  await db.store.update({ where: { id: store.id }, data: { returnsEnabled: enabled, returnWindowDays: days, returnInstructions: instructions } });
+  await logActivity(`Retours en ligne ${enabled ? `activés (${days} jours)` : "désactivés"}`, "/admin/settings");
+  revalidatePath("/admin/settings");
+  return { ok: true };
+}
