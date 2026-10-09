@@ -34,7 +34,7 @@ export async function posCheckout(input: z.infer<typeof schema>): Promise<{ erro
     const stock = bundles.has(v.productId) ? bundleStock(bundles.get(v.productId)!) : v.stock;
     if (!v.product.isGiftCard && !v.product.continueSelling && l.quantity > stock) return { error: `Stock insuffisant : ${v.product.title}${v.title !== "Par défaut" ? ` (${v.title})` : ""}, ${stock} disponible${stock > 1 ? "s" : ""}.` };
     lines.push({
-      variantId: v.id, productId: v.productId, productTitle: v.product.title, productHandle: v.product.handle, variantTitle: v.title,
+      variantId: v.id, baseVariantId: v.id, subscription: null, productId: v.productId, productTitle: v.product.title, productHandle: v.product.handle, variantTitle: v.title,
       priceCents: v.priceCents, compareAtCents: v.compareAtCents, quantity: l.quantity, available: stock,
       image: parseJson<string[]>(v.product.images, [])[0] ?? null, hue: v.product.hue, isGiftCard: v.product.isGiftCard,
     });

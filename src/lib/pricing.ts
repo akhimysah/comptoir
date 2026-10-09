@@ -3,6 +3,7 @@ import type { Discount, Store } from "@prisma/client";
 import { db } from "./db";
 import { parseJson } from "./utils";
 import { includedTax } from "./tax";
+import { splitCartId, subPrice } from "./subscriptions";
 import { bundleComponents, bundleStock } from "./bundles";
 
 export type CartInput = { variantId: string; quantity: number }[];
@@ -20,6 +21,9 @@ export type PricedLine = {
   image: string | null;
   hue: number;
   isGiftCard: boolean;
+  /** Identifiant réel de la variante (variantId peut porter le suffixe d'abonnement du panier). */
+  baseVariantId: string;
+  subscription: string | null;
 };
 
 export type PricedCart = {
@@ -77,7 +81,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
   }
 
   const variants = await db.variant.findMany({
-    where: { id: { in: [...qty.keys()] }, product: { storeId: store.id, status: "active" } },
+    where: { id: { in: [...qty.keys()].map((k) => splitCartId(k).variantId) }, product: { storeId: store.id, status: "active" } },
     include: { product: true },
   });
 
@@ -88,7 +92,8 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
   const notices: string[] = [];
   const lines: PricedLine[] = [];
   for (const [variantId, wanted] of qty) {
-    const v = variants.find((x) => x.id === variantId);
+    const ref = splitCartId(variantId);
+    const v = variants.find((x) => x.id === ref.variantId);
     if (!v) {
       notices.push("Un article de votre panier n'est plus disponible et a été retiré.");
       continue;
@@ -100,14 +105,17 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       continue;
     }
     if (quantity < wanted) notices.push(`Il ne reste que ${stockOf(v)} × ${v.product.title}.`);
+    const sub = ref.subscribe && v.product.subscriptionInterval ? v.product.subscriptionInterval : null;
     lines.push({
-      variantId: v.id,
+      variantId,
+      baseVariantId: v.id,
+      subscription: sub,
       productId: v.productId,
       productTitle: v.product.title,
       productHandle: v.product.handle,
       variantTitle: v.title,
-      priceCents: v.priceCents,
-      compareAtCents: v.compareAtCents,
+      priceCents: sub ? subPrice(v.priceCents, v.product.subscriptionDiscountBps) : v.priceCents,
+      compareAtCents: sub && v.product.subscriptionDiscountBps ? v.priceCents : v.compareAtCents,
       quantity,
       available: v.product.isGiftCard || v.product.continueSelling ? 99 : stockOf(v),
       image: parseJson<string[]>(v.product.images, [])[0] ?? null,

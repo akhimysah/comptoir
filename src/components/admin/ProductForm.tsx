@@ -12,7 +12,7 @@ import { uploadImage } from "./upload";
 type Option = { name: string; values: string[] };
 type VariantRow = ProductPayload["variants"][number];
 
-export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle"> & { id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[] };
+export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle" | "subscriptionInterval" | "subscriptionDiscountPct"> & { id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[]; subscriptionInterval?: "" | "week" | "month"; subscriptionDiscountPct?: number };
 export type BundleChoice = { id: string; label: string; stock: number };
 
 const key = (vals: string[]) => vals.join("\u0000");
@@ -37,6 +37,8 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
   const [isGiftCard, setIsGiftCard] = useState(initial.isGiftCard ?? false);
   const [continueSelling, setContinueSelling] = useState(initial.continueSelling ?? false);
   const [bundle, setBundle] = useState(initial.bundle ?? []);
+  const [subInterval, setSubInterval] = useState<"" | "week" | "month">(initial.subscriptionInterval ?? "");
+  const [subPct, setSubPct] = useState(initial.subscriptionDiscountPct ?? 0);
   const [bundleQ, setBundleQ] = useState("");
   const isBundle = bundle.length > 0;
   const [seo, setSeo] = useState({ seoTitle: initial.seoTitle ?? "", seoDescription: initial.seoDescription ?? "" });
@@ -76,7 +78,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
     }
   }
 
-  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle };
+  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle, subscriptionInterval: subInterval, subscriptionDiscountPct: subPct };
   const hasOptions = combos[0].length > 0;
   const [initialJson] = useState(() => JSON.stringify(payload));
   const dirty = !initial.id || JSON.stringify(payload) !== initialJson;
@@ -264,6 +266,22 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
             </select>
             <p className="text-xs text-muted">{status === "active" ? "Visible dans la boutique en ligne." : "Masqué tant qu'il est en brouillon."}</p>
           </section>
+          {!isGiftCard && (
+            <section className="card flex flex-col gap-2 p-4">
+              <h2 className="text-sm font-[650]">Abonnement</h2>
+              <select aria-label="Fréquence d'abonnement" className="input" value={subInterval} onChange={(e) => setSubInterval(e.target.value as "" | "week" | "month")}>
+                <option value="">Pas d'abonnement</option>
+                <option value="week">Livré toutes les semaines</option>
+                <option value="month">Livré tous les mois</option>
+              </select>
+              {subInterval && (
+                <label className="flex items-center gap-2 text-[13px]">Remise abonné
+                  <input type="number" min={0} max={90} value={subPct} onChange={(e) => setSubPct(Math.max(0, Math.min(90, Number(e.target.value) || 0)))} aria-label="Remise abonné en pourcentage" className="input num h-8 w-20" /> %
+                </label>
+              )}
+              <p className="text-xs text-muted">Le client choisit entre achat unique et abonnement ; une commande est créée à chaque échéance.</p>
+            </section>
+          )}
           <section className="card flex flex-col gap-2 p-4">
             <h2 className="text-sm font-[650]">Organisation du produit</h2>
             <label className="flex items-start gap-2 text-[13px]">

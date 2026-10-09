@@ -5,6 +5,7 @@ import { randomInt } from "crypto";
 import { giftCardEmail, lowStockEmail, newOrderAlertEmail, orderConfirmationEmail, shippingEmail } from "./emails";
 import { sendMail } from "./mail";
 import { earnPoints } from "./loyalty";
+import { nextDate } from "./subscriptions";
 import type { PricedCart } from "./pricing";
 
 export type Address = { line1: string; zip: string; city: string; country: string };
@@ -48,7 +49,8 @@ export async function createOrder(
           paymentMethod,
           items: {
             create: cart.lines.map((l) => ({
-              variantId: l.variantId,
+              variantId: l.baseVariantId,
+              subscriptionInterval: l.subscription,
               productTitle: l.productTitle,
               variantTitle: l.variantTitle,
               priceCents: l.priceCents,
@@ -115,6 +117,7 @@ export async function markOrderPaid(orderId: string) {
     return true;
   });
   if (paid) {
+    await startSubscriptions(orderId);
     await earnPoints(orderId);
     await issuePurchasedGiftCards(orderId);
     await notifyOrderPaid(orderId);
@@ -181,3 +184,20 @@ export const FULFILLMENT_LABELS: Record<string, { label: string; tone: Tone }> =
   unfulfilled: { label: "Non traitée", tone: "attention" },
   fulfilled: { label: "Traitée", tone: "neutral" },
 };
+
+/** Crée les abonnements d'une première commande payée (pas pour un renouvellement). */
+async function startSubscriptions(orderId: string) {
+  const o = await db.order.findUnique({ where: { id: orderId }, include: { items: true } });
+  if (!o || o.subscriptionId) return;
+  for (const i of o.items.filter((x) => x.subscriptionInterval && x.variantId)) {
+    const exists = await db.subscription.findFirst({ where: { firstOrderId: o.id, variantId: i.variantId! } });
+    if (exists) continue;
+    await db.subscription.create({
+      data: {
+        storeId: o.storeId, customerId: o.customerId, email: o.email, name: o.name, address: o.address, variantId: i.variantId!,
+        productTitle: i.productTitle, variantTitle: i.variantTitle, quantity: i.quantity, priceCents: i.priceCents,
+        interval: i.subscriptionInterval!, nextBillingAt: nextDate(o.paidAt ?? new Date(), i.subscriptionInterval!), firstOrderId: o.id,
+      },
+    });
+  }
+}

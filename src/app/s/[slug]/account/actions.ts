@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { loginCodeEmail } from "@/lib/emails";
 import { sendMail } from "@/lib/mail";
 import { redeemReward } from "@/lib/loyalty";
+import { setSubscriptionStatus } from "@/lib/renewals";
 
 async function storeOf(slug: string) {
   const store = await db.store.findUnique({ where: { slug } });
@@ -56,4 +57,14 @@ export async function redeemPoints(form: FormData) {
   if (!customer) redirect(`/s/${slug}/account/login`);
   const res = await redeemReward(store, customer.id);
   redirect(`/s/${slug}/account?${res.code ? `code=${res.code}` : `err=${encodeURIComponent(res.error ?? "")}`}`);
+}
+
+export async function customerSubscription(form: FormData) {
+  const slug = String(form.get("slug"));
+  const store = await storeOf(slug);
+  const customer = await getCustomer(store.id);
+  if (!customer) redirect(`/s/${slug}/account/login`);
+  const status = String(form.get("status")) as "active" | "paused" | "cancelled";
+  if (["active", "paused", "cancelled"].includes(status)) await setSubscriptionStatus(store.id, String(form.get("id")), status, customer.id);
+  redirect(`/s/${slug}/account`);
 }

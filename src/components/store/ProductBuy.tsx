@@ -6,10 +6,12 @@ import { formatMoney } from "@/lib/money";
 import { useCart } from "./cart";
 import { Stars } from "./Stars";
 
+const SUB = ":abonnement";
+
 type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number };
 
-export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [] }: {
-  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[];
+export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null }: {
+  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null;
   options: { name: string; values: string[] }[]; variants: V[];
 }) {
   const { add, items } = useCart(slug);
@@ -18,6 +20,8 @@ export function ProductBuy({ slug, currency, rate = 1, title, description, image
   const [qty, setQty] = useState(1);
   const [image, setImage] = useState(0);
   const [added, setAdded] = useState(false);
+  const [subscribe, setSubscribe] = useState(false);
+  const subPrice = (c: number) => Math.round(c * (1 - (subscription?.discountBps ?? 0) / 10000));
 
   const variant = useMemo(() => variants.find((v) => v.optionValues.every((x, i) => x === picked[i])) ?? null, [variants, picked]);
   const inCart = variant ? items.find((i) => i.variantId === variant.id)?.quantity ?? 0 : 0;
@@ -83,6 +87,19 @@ export function ProductBuy({ slug, currency, rate = 1, title, description, image
           </fieldset>
         ))}
 
+        {subscription && (
+          <fieldset className="flex flex-col gap-2">
+            {[false, true].map((sub) => (
+              <label key={String(sub)} className={`flex cursor-pointer items-center gap-3 rounded-[var(--t-radius)] border px-4 py-3 ${subscribe === sub ? "border-[var(--c-text)]" : "border-[color-mix(in_srgb,var(--c-text)_22%,transparent)]"}`}>
+                <input type="radio" name="purchase" checked={subscribe === sub} onChange={() => setSubscribe(sub)} />
+                <span className="flex-1">{sub ? <>S'abonner · livré {subscription.interval === "week" ? "toutes les semaines" : "tous les mois"}{subscription.discountBps > 0 && <span className="ml-2 rounded-full bg-[var(--c-accent)] px-2 py-0.5 text-xs font-semibold text-[var(--c-accent-text)]">−{subscription.discountBps / 100} %</span>}</> : "Achat unique"}</span>
+                <span className="tabular-nums">{formatMoney(Math.round((sub ? subPrice(shown.priceCents) : shown.priceCents) * rate), currency)}</span>
+              </label>
+            ))}
+            {subscribe && <p className="text-xs text-[var(--c-muted)]">Sans engagement : pause ou résiliation à tout moment depuis « Mon compte ».</p>}
+          </fieldset>
+        )}
+
         <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex items-center rounded-[var(--t-radius)] border border-[color-mix(in_srgb,var(--c-text)_25%,transparent)]">
             <button type="button" className="h-12 w-11 text-lg" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Moins">−</button>
@@ -92,7 +109,7 @@ export function ProductBuy({ slug, currency, rate = 1, title, description, image
           <button
             type="button"
             disabled={!variant || left <= 0}
-            onClick={() => { if (variant) { add(variant.id, Math.min(qty, left)); setAdded(true); setQty(1); } }}
+            onClick={() => { if (variant) { add(subscribe ? `${variant.id}${SUB}` : variant.id, Math.min(qty, left)); setAdded(true); setQty(1); } }}
             className="h-12 flex-1 rounded-[var(--t-radius)] bg-[var(--c-accent)] px-6 font-semibold text-[var(--c-accent-text)] transition hover:opacity-90 disabled:opacity-40"
           >
             {!variant ? "Indisponible" : isPreorder ? "Précommander" : variant.stock <= 0 ? "Épuisé" : left <= 0 ? "Tout le stock est dans votre panier" : "Ajouter au panier"}

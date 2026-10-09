@@ -65,10 +65,14 @@ export async function POST(req: Request) {
   }
 
   const currency = store.currency.toLowerCase();
+  const subIntervals = [...new Set(cart.lines.filter((l) => l.subscription).map((l) => l.subscription!))];
+  if (subIntervals.length > 1) return NextResponse.json({ error: "Passez une commande séparée pour chaque fréquence d'abonnement." }, { status: 400 });
   const reduction = cart.discountCents + cart.giftCardCents;
   const coupon = reduction > 0 ? await stripe.coupons.create({ amount_off: reduction, currency, duration: "once", name: [cart.discountCode, cart.giftCardCode && "Carte cadeau"].filter(Boolean).join(" + ") || "Réduction" }) : null;
+  // Abonnement : Stripe prélève ensuite le client à chaque échéance et reverse l'argent au marchand.
+  const isSub = subIntervals.length === 1;
   const session = await stripe.checkout.sessions.create({
-    mode: "payment",
+    mode: isSub ? "subscription" : "payment",
     customer_email: b.email,
     locale: "fr",
     line_items: [
@@ -78,16 +82,15 @@ export async function POST(req: Request) {
           currency,
           unit_amount: l.priceCents,
           product_data: { name: l.variantTitle === "Par défaut" ? l.productTitle : `${l.productTitle} — ${l.variantTitle}` },
+          ...(l.subscription ? { recurring: { interval: l.subscription as "week" | "month" } } : {}),
         },
       })),
       ...(cart.shippingCents ? [{ quantity: 1, price_data: { currency, unit_amount: cart.shippingCents, product_data: { name: cart.shippingMethod || "Livraison" } } }] : []),
     ],
     ...(coupon ? { discounts: [{ coupon: coupon.id }] } : {}),
-    payment_intent_data: {
-      application_fee_amount: platformFee(cart.totalCents),
-      transfer_data: { destination: store.stripeAccountId! },
-      metadata: { orderId: order.id, storeId: store.id },
-    },
+    ...(isSub
+      ? { subscription_data: { application_fee_percent: Number(process.env.PLATFORM_FEE_PERCENT ?? "2") || 0, transfer_data: { destination: store.stripeAccountId! }, metadata: { orderId: order.id, storeId: store.id } } }
+      : { payment_intent_data: { application_fee_amount: platformFee(cart.totalCents), transfer_data: { destination: store.stripeAccountId! }, metadata: { orderId: order.id, storeId: store.id } } }),
     metadata: { orderId: order.id, storeId: store.id },
     success_url: `${thanks}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl()}/s/${store.slug}/cart?cancelled=1`,

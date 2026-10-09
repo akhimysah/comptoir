@@ -197,6 +197,7 @@ export async function seedExtraStores(client: PrismaClient, ownerId: string) {
         include: { variants: true },
       }));
     }
+    if (shop.slug === "the-et-co") await client.product.updateMany({ where: { storeId: store.id, title: { in: ["Thé vert Sencha 100 g", "Rooibos vanille 100 g"] } }, data: { subscriptionInterval: "month", subscriptionDiscountBps: 1000 } });
     let number = 1001;
     for (let day = 29; day >= 0; day--) {
       const perDay = Math.floor(rnd() * 4);

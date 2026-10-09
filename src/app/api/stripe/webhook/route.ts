@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { markOrderPaid } from "@/lib/orders";
+import { renewSubscription } from "@/lib/renewals";
 import { getStripe } from "@/lib/stripe";
 
 /**
@@ -24,7 +25,25 @@ export async function POST(req: Request) {
     case "checkout.session.completed":
     case "checkout.session.async_payment_succeeded": {
       const session = event.data.object;
-      if (session.payment_status === "paid" && session.metadata?.orderId) await markOrderPaid(session.metadata.orderId);
+      if (session.payment_status === "paid" && session.metadata?.orderId) {
+        await markOrderPaid(session.metadata.orderId);
+        const subId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+        if (subId) await db.subscription.updateMany({ where: { firstOrderId: session.metadata.orderId }, data: { stripeSubscriptionId: subId } });
+      }
+      break;
+    }
+    case "invoice.paid": {
+      // Échéance d'abonnement prélevée par Stripe : on crée la commande à préparer.
+      const invoice = event.data.object;
+      const subId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id;
+      if (subId && invoice.billing_reason === "subscription_cycle") {
+        for (const s of await db.subscription.findMany({ where: { stripeSubscriptionId: subId } })) await renewSubscription(s.id, { paidByStripe: true });
+      }
+      break;
+    }
+    case "customer.subscription.deleted": {
+      const sub = event.data.object;
+      await db.subscription.updateMany({ where: { stripeSubscriptionId: sub.id }, data: { status: "cancelled" } });
       break;
     }
     case "account.updated": {

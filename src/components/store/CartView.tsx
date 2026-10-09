@@ -93,6 +93,7 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <a href={`/s/${slug}/p/${l.productHandle}`} className="font-medium">{l.productTitle}</a>
                 {l.variantTitle !== "Par défaut" && <span className="text-sm text-[var(--c-muted)]">{l.variantTitle}</span>}
+                {l.subscription && <span className="text-sm font-medium">Abonnement · livré {l.subscription === "week" ? "toutes les semaines" : "tous les mois"}</span>}
                 <span className="text-sm">{m(l.priceCents)}</span>
                 <div className="mt-auto flex items-center gap-3">
                   <div className="inline-flex items-center rounded-[var(--t-radius)] border border-[color-mix(in_srgb,var(--c-text)_22%,transparent)]">

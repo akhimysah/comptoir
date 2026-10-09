@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { logout, redeemPoints, updateName } from "./actions";
+import { customerSubscription, logout, redeemPoints, updateName } from "./actions";
 import { getCustomer } from "@/lib/customer-auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -16,6 +16,7 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
   const customer = await getCustomer(store.id);
   if (!customer) redirect(`/s/${slug}/account/login`);
   const orders = await db.order.findMany({ where: { storeId: store.id, OR: [{ customerId: customer.id }, { email: customer.email }] }, include: { items: true }, orderBy: { createdAt: "desc" } });
+  const subs = await db.subscription.findMany({ where: { storeId: store.id, customerId: customer.id, status: { not: "cancelled" } }, orderBy: { createdAt: "desc" } });
   const vouchers = store.loyaltyEnabled ? await db.discount.findMany({ where: { storeId: store.id, customerEmail: customer.email, usageCount: 0 }, orderBy: { createdAt: "desc" } }) : [];
   const progress = Math.min(100, Math.round((customer.points / store.loyaltyRewardPoints) * 100));
   const field = "w-full rounded-[var(--t-radius)] border border-[color-mix(in_srgb,var(--c-text)_22%,transparent)] bg-[var(--c-surface)] px-3 py-2.5 outline-none focus:border-[var(--c-text)]";
@@ -30,7 +31,27 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
         <form action={logout}><input type="hidden" name="slug" value={slug} /><button className="text-sm underline underline-offset-4">Se déconnecter</button></form>
       </div>
       <div className="grid gap-10 md:grid-cols-[1fr_260px]">
-        <section>
+        <section className="flex flex-col gap-10">
+          {subs.length > 0 && (
+            <div>
+              <h2 className="mb-4 font-[family-name:var(--t-display)] text-xl font-semibold">Mes abonnements</h2>
+              <ul className="flex flex-col gap-3">
+                {subs.map((s) => (
+                  <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--t-radius)] bg-[var(--c-surface)] p-4">
+                    <span>
+                      <span className="font-semibold">{s.quantity} × {s.productTitle}</span>
+                      <span className="block text-sm text-[var(--c-muted)]">{formatMoney(s.priceCents * s.quantity, store.currency)} {s.interval === "week" ? "par semaine" : "par mois"} · {s.status === "paused" ? "en pause" : `prochaine livraison le ${s.nextBillingAt.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`}</span>
+                    </span>
+                    <span className="flex gap-2">
+                      <form action={customerSubscription}><input type="hidden" name="slug" value={slug} /><input type="hidden" name="id" value={s.id} /><input type="hidden" name="status" value={s.status === "active" ? "paused" : "active"} /><button className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-3 py-1.5 text-sm">{s.status === "active" ? "Mettre en pause" : "Reprendre"}</button></form>
+                      <form action={customerSubscription}><input type="hidden" name="slug" value={slug} /><input type="hidden" name="id" value={s.id} /><input type="hidden" name="status" value="cancelled" /><button className="px-2 py-1.5 text-sm underline underline-offset-4">Résilier</button></form>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div>
           <h2 className="mb-4 font-[family-name:var(--t-display)] text-xl font-semibold">Mes commandes</h2>
           {orders.length ? (
             <ul className="flex flex-col divide-y divide-[color-mix(in_srgb,var(--c-text)_12%,transparent)]">
@@ -52,6 +73,7 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
           ) : (
             <p className="text-[var(--c-muted)]">Vous n'avez pas encore passé de commande. <a href={`/s/${slug}/products`} className="underline underline-offset-4">Découvrir les produits</a></p>
           )}
+          </div>
         </section>
         <aside className="flex flex-col gap-8">
           {store.loyaltyEnabled && (

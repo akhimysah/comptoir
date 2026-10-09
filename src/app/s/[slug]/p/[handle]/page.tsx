@@ -50,6 +50,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: v.priceCents, compareAtCents: v.compareAtCents, stock: product.isGiftCard ? 99 : bundleLeft ?? v.stock }))}
       contents={contents}
       preorder={product.continueSelling}
+      subscription={product.subscriptionInterval ? { interval: product.subscriptionInterval, discountBps: product.subscriptionDiscountBps } : null}
       isGiftCard={product.isGiftCard}
     />
     <Related slug={slug} storeId={store.id} productId={product.id} store={{ ...store, currency: cur.code, rate: cur.rate }} />

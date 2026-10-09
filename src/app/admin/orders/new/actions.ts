@@ -41,7 +41,7 @@ export async function createManualOrder(input: ManualOrderInput): Promise<{ erro
     if (!v) return { error: "Un produit de la commande n'existe plus." };
     if (d.paid && l.quantity > v.stock) return { error: `Stock insuffisant pour ${v.product.title}${v.title !== "Par défaut" ? ` (${v.title})` : ""} : ${v.stock} disponible${v.stock > 1 ? "s" : ""}.` };
     lines.push({
-      variantId: v.id, productId: v.productId, productTitle: v.product.title, productHandle: v.product.handle, variantTitle: v.title,
+      variantId: v.id, baseVariantId: v.id, subscription: null, productId: v.productId, productTitle: v.product.title, productHandle: v.product.handle, variantTitle: v.title,
       priceCents: v.priceCents, compareAtCents: v.compareAtCents, quantity: l.quantity, available: v.stock,
       image: parseJson<string[]>(v.product.images, [])[0] ?? null, hue: v.product.hue, isGiftCard: v.product.isGiftCard,
     });

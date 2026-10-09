@@ -39,6 +39,8 @@ const payloadSchema = z.object({
   seoDescription: z.string().max(320).optional().default(""),
   isGiftCard: z.boolean().optional().default(false),
   continueSelling: z.boolean().optional().default(false),
+  subscriptionInterval: z.enum(["", "week", "month"]).optional().default(""),
+  subscriptionDiscountPct: z.number().min(0).max(90).optional().default(0),
   bundle: z.array(z.object({ variantId: z.string(), quantity: z.number().int().min(1).max(99) })).max(30).optional().default([]),
 });
 export type ProductPayload = z.infer<typeof payloadSchema>;
@@ -107,6 +109,8 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
           seoDescription: p.seoDescription,
           isGiftCard: p.isGiftCard,
           continueSelling: p.continueSelling,
+          subscriptionInterval: p.subscriptionInterval || null,
+          subscriptionDiscountBps: Math.round(p.subscriptionDiscountPct * 100),
           collections: { create: await validCollections(store.id, p.collectionIds) },
         },
       }),
@@ -126,6 +130,8 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
         seoDescription: p.seoDescription,
         isGiftCard: p.isGiftCard,
         continueSelling: p.continueSelling,
+        subscriptionInterval: p.subscriptionInterval || null,
+        subscriptionDiscountBps: Math.round(p.subscriptionDiscountPct * 100),
         variants: { create: variants.map(({ id: _id, ...v }) => v) },
         collections: { create: await validCollections(store.id, p.collectionIds) },
       },

@@ -48,6 +48,8 @@ export default async function EditProductPage({ params, searchParams }: { params
           seoTitle: product.seoTitle,
           isGiftCard: product.isGiftCard,
           continueSelling: product.continueSelling,
+          subscriptionInterval: (product.subscriptionInterval ?? "") as "" | "week" | "month",
+          subscriptionDiscountPct: product.subscriptionDiscountBps / 100,
           bundle: bundleParts.map((b) => ({ variantId: b.variantId, quantity: b.quantity })),
           seoDescription: product.seoDescription,
           title: product.title,

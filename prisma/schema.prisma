@@ -68,6 +68,31 @@ model Store {
   posts                 BlogPost[]
   giftCards             GiftCard[]
   campaigns             Campaign[]
+  subscriptions         Subscription[]
+}
+
+/// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
+model Subscription {
+  id                   String    @id @default(cuid())
+  storeId              String
+  store                Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customerId           String?
+  email                String
+  name                 String
+  address              String // JSON, comme sur les commandes
+  variantId            String
+  productTitle         String
+  variantTitle         String
+  quantity             Int
+  priceCents           Int // prix par échéance (remise abonné comprise)
+  interval             String // week | month
+  status               String    @default("active") // active | paused | cancelled
+  nextBillingAt        DateTime
+  ordersCount          Int       @default(1)
+  firstOrderId         String?
+  stripeSubscriptionId String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
 
 /// Campagne e-mail envoyée aux abonnés de la newsletter.
@@ -240,6 +265,8 @@ model Product {
   seoDescription String           @default("")
   isGiftCard     Boolean          @default(false) // vendu comme carte cadeau : pas de stock, pas de livraison
   continueSelling Boolean         @default(false) // précommande : vendable même en rupture de stock
+  subscriptionInterval String?    // abonnement proposé : "week" | "month" (null = pas d'abonnement)
+  subscriptionDiscountBps Int     @default(0) // remise pour les abonnés (1000 = 10 %)
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
   variants    Variant[]
@@ -352,6 +379,7 @@ model Order {
   paidAt            DateTime?
   createdAt         DateTime    @default(now())
   refundedCents     Int         @default(0)
+  subscriptionId    String? // commande de renouvellement d'un abonnement
   taxRateBps        Int         @default(0) // taux de TVA au moment de la commande
   taxCents          Int         @default(0) // TVA comprise dans le total
   items             OrderItem[]
@@ -385,6 +413,7 @@ model OrderItem {
   hue          Int     @default(160)
   refundedQuantity Int @default(0)
   isGiftCard       Boolean @default(false)
+  subscriptionInterval String? // article pris en abonnement
 }
 
 /// Remboursement (total ou partiel) d'une commande, avec ou sans retour en stock.
