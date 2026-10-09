@@ -16,6 +16,7 @@ const ICONS: Record<string, string> = {
   search: "M9 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM17 17l-3.75-3.75",
   chart: "M4 16V9M8.5 16V4.5M13 16v-5M17 16V7.5M3 16.5h14.5",
   stores: "M3.5 8.5 4.5 4h11l1 4.5M3.5 8.5h13M4.5 8.5V16h11V8.5M8 16v-4h4v4",
+  channels: "M10 3.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM3.5 10h13M10 3.5c1.8 1.8 2.6 4 2.6 6.5S11.8 14.7 10 16.5M10 3.5C8.2 5.3 7.4 7.5 7.4 10s.8 4.7 2.6 6.5",
   bell: "M10 3.5a4.5 4.5 0 0 0-4.5 4.5v3L4 13.5h12L14.5 11V8A4.5 4.5 0 0 0 10 3.5zM8.5 16a1.5 1.5 0 0 0 3 0",
   plus: "M10 4.5v11M4.5 10h11",
   back: "M12 4.5 6.5 10l5.5 5.5",
@@ -92,6 +93,7 @@ export function AdminNav({ toShip, storeSlug, isOwner, storeCount, perms }: { to
         <div className="mb-1 flex items-center justify-between px-2 text-xs font-[550] text-muted">Canaux de vente</div>
         <ul className="flex flex-col gap-0.5">
           <NavLink item={{ href: "/admin/theme", label: "Boutique en ligne", icon: "store", match: ["/admin/theme", "/admin/pages", "/admin/blog"], children: [{ href: "/admin/theme", label: "Thèmes" }, { href: "/admin/pages", label: "Pages" }, { href: "/admin/blog", label: "Articles de blog" }] }} path={path} />
+          <NavLink item={{ href: "/admin/channels", label: "Google et réseaux", icon: "channels" }} path={path} />
         </ul>
         <a href={`/s/${storeSlug}`} target="_blank" className="mt-0.5 flex h-7 items-center gap-2 rounded-lg pl-9 pr-2 text-[13px] text-muted hover:bg-[#f1f1f1] hover:text-ink">
           Voir la boutique <Icon name="eye" className="h-4 w-4" />
