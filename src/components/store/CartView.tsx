@@ -10,7 +10,7 @@ const field = "w-full rounded-[var(--t-radius)] border border-[color-mix(in_srgb
 
 type Recovered = { items: { variantId: string; quantity: number }[]; email: string; name: string } | null;
 
-export function CartView({ slug, currency, display, cancelled, demo, recovered, customer }: { slug: string; currency: string; display?: { code: string; rate: number }; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null }) {
+export function CartView({ slug, currency, display, loyalty, cancelled, demo, recovered, customer }: { slug: string; currency: string; display?: { code: string; rate: number }; loyalty?: { perUnit: number } | null; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null }) {
   const { items, ready, setQuantity, replace } = useCart(slug);
   const [cart, setCart] = useState<PricedCart | null>(null);
   const [code, setCode] = useState("");
@@ -131,6 +131,7 @@ export function CartView({ slug, currency, display, cancelled, demo, recovered, 
                 <dd className="mt-2 border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-2 text-right text-base font-semibold">{m(cart.totalCents)}</dd>
               </dl>
             )}
+            {cart && loyalty && cart.lines.length > 0 && <p className="text-xs text-[var(--c-muted)]">Cette commande vous rapporte <b>{Math.floor(((cart.totalCents + cart.giftCardCents - cart.shippingCents - cart.lines.filter((l) => l.isGiftCard).reduce((s, l) => s + l.priceCents * l.quantity, 0)) / 100) * loyalty.perUnit)} points</b> de fidélité, à retrouver dans « Mon compte ».</p>}
             {cart && shown && <p className="text-xs text-[var(--c-muted)]">Prix indicatifs en {shown.code}. Le paiement est effectué en {currency} : <b className="tabular-nums">{formatMoney(cart.totalCents, currency)}</b>.</p>}
             {cart && !cart.countries && cart.shippingCents > 0 && cart.freeShippingFromCents > 0 && (
               <p className="text-xs text-[var(--c-muted)]">Plus que {m(cart.freeShippingFromCents - (cart.subtotalCents - cart.discountCents))} pour la livraison offerte.</p>

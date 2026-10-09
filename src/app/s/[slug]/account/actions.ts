@@ -6,6 +6,7 @@ import { createLoginCode, getCustomer, logoutCustomer, verifyLoginCode } from "@
 import { db } from "@/lib/db";
 import { loginCodeEmail } from "@/lib/emails";
 import { sendMail } from "@/lib/mail";
+import { redeemReward } from "@/lib/loyalty";
 
 async function storeOf(slug: string) {
   const store = await db.store.findUnique({ where: { slug } });
@@ -46,4 +47,13 @@ export async function updateName(form: FormData) {
   const name = String(form.get("name") ?? "").trim().slice(0, 80);
   if (customer && name) await db.customer.update({ where: { id: customer.id }, data: { name } });
   redirect(`/s/${slug}/account?saved=1`);
+}
+
+export async function redeemPoints(form: FormData) {
+  const slug = String(form.get("slug"));
+  const store = await storeOf(slug);
+  const customer = await getCustomer(store.id);
+  if (!customer) redirect(`/s/${slug}/account/login`);
+  const res = await redeemReward(store, customer.id);
+  redirect(`/s/${slug}/account?${res.code ? `code=${res.code}` : `err=${encodeURIComponent(res.error ?? "")}`}`);
 }

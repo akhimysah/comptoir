@@ -4,6 +4,7 @@ import { db } from "./db";
 import { randomInt } from "crypto";
 import { giftCardEmail, lowStockEmail, newOrderAlertEmail, orderConfirmationEmail, shippingEmail } from "./emails";
 import { sendMail } from "./mail";
+import { earnPoints } from "./loyalty";
 import type { PricedCart } from "./pricing";
 
 export type Address = { line1: string; zip: string; city: string; country: string };
@@ -114,6 +115,7 @@ export async function markOrderPaid(orderId: string) {
     return true;
   });
   if (paid) {
+    await earnPoints(orderId);
     await issuePurchasedGiftCards(orderId);
     await notifyOrderPaid(orderId);
     if (lowStock.length) {

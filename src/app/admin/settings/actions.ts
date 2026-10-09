@@ -76,3 +76,19 @@ export async function saveCurrencies(_: { error?: string; ok?: string } | undefi
   revalidatePath(`/s/${store.slug}`, "layout");
   return { ok: note || "Enregistré." };
 }
+
+export async function saveLoyalty(_: { error?: string; ok?: boolean } | undefined, form: FormData) {
+  const { store } = await requireOwner();
+  const n = (k: string) => Math.floor(Number(String(form.get(k) ?? "").replace(",", ".")));
+  const enabled = form.get("enabled") === "on";
+  const perUnit = n("perUnit"), rewardPoints = n("rewardPoints");
+  const rewardCents = parseMoney(String(form.get("rewardValue") ?? ""));
+  if (!(perUnit >= 1 && perUnit <= 100)) return { error: "Points par unité : entre 1 et 100." };
+  if (!(rewardPoints >= 1)) return { error: "Indiquez le nombre de points d'un bon." };
+  if (!rewardCents || rewardCents < 100) return { error: "Indiquez la valeur du bon (1,00 minimum)." };
+  await db.store.update({ where: { id: store.id }, data: { loyaltyEnabled: enabled, loyaltyPointsPerUnit: perUnit, loyaltyRewardPoints: rewardPoints, loyaltyRewardCents: rewardCents } });
+  await logActivity(`Programme de fidélité ${enabled ? "activé" : "désactivé"}`, "/admin/settings");
+  revalidatePath("/admin/settings");
+  revalidatePath(`/s/${store.slug}`, "layout");
+  return { ok: true };
+}

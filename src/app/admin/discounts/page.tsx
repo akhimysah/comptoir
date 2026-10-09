@@ -9,7 +9,7 @@ import { formatDate } from "@/lib/utils";
 
 export default async function DiscountsPage() {
   const { store } = await requirePerm("discounts");
-  const discounts = await db.discount.findMany({ where: { storeId: store.id }, orderBy: { createdAt: "desc" } });
+  const discounts = await db.discount.findMany({ where: { storeId: store.id, customerEmail: null }, orderBy: { createdAt: "desc" } });
   const now = new Date();
   return (
     <>

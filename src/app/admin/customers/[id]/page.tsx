@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { saveCustomerNote } from "../actions";
+import { adjustPoints, saveCustomerNote } from "../actions";
 import { PageHeader, Pill, Thumb } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -13,6 +13,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const { store } = await requirePerm("customers");
   const c = await db.customer.findFirst({ where: { id, storeId: store.id }, include: { orders: { orderBy: { createdAt: "desc" }, include: { items: true } } } });
   if (!c) notFound();
+  const entries = store.loyaltyEnabled ? await db.loyaltyEntry.findMany({ where: { customerId: c.id }, orderBy: { createdAt: "desc" }, take: 8 }) : [];
   const m = (x: number) => formatMoney(x, store.currency);
   const paid = c.orders.filter((o) => ["paid", "partially_refunded"].includes(o.paymentStatus) && !o.cancelledAt);
   const spent = paid.reduce((s, o) => s + o.totalCents - o.refundedCents, 0);
@@ -79,6 +80,21 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             <div><h3 className="text-[13px] font-[650]">Coordonnées</h3><div className="break-all text-pine">{c.email}</div></div>
             {addr && <div><h3 className="text-[13px] font-[650]">Adresse par défaut</h3><address className="not-italic text-muted">{addr.line1}<br />{addr.zip} {addr.city}<br />{addr.country}</address></div>}
           </section>
+          {store.loyaltyEnabled && (
+            <section className="card flex flex-col gap-2 p-4">
+              <h2 className="text-sm font-[650]">Fidélité</h2>
+              <div className="text-2xl font-bold tabular-nums">{c.points} <span className="text-sm font-normal text-muted">points</span></div>
+              <ul className="flex flex-col gap-1 text-xs">
+                {entries.map((e) => <li key={e.id} className="flex justify-between gap-2"><span className="truncate text-muted">{e.reason}</span><span className={`tabular-nums ${e.points > 0 ? "text-[#0c5132]" : "text-[#8e0b21]"}`}>{e.points > 0 ? "+" : ""}{e.points}</span></li>)}
+              </ul>
+              <form action={adjustPoints} className="mt-1 flex gap-1.5">
+                <input type="hidden" name="id" value={c.id} />
+                <input name="points" type="number" required placeholder="+50 ou −20" aria-label="Points à ajouter ou retirer" className="input num h-8 w-24" />
+                <input name="reason" placeholder="Motif" aria-label="Motif" className="input h-8 flex-1" />
+                <button className="btn btn-sm h-8">OK</button>
+              </form>
+            </section>
+          )}
           <form action={saveCustomerNote} className="card flex flex-col gap-2 p-4">
             <input type="hidden" name="id" value={c.id} />
             <h2 className="text-sm font-[650]">Notes</h2>

@@ -41,6 +41,10 @@ model Store {
   stripeAccountId       String?
   stripeChargesEnabled  Boolean      @default(false)
   displayCurrencies     String       @default("[]") // JSON : { code, rate }[] — devises d'affichage et leur taux par rapport à la devise de la boutique
+  loyaltyEnabled        Boolean      @default(false) // programme de fidélité
+  loyaltyPointsPerUnit  Int          @default(1) // points gagnés par unité de devise dépensée (1 € = 1 point)
+  loyaltyRewardPoints   Int          @default(100) // points nécessaires pour un bon
+  loyaltyRewardCents    Int          @default(500) // valeur du bon
   lowStockThreshold     Int          @default(3) // alerte e-mail quand une variante passe sous ce seuil
   taxRateBps            Int          @default(2000) // TVA incluse dans les prix, en points de base (2000 = 20 %) ; 0 = franchise
   legalName             String       @default("") // pour les factures
@@ -292,6 +296,7 @@ model Customer {
   name      String
   note      String   @default("") // note interne, visible seulement dans l'admin
   acceptsMarketing Boolean @default(false) // abonné à la newsletter
+  points           Int     @default(0) // solde de points de fidélité
   marketingToken   String? @unique // jeton du lien de désabonnement
   subscribedAt     DateTime?
   createdAt DateTime @default(now())
@@ -312,6 +317,7 @@ model Discount {
   usageCount       Int       @default(0)
   active           Boolean   @default(true)
   automatic        Boolean   @default(false) // appliquée sans code dans le panier
+  customerEmail    String? // bon de fidélité : utilisable seulement par ce client
   title            String    @default("") // nom affiché pour une remise automatique
   endsAt           DateTime?
   createdAt        DateTime  @default(now())
@@ -460,4 +466,17 @@ model BundleItem {
   quantity  Int     @default(1)
 
   @@unique([bundleId, variantId])
+}
+
+/// Mouvements de points de fidélité (gains, échanges, retraits, ajustements).
+model LoyaltyEntry {
+  id         String   @id @default(cuid())
+  storeId    String
+  customerId String
+  points     Int
+  reason     String
+  orderId    String?
+  createdAt  DateTime @default(now())
+
+  @@index([customerId, createdAt])
 }

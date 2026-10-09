@@ -40,6 +40,10 @@ export async function POST(req: Request) {
   }
   if (!cart.lines.length) return NextResponse.json({ error: "Votre panier est vide." }, { status: 400 });
   if (b.code && cart.discountError) return NextResponse.json({ error: cart.discountError }, { status: 400 });
+  if (cart.discountCode) {
+    const d = await db.discount.findUnique({ where: { storeId_code: { storeId: store.id, code: cart.discountCode } } });
+    if (d?.customerEmail && d.customerEmail !== b.email.trim().toLowerCase()) return NextResponse.json({ error: "Ce bon est réservé à un autre client : utilisez l'adresse e-mail de votre compte." }, { status: 400 });
+  }
   if (cart.notices.length) return NextResponse.json({ error: cart.notices[0], refresh: true }, { status: 409 });
 
   const stripe = getStripe();
