@@ -6,7 +6,7 @@ import { Thumb } from "@/components/ui";
 
 type P = { id: string; title: string; image: string | null; hue: number };
 
-export function CampaignForm({ initial, products, readOnly }: { initial: CampaignPayload; products: P[]; readOnly: boolean }) {
+export function CampaignForm({ initial, products, readOnly, audiences }: { initial: CampaignPayload; products: P[]; readOnly: boolean; audiences: { id: string | null; label: string; count: number }[] }) {
   const [state, action, pending] = useActionState(saveCampaign, undefined);
   const [c, setC] = useState(initial);
   const [q, setQ] = useState("");
@@ -15,6 +15,11 @@ export function CampaignForm({ initial, products, readOnly }: { initial: Campaig
     <form action={action} className="card flex flex-col gap-3 p-4">
       <input type="hidden" name="payload" value={JSON.stringify(c)} />
       <fieldset disabled={readOnly} className="flex flex-col gap-3">
+        <label className="label">Destinataires<span className="hint">Seuls les clients abonnés à la newsletter reçoivent les campagnes.</span>
+          <select className="input" value={c.segmentId ?? ""} onChange={(e) => set({ segmentId: e.target.value || null })}>
+            {audiences.map((a) => <option key={a.id ?? "all"} value={a.id ?? ""}>{a.label} ({a.count} abonné{a.count > 1 ? "s" : ""})</option>)}
+          </select>
+        </label>
         <label className="label">Objet de l'e-mail<input className="input" required maxLength={150} value={c.subject} onChange={(e) => set({ subject: e.target.value })} placeholder="Notre nouvelle collection est arrivée" /></label>
         <label className="label">Titre<input className="input" maxLength={150} value={c.title} onChange={(e) => set({ title: e.target.value })} placeholder="Des couleurs d'automne" /></label>
         <label className="label">Message<textarea className="input min-h-[180px] font-mono text-[13px] leading-6" value={c.body} onChange={(e) => set({ body: e.target.value })} placeholder={"Bonjour,\n\nNos nouvelles pièces sortent du four…"} /></label>

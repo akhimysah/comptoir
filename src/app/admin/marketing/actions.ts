@@ -7,7 +7,7 @@ import { logActivity } from "@/lib/activity";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendMail } from "@/lib/mail";
-import { campaignEmail, unsubscribeUrl } from "@/lib/marketing";
+import { campaignEmail, campaignRecipients, unsubscribeUrl } from "@/lib/marketing";
 
 const schema = z.object({
   id: z.string().optional(),
@@ -16,6 +16,7 @@ const schema = z.object({
   body: z.string().max(20_000),
   buttonText: z.string().trim().max(40),
   productIds: z.array(z.string()).max(6),
+  segmentId: z.string().max(40).nullable().optional(),
 });
 export type CampaignPayload = z.infer<typeof schema>;
 
@@ -25,8 +26,9 @@ export async function saveCampaign(_: { error?: string; ok?: boolean } | undefin
   try { raw = JSON.parse(String(form.get("payload") ?? "")); } catch {}
   const parsed = schema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const { id, productIds, ...c } = parsed.data;
-  const data = { ...c, productIds: JSON.stringify(productIds) };
+  const { id, productIds, segmentId, ...c } = parsed.data;
+  if (segmentId && !(await db.segment.findFirst({ where: { id: segmentId, storeId: store.id } }))) return { error: "Ce segment n'existe plus." };
+  const data = { ...c, productIds: JSON.stringify(productIds), segmentId: segmentId || null };
   if (id) {
     const r = await db.campaign.updateMany({ where: { id, storeId: store.id, status: "draft" }, data });
     if (!r.count) return { error: "Cette campagne a déjà été envoyée : elle ne peut plus être modifiée." };
@@ -53,7 +55,11 @@ export async function sendCampaign(form: FormData) {
   // On verrouille d'abord la campagne pour qu'un double clic ne l'envoie pas deux fois.
   const lock = await db.campaign.updateMany({ where: { id: c.id, status: "draft" }, data: { status: "sending" } });
   if (!lock.count) return;
-  const subscribers = await db.customer.findMany({ where: { storeId: store.id, acceptsMarketing: true, marketingToken: { not: null } } });
+  const subscribers = await campaignRecipients(store.id, c.segmentId);
+  if (!subscribers) {
+    await db.campaign.update({ where: { id: c.id }, data: { status: "draft" } });
+    redirect(`/admin/marketing/${c.id}?err=segment`);
+  }
   for (const s of subscribers) {
     const mail = await campaignEmail(store, c, unsubscribeUrl(store.slug, s.marketingToken!));
     await sendMail({ to: s.email, storeId: store.id, ...mail });

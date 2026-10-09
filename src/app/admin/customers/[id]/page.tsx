@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { adjustPoints, saveCustomerNote } from "../actions";
+import { adjustPoints, saveCustomerNote, saveCustomerTags } from "../actions";
+import { splitTags } from "@/lib/segments";
 import { PageHeader, Pill, Thumb } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -95,6 +96,16 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
               </form>
             </section>
           )}
+          <form action={saveCustomerTags} className="card flex flex-col gap-2 p-4">
+            <input type="hidden" name="id" value={c.id} />
+            <h2 className="text-sm font-[650]">Étiquettes</h2>
+            {splitTags(c.tags).length > 0 && (
+              <div className="flex flex-wrap gap-1">{splitTags(c.tags).map((t) => <Link key={t} href={`/admin/customers?tag=${encodeURIComponent(t)}`} className="rounded-md bg-[#ebebeb] px-1.5 py-0.5 text-xs font-[550] hover:bg-[#e3e3e3]">{t}</Link>)}</div>
+            )}
+            <input id="customer-tags" name="tags" defaultValue={splitTags(c.tags).join(", ")} maxLength={300} className="input" placeholder="vip, grossiste, salon 2026" aria-label="Étiquettes séparées par des virgules" />
+            <p className="text-xs text-muted">Séparées par des virgules. Utilisables dans les segments.</p>
+            <button className="btn self-end">Enregistrer</button>
+          </form>
           <form action={saveCustomerNote} className="card flex flex-col gap-2 p-4">
             <input type="hidden" name="id" value={c.id} />
             <h2 className="text-sm font-[650]">Notes</h2>

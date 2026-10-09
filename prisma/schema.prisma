@@ -79,6 +79,7 @@ model Store {
   subscriptions         Subscription[]
   returns               ReturnRequest[]
   redirects             Redirect[]
+  segments              Segment[]
 }
 
 /// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
@@ -117,6 +118,7 @@ model Campaign {
   buttonText String    @default("Découvrir")
   status     String    @default("draft") // draft | sent
   recipients Int       @default(0)
+  segmentId  String? // destinataires : abonnés de ce segment (vide = tous les abonnés)
   sentAt     DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -332,6 +334,7 @@ model Customer {
   email            String
   name             String
   note             String    @default("") // note interne, visible seulement dans l'admin
+  tags             String    @default("") // étiquettes séparées par des virgules (ex. « vip, grossiste »)
   acceptsMarketing Boolean   @default(false) // abonné à la newsletter
   points           Int       @default(0) // solde de points de fidélité
   marketingToken   String?   @unique // jeton du lien de désabonnement
@@ -565,4 +568,16 @@ model Redirect {
   createdAt DateTime @default(now())
 
   @@unique([storeId, fromPath])
+}
+
+/// Segment de clients : un groupe défini par des conditions (commandes, montant dépensé, étiquettes…), recalculé à chaque affichage.
+model Segment {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name      String
+  match     String   @default("all") // all : toutes les conditions | any : au moins une
+  rules     String   @default("[]") // JSON : { field, op, value }[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

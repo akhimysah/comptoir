@@ -51,3 +51,17 @@ ${rows.length ? `<table role="presentation" width="100%" cellpadding="0" cellspa
 }
 
 export const unsubscribeUrl = (slug: string, token: string) => `${appUrl()}/s/${slug}/unsubscribe?t=${token}`;
+
+/**
+ * Destinataires d'une campagne : les abonnés à la newsletter, limités au segment choisi.
+ * null si le segment n'existe plus (on n'envoie pas à tout le monde par erreur).
+ */
+export async function campaignRecipients(storeId: string, segmentId: string | null) {
+  const subscribers = await db.customer.findMany({ where: { storeId, acceptsMarketing: true, marketingToken: { not: null } } });
+  if (!segmentId) return subscribers;
+  const { segmentMembers } = await import("./segments");
+  const members = await segmentMembers(storeId, segmentId);
+  if (!members) return null;
+  const ids = new Set(members.map((m) => m.id));
+  return subscribers.filter((s) => ids.has(s.id));
+}

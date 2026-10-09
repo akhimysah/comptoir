@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { splitTags } from "@/lib/segments";
 
 export async function saveCustomerNote(form: FormData) {
   const { store } = await requirePerm("customers");
@@ -24,4 +25,13 @@ export async function adjustPoints(form: FormData) {
     db.loyaltyEntry.create({ data: { storeId: store.id, customerId: c.id, points: next - c.points, reason } }),
   ]);
   revalidatePath(`/admin/customers/${id}`);
+}
+
+export async function saveCustomerTags(form: FormData) {
+  const { store } = await requirePerm("customers");
+  const id = String(form.get("id"));
+  const tags = splitTags(String(form.get("tags") ?? "")).map((t) => t.slice(0, 30)).slice(0, 20).join(", ");
+  await db.customer.updateMany({ where: { id, storeId: store.id }, data: { tags } });
+  revalidatePath(`/admin/customers/${id}`);
+  revalidatePath("/admin/customers");
 }
