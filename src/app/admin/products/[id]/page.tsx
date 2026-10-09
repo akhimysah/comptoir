@@ -43,6 +43,7 @@ export default async function EditProductPage({ params, searchParams }: { params
           id: product.id,
           seoTitle: product.seoTitle,
           isGiftCard: product.isGiftCard,
+          continueSelling: product.continueSelling,
           seoDescription: product.seoDescription,
           title: product.title,
           description: product.description,

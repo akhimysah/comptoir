@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { saveSettings } from "@/app/admin/settings/actions";
 
-type Props = { name: string; tagline: string; currency: string; shipping: string; freeFrom: string };
+type Props = { name: string; tagline: string; currency: string; shipping: string; freeFrom: string; lowStockThreshold: number };
 
 export function SettingsForm(p: Props) {
   const [state, action, pending] = useActionState(saveSettings, undefined);
@@ -22,6 +22,7 @@ export function SettingsForm(p: Props) {
         <label className="label">Livraison offerte dès<input id="s-free" name="freeFrom" inputMode="decimal" defaultValue={p.freeFrom} className="input num" /></label>
       </div>
       <p className="text-xs text-muted">Mettez 0 dans « Livraison offerte dès » pour toujours l'offrir.</p>
+      <label className="label">Alerte de stock faible<span className="hint">Vous recevez un e-mail quand un article passe à ce nombre ou en dessous. 0 pour désactiver.</span><input id="s-low" name="lowStockThreshold" type="number" min={0} defaultValue={p.lowStockThreshold} className="input num w-28" /></label>
       {state?.error && <p role="alert" className="text-sm font-semibold text-red-700">{state.error}</p>}
       {state?.ok && <p role="status" className="text-sm font-semibold text-pine">Réglages enregistrés.</p>}
       <div className="flex justify-end"><button className="btn btn-primary" disabled={pending}>{pending ? "Enregistrement…" : "Enregistrer"}</button></div>

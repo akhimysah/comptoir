@@ -2,7 +2,7 @@ import "server-only";
 import { Prisma, type Store } from "@prisma/client";
 import { db } from "./db";
 import { randomInt } from "crypto";
-import { giftCardEmail, newOrderAlertEmail, orderConfirmationEmail, shippingEmail } from "./emails";
+import { giftCardEmail, lowStockEmail, newOrderAlertEmail, orderConfirmationEmail, shippingEmail } from "./emails";
 import { sendMail } from "./mail";
 import type { PricedCart } from "./pricing";
 
@@ -75,6 +75,7 @@ export async function createOrder(
 
 /** Passe la commande en « payée », décrémente le stock et compte l'usage du code promo. Sans effet si déjà payée. */
 export async function markOrderPaid(orderId: string) {
+  const lowStock: { title: string; stock: number }[] = [];
   const paid = await db.$transaction(async (tx) => {
     const updated = await tx.order.updateMany({
       where: { id: orderId, paymentStatus: "pending", cancelledAt: null },
@@ -84,8 +85,13 @@ export async function markOrderPaid(orderId: string) {
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
     for (const item of order.items) {
       if (!item.variantId || item.isGiftCard) continue;
-      const v = await tx.variant.findUnique({ where: { id: item.variantId } });
-      if (v) await tx.variant.update({ where: { id: v.id }, data: { stock: Math.max(0, v.stock - item.quantity) } });
+      const v = await tx.variant.findUnique({ where: { id: item.variantId }, include: { product: { include: { store: true } } } });
+      if (!v) continue;
+      // En précommande, le stock peut devenir négatif : il indique ce qui reste à réapprovisionner.
+      const after = v.product.continueSelling ? v.stock - item.quantity : Math.max(0, v.stock - item.quantity);
+      await tx.variant.update({ where: { id: v.id }, data: { stock: after } });
+      const threshold = v.product.store.lowStockThreshold;
+      if (threshold > 0 && v.stock > threshold && after <= threshold) lowStock.push({ title: v.title === "Par défaut" ? v.product.title : `${v.product.title} (${v.title})`, stock: after });
     }
     if (order.giftCardCode && order.giftCardCents > 0) {
       const card = await tx.giftCard.findUnique({ where: { storeId_code: { storeId: order.storeId, code: order.giftCardCode } } });
@@ -102,6 +108,10 @@ export async function markOrderPaid(orderId: string) {
   if (paid) {
     await issuePurchasedGiftCards(orderId);
     await notifyOrderPaid(orderId);
+    if (lowStock.length) {
+      const o = await db.order.findUnique({ where: { id: orderId }, include: { store: { include: { owner: true } } } });
+      if (o) await sendMail({ to: o.store.owner.email, storeId: o.storeId, ...lowStockEmail(o.store, lowStock) });
+    }
   }
   return paid;
 }

@@ -89,7 +89,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       continue;
     }
     // Une carte cadeau n'a pas de stock.
-    const quantity = v.product.isGiftCard ? wanted : Math.min(wanted, v.stock);
+    const quantity = v.product.isGiftCard || v.product.continueSelling ? wanted : Math.min(wanted, v.stock);
     if (quantity <= 0) {
       notices.push(`${v.product.title} est épuisé et a été retiré du panier.`);
       continue;
@@ -104,7 +104,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       priceCents: v.priceCents,
       compareAtCents: v.compareAtCents,
       quantity,
-      available: v.product.isGiftCard ? 99 : v.stock,
+      available: v.product.isGiftCard || v.product.continueSelling ? 99 : v.stock,
       image: parseJson<string[]>(v.product.images, [])[0] ?? null,
       hue: v.product.hue,
       isGiftCard: v.product.isGiftCard,

@@ -128,3 +128,13 @@ export function loginCodeEmail(store: Store, code: string) {
 <p style="font-size:13px;color:#616161">Si vous n'avez rien demandé, ignorez cet e-mail.</p>`),
   };
 }
+
+export function lowStockEmail(store: Store, items: { title: string; stock: number }[]) {
+  return {
+    subject: `[${store.name}] Stock faible : ${items.map((i) => i.title).join(", ").slice(0, 80)}`,
+    html: layout(store.name, "Stock faible",
+      `<p style="font-size:14px;line-height:1.5">Ces articles passent sous votre seuil d'alerte (${store.lowStockThreshold}) :</p>
+<ul style="font-size:14px;line-height:1.7">${items.map((i) => `<li><b>${esc(i.title)}</b> : ${i.stock <= 0 ? (i.stock < 0 ? `${-i.stock} en précommande à réapprovisionner` : "rupture de stock") : `${i.stock} restant${i.stock > 1 ? "s" : ""}`}</li>`).join("")}</ul>
+<p>${button(`${appUrl()}/admin/inventory?filter=low`, "Gérer le stock")}</p>`),
+  };
+}

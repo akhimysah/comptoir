@@ -16,6 +16,7 @@ const schema = z.object({
   currency: z.enum(CURRENCIES),
   shipping: z.string(),
   freeFrom: z.string(),
+  lowStockThreshold: z.coerce.number().int().min(0).max(1000).optional().default(3),
 });
 
 export async function saveSettings(_: { error?: string; ok?: boolean } | undefined, form: FormData) {
@@ -27,7 +28,7 @@ export async function saveSettings(_: { error?: string; ok?: boolean } | undefin
   const freeShippingFromCents = parseMoney(s.freeFrom || "0");
   if (shippingCents === null) return { error: "Indiquez des frais de livraison valides (0 pour gratuit)." };
   if (freeShippingFromCents === null) return { error: "Le seuil de livraison offerte n'est pas valide." };
-  await db.store.update({ where: { id: store.id }, data: { name: s.name, tagline: s.tagline, currency: s.currency, shippingCents, freeShippingFromCents } });
+  await db.store.update({ where: { id: store.id }, data: { name: s.name, tagline: s.tagline, currency: s.currency, shippingCents, freeShippingFromCents, lowStockThreshold: s.lowStockThreshold } });
   await logActivity("Paramètres de la boutique modifiés", "/admin/settings");
   revalidatePath("/admin", "layout");
   revalidatePath(`/s/${store.slug}`, "layout");
