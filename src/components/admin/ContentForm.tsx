@@ -48,9 +48,9 @@ export function ContentForm({ initial, storeUrl }: { initial: ContentPayload; st
       <aside className="flex flex-col gap-4">
         <section className="card flex flex-col gap-2 p-4">
           <h2 className="text-sm font-[650]">Visibilité</h2>
-          <label className="flex items-center gap-2"><input type="radio" checked={c.published} onChange={() => set({ published: true })} className="accent-[#303030]" />Visible</label>
-          <label className="flex items-center gap-2"><input type="radio" checked={!c.published} onChange={() => set({ published: false })} className="accent-[#303030]" />Masqué (brouillon)</label>
-          {!isPost && <label className="mt-1 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={c.showInFooter} onChange={(e) => set({ showInFooter: e.target.checked })} className="h-4 w-4 accent-[#303030]" />Lien dans le pied de page</label>}
+          <label className="flex items-center gap-2"><input type="radio" checked={c.published} onChange={() => set({ published: true })} className="accent-[#7c3aed]" />Visible</label>
+          <label className="flex items-center gap-2"><input type="radio" checked={!c.published} onChange={() => set({ published: false })} className="accent-[#7c3aed]" />Masqué (brouillon)</label>
+          {!isPost && <label className="mt-1 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={c.showInFooter} onChange={(e) => set({ showInFooter: e.target.checked })} className="h-4 w-4 accent-[#7c3aed]" />Lien dans le pied de page</label>}
         </section>
         {isPost && (
           <section className="card flex flex-col gap-3 p-4">

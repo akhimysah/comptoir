@@ -51,7 +51,7 @@ export function RefundForm({ orderId, items, currency, refundable, shippingPaid,
               </li>
             ))}
           </ul>
-          <label className="flex items-center gap-2 border-t border-line px-4 py-3 text-[13px]"><input type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} className="h-4 w-4 accent-[#303030]" />Remettre les articles en stock</label>
+          <label className="flex items-center gap-2 border-t border-line px-4 py-3 text-[13px]"><input type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} className="h-4 w-4 accent-[#7c3aed]" />Remettre les articles en stock</label>
         </section>
         <section className="card flex flex-col gap-2 p-4">
           <h2 className="text-sm font-[650]">Livraison</h2>
@@ -78,7 +78,7 @@ export function RefundForm({ orderId, items, currency, refundable, shippingPaid,
             <input inputMode="decimal" value={amountStr} onChange={(e) => setCustom(e.target.value)} className="input num text-base font-[650]" aria-label="Montant du remboursement" />
           </label>
           <p className="text-xs text-muted">{stripe ? "Le montant sera recrédité sur la carte du client via Stripe." : "Paiement hors Stripe : remboursez le client vous-même (virement, espèces). La commande sera mise à jour."}</p>
-          <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="h-4 w-4 accent-[#303030]" />Prévenir le client par e-mail</label>
+          <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="h-4 w-4 accent-[#7c3aed]" />Prévenir le client par e-mail</label>
           {error && <p role="alert" className="text-[13px] text-[#8e0b21]">{error}</p>}
           <button className="btn btn-primary h-9" disabled={pending || (amount <= 0 && count === 0)} onClick={submit}>{pending ? "Remboursement…" : `Rembourser ${m(amount)}`}</button>
         </section>

@@ -23,7 +23,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     db.order.findMany({ where: { storeId: store.id }, orderBy: { createdAt: "desc" }, take: 6, include: { items: true } }),
     db.order.count({ where: { storeId: store.id, paymentStatus: { in: ["paid", "partially_refunded"] }, fulfillmentStatus: "unfulfilled", cancelledAt: null } }),
     db.order.count({ where: { storeId: store.id, paymentStatus: "pending", cancelledAt: null } }),
-    db.product.count({ where: { storeId: store.id, status: "active", variants: { every: { stock: { lte: 0 } } } } }),
+    db.product.count({ where: { storeId: store.id, status: "active", isGiftCard: false, continueSelling: false, bundleItems: { none: {} }, variants: { every: { stock: { lte: 0 } } } } }),
     db.product.count({ where: { storeId: store.id } }),
   ]);
 
@@ -79,12 +79,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             <h2 className="text-sm font-[650]">Guide de configuration</h2>
             <span className="text-xs text-muted">{setup.filter((s) => s.done).length} sur {setup.length} tâches terminées</span>
           </div>
-          <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-[#ebebeb]"><div className="h-full rounded-full bg-[#303030]" style={{ width: `${(setup.filter((s) => s.done).length / setup.length) * 100}%` }} /></div>
+          <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-[#ebebeb]"><div className="h-full rounded-full bg-[#7c3aed]" style={{ width: `${(setup.filter((s) => s.done).length / setup.length) * 100}%` }} /></div>
           <ul className="flex flex-col">
             {setup.map((s) => (
               <li key={s.label}>
                 <Link href={s.href} className="flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-[#f7f7f7]">
-                  <span className={cx("grid h-5 w-5 place-items-center rounded-full border-[1.5px]", s.done ? "border-[#303030] bg-[#303030] text-white" : "border-dashed border-[#8a8a8a]")}>
+                  <span className={cx("grid h-5 w-5 place-items-center rounded-full border-[1.5px]", s.done ? "border-[#7c3aed] bg-[#7c3aed] text-white" : "border-dashed border-[#8a8a8a]")}>
                     {s.done && <svg viewBox="0 0 20 20" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="m5 10.5 3 3 7-7" /></svg>}
                   </span>
                   <span className={s.done ? "text-muted line-through" : "font-[550]"}>{s.label}</span>
@@ -169,7 +169,7 @@ function Spark({ values }: { values: number[] }) {
   const pts = values.map((v, i) => `${(i / (values.length - 1)) * 80},${22 - (v / max) * 20}`).join(" ");
   return (
     <svg viewBox="0 0 80 24" className="h-6 w-20" aria-hidden>
-      <polyline points={pts} fill="none" stroke="#4b9fe8" strokeWidth={1.5} strokeLinejoin="round" />
+      <polyline points={pts} fill="none" stroke="#8b5cf6" strokeWidth={1.5} strokeLinejoin="round" />
     </svg>
   );
 }
@@ -192,7 +192,7 @@ function SalesChart({ days, currency }: { days: { d: Date; v: number }[]; curren
           <text x={L - 8} y={y(k * step) + 4} textAnchor="end" className="fill-[#8a8a8a] text-[11px]">{short(k * step)}</text>
         </g>
       ))}
-      <polyline points={line} fill="none" stroke="#4b9fe8" strokeWidth={2} strokeLinejoin="round" />
+      <polyline points={line} fill="none" stroke="#8b5cf6" strokeWidth={2} strokeLinejoin="round" />
       {days.map((d, i) =>
         i % 6 === 0 || i === days.length - 1 ? (
           <text key={i} x={x(i)} y={H - 6} textAnchor="middle" className="fill-[#8a8a8a] text-[11px]">

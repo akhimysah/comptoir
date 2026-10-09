@@ -17,7 +17,7 @@ export function ZoneForm({ zone, onDone }: { zone?: { id: string; name: string; 
         <legend className="mb-1.5 text-[13px]">Pays</legend>
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
           {COUNTRIES.map((c) => (
-            <label key={c} className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="countries" value={c} defaultChecked={zone?.countries.includes(c)} className="h-4 w-4 accent-[#303030]" />{c}</label>
+            <label key={c} className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="countries" value={c} defaultChecked={zone?.countries.includes(c)} className="h-4 w-4 accent-[#7c3aed]" />{c}</label>
           ))}
         </div>
       </fieldset>

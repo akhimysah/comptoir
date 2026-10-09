@@ -41,7 +41,7 @@ export function OrdersTable({ rows }: { rows: OrderRow[] }) {
       <ul className="md:hidden">
         {rows.map((o) => (
           <li key={o.id} className={`flex gap-3 border-b border-line px-3 py-3 last:border-0 ${selected.has(o.id) ? "bg-[#f1f1f1]" : ""}`}>
-            <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggle(o.id)} aria-label={`Sélectionner #${o.number}`} className="mt-0.5 h-4 w-4 shrink-0 accent-[#303030]" />
+            <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggle(o.id)} aria-label={`Sélectionner #${o.number}`} className="mt-0.5 h-4 w-4 shrink-0 accent-[#7c3aed]" />
             <Link href={`/admin/orders/${o.id}`} className="flex min-w-0 flex-1 flex-col gap-1">
               <span className="flex justify-between gap-2"><span className="truncate"><b>#{o.number}</b> · {o.name}</span><span className="num shrink-0">{o.total}</span></span>
               <span className="text-xs text-muted">{o.date} · {o.items} article{o.items > 1 ? "s" : ""}</span>
@@ -61,7 +61,7 @@ export function OrdersTable({ rows }: { rows: OrderRow[] }) {
         <thead>
           {selected.size > 0 ? (
             <tr>
-              <th className="th w-8"><input type="checkbox" checked={all} onChange={() => setSelected(all ? new Set() : new Set(rows.map((r) => r.id)))} aria-label="Tout sélectionner" className="h-4 w-4 accent-[#303030]" /></th>
+              <th className="th w-8"><input type="checkbox" checked={all} onChange={() => setSelected(all ? new Set() : new Set(rows.map((r) => r.id)))} aria-label="Tout sélectionner" className="h-4 w-4 accent-[#7c3aed]" /></th>
               <th className="th" colSpan={7}>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-ink">{selected.size} sélectionnée{selected.size > 1 ? "s" : ""}</span>
@@ -74,7 +74,7 @@ export function OrdersTable({ rows }: { rows: OrderRow[] }) {
             </tr>
           ) : (
             <tr>
-              <th className="th w-8"><input type="checkbox" checked={false} onChange={() => setSelected(new Set(rows.map((r) => r.id)))} aria-label="Tout sélectionner" className="h-4 w-4 accent-[#303030]" /></th>
+              <th className="th w-8"><input type="checkbox" checked={false} onChange={() => setSelected(new Set(rows.map((r) => r.id)))} aria-label="Tout sélectionner" className="h-4 w-4 accent-[#7c3aed]" /></th>
               <th className="th">Commande</th><th className="th">Date</th><th className="th">Client</th><th className="th text-right">Total</th><th className="th">Statut du paiement</th><th className="th">Statut du traitement</th><th className="th hidden md:table-cell">Articles</th>
             </tr>
           )}
@@ -82,7 +82,7 @@ export function OrdersTable({ rows }: { rows: OrderRow[] }) {
         <tbody>
           {rows.map((o) => (
             <tr key={o.id} className={selected.has(o.id) ? "bg-[#f1f1f1]" : "hover:bg-[#f7f7f7]"}>
-              <td className="td"><input type="checkbox" checked={selected.has(o.id)} onChange={() => toggle(o.id)} aria-label={`Sélectionner #${o.number}`} className="h-4 w-4 accent-[#303030]" /></td>
+              <td className="td"><input type="checkbox" checked={selected.has(o.id)} onChange={() => toggle(o.id)} aria-label={`Sélectionner #${o.number}`} className="h-4 w-4 accent-[#7c3aed]" /></td>
               <td className="td whitespace-nowrap"><Link href={`/admin/orders/${o.id}`} className="font-[650] hover:underline">#{o.number}</Link>{o.manual && <span className="ml-1.5 text-xs text-muted">manuelle</span>}</td>
               <td className="td whitespace-nowrap text-muted">{o.date}</td>
               <td className="td">{o.name}</td>

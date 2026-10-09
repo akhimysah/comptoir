@@ -113,7 +113,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
                   <div className="min-w-0 flex-1">
                     <div className="flex justify-between gap-2"><span className="truncate font-[550]">{t.title}</span><span className="num">{m(t.cents)}</span></div>
                     <div className="mt-1 flex items-center gap-2">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#ebebeb]"><div className="h-full rounded-full bg-[#4b9fe8]" style={{ width: `${(t.cents / topMax) * 100}%` }} /></div>
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#ebebeb]"><div className="h-full rounded-full bg-[#8b5cf6]" style={{ width: `${(t.cents / topMax) * 100}%` }} /></div>
                       <span className="w-16 text-right text-xs text-muted">{t.units} vendu{t.units > 1 ? "s" : ""}</span>
                     </div>
                   </div>
@@ -161,7 +161,7 @@ function Bars({ buckets, currency }: { buckets: { label: string; v: number }[]; 
         </g>
       ))}
       {buckets.map((b, i) => (
-        <rect key={i} x={L + i * bw + bw * 0.15} width={Math.max(1, bw * 0.7)} y={y(b.v)} height={Math.max(0, y(0) - y(b.v))} rx={2} fill="#4b9fe8">
+        <rect key={i} x={L + i * bw + bw * 0.15} width={Math.max(1, bw * 0.7)} y={y(b.v)} height={Math.max(0, y(0) - y(b.v))} rx={2} fill="#8b5cf6">
           <title>{`${b.label} : ${short(b.v)}`}</title>
         </rect>
       ))}

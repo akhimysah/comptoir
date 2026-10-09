@@ -46,12 +46,12 @@ function NavLink({ item, path }: { item: Item; path: string }) {
         aria-current={active ? "page" : undefined}
         className={cx(
           "flex h-8 items-center gap-2 rounded-lg px-2 text-[13px] font-[550] transition",
-          active ? "bg-white text-ink shadow-[0_1px_0_rgba(0,0,0,.05)]" : inSection ? "text-ink" : "text-[#303030] hover:bg-[#f1f1f1]",
+          active ? "bg-white text-[#5b21b6] shadow-[0_1px_0_rgba(0,0,0,.05),inset_3px_0_0_#7c3aed]" : inSection ? "text-ink" : "text-[#303030] hover:bg-[#f1f1f1]",
         )}
       >
-        {item.icon && <Icon name={item.icon} className={cx("h-5 w-5", active || inSection ? "text-ink" : "text-[#4a4a4a]")} />}
+        {item.icon && <Icon name={item.icon} className={cx("h-5 w-5", active ? "text-[#7c3aed]" : inSection ? "text-ink" : "text-[#4a4a4a]")} />}
         <span className="flex-1 truncate">{item.label}</span>
-        {!!item.badge && <span className="rounded-md bg-[#e3e3e3] px-1.5 text-xs font-[550] tabular-nums">{item.badge}</span>}
+        {!!item.badge && <span className="rounded-md bg-[#ede9fe] px-1.5 text-xs font-[550] tabular-nums text-[#5b21b6]">{item.badge}</span>}
       </Link>
       {inSection && item.children && (
         <ul className="mt-0.5 flex flex-col gap-0.5">

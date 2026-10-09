@@ -40,7 +40,7 @@ export default async function UsersPage() {
                   <div className="mb-2 text-xs font-[550] text-muted">Accès autorisés</div>
                   <div className="grid gap-1.5 sm:grid-cols-2">
                     {AREAS.map((a) => (
-                      <label key={a} className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="perm" value={a} defaultChecked={perms.includes(a)} className="h-4 w-4 accent-[#303030]" />{AREA_LABELS[a]}</label>
+                      <label key={a} className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="perm" value={a} defaultChecked={perms.includes(a)} className="h-4 w-4 accent-[#7c3aed]" />{AREA_LABELS[a]}</label>
                     ))}
                   </div>
                   <button className="btn btn-sm mt-3">Enregistrer les accès</button>

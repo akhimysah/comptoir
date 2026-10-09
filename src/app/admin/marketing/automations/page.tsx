@@ -23,7 +23,7 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
             <h2 className="text-sm font-[650]">Relance des paniers abandonnés</h2>
             {store.autoCartReminder ? <Pill tone="ok">Active</Pill> : <Pill>Inactive</Pill>}
           </div>
-          <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="autoCartReminder" defaultChecked={store.autoCartReminder} className="h-4 w-4 accent-[#303030]" />Envoyer automatiquement l'e-mail « Votre panier vous attend »</label>
+          <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="autoCartReminder" defaultChecked={store.autoCartReminder} className="h-4 w-4 accent-[#7c3aed]" />Envoyer automatiquement l'e-mail « Votre panier vous attend »</label>
           <label className="flex items-center gap-2 text-[13px]">après <input name="cartReminderHours" type="number" min={1} max={72} defaultValue={store.cartReminderHours} className="input num h-8 w-20" aria-label="Délai en heures" /> heures sans commande</label>
           <p className="text-xs text-muted">{pendingCarts} panier{pendingCarts > 1 ? "s" : ""} à relancer en ce moment. Le lien de l'e-mail redonne au client son panier complet.</p>
         </section>
@@ -32,7 +32,7 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
             <h2 className="text-sm font-[650]">Demande d'avis après la livraison</h2>
             {store.autoReviewRequest ? <Pill tone="ok">Active</Pill> : <Pill>Inactive</Pill>}
           </div>
-          <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="autoReviewRequest" defaultChecked={store.autoReviewRequest} className="h-4 w-4 accent-[#303030]" />Demander un avis sur les produits achetés</label>
+          <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="autoReviewRequest" defaultChecked={store.autoReviewRequest} className="h-4 w-4 accent-[#7c3aed]" />Demander un avis sur les produits achetés</label>
           <label className="flex items-center gap-2 text-[13px]"><input name="reviewRequestDays" type="number" min={1} max={60} defaultValue={store.reviewRequestDays} className="input num h-8 w-20" aria-label="Délai en jours" /> jours après l'expédition</label>
           <p className="text-xs text-muted">{pendingReviews} commande{pendingReviews > 1 ? "s" : ""} concernée{pendingReviews > 1 ? "s" : ""} en ce moment. Les avis reçus arrivent dans Produits → Avis, à publier.</p>
         </section>

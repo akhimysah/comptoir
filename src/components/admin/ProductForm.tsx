@@ -135,7 +135,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
             {!images.length && (
               <div className="mt-3 flex items-center gap-3">
                 <Thumb hue={hue} title={title || "?"} className="h-10 w-10 text-xs" />
-                <label className="label flex-1 text-xs text-muted">Couleur du visuel tant qu'il n'y a pas de photo<input id="hue" type="range" min={0} max={359} value={hue} onChange={(e) => setHue(Number(e.target.value))} className="accent-[#303030]" /></label>
+                <label className="label flex-1 text-xs text-muted">Couleur du visuel tant qu'il n'y a pas de photo<input id="hue" type="range" min={0} max={359} value={hue} onChange={(e) => setHue(Number(e.target.value))} className="accent-[#7c3aed]" /></label>
               </div>
             )}
           </section>
@@ -285,11 +285,11 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
           <section className="card flex flex-col gap-2 p-4">
             <h2 className="text-sm font-[650]">Organisation du produit</h2>
             <label className="flex items-start gap-2 text-[13px]">
-              <input type="checkbox" checked={continueSelling} onChange={(e) => setContinueSelling(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#303030]" />
+              <input type="checkbox" checked={continueSelling} onChange={(e) => setContinueSelling(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#7c3aed]" />
               <span>Continuer à vendre en cas de rupture<span className="block text-xs text-muted">Précommande : le client peut acheter même sans stock, le bouton devient « Précommander ».</span></span>
             </label>
             <label className="flex items-start gap-2 text-[13px]">
-              <input type="checkbox" checked={isGiftCard} onChange={(e) => setIsGiftCard(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#303030]" />
+              <input type="checkbox" checked={isGiftCard} onChange={(e) => setIsGiftCard(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#7c3aed]" />
               <span>Ce produit est une carte cadeau<span className="block text-xs text-muted">Chaque variante est un montant (ex. 25 €, 50 €). À l'achat, la carte est créée et envoyée par e-mail : pas de stock ni de livraison.</span></span>
             </label>
             <span className="text-[13px]">Collections</span>
@@ -297,7 +297,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
               <div className="flex flex-col gap-1.5">
                 {collections.map((c) => (
                   <label key={c.id} className="flex items-center gap-2 text-[13px]">
-                    <input type="checkbox" className="h-4 w-4 accent-[#303030]" checked={collectionIds.includes(c.id)} onChange={(e) => setCollectionIds((ids) => (e.target.checked ? [...ids, c.id] : ids.filter((x) => x !== c.id)))} />
+                    <input type="checkbox" className="h-4 w-4 accent-[#7c3aed]" checked={collectionIds.includes(c.id)} onChange={(e) => setCollectionIds((ids) => (e.target.checked ? [...ids, c.id] : ids.filter((x) => x !== c.id)))} />
                     {c.title}
                   </label>
                 ))}

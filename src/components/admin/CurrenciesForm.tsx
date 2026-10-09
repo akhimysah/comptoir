@@ -18,7 +18,7 @@ export function CurrenciesForm({ base, current }: { base: string; current: { cod
           const checked = on.includes(code);
           return (
             <div key={code} className="flex items-center gap-3">
-              <label className="flex w-20 items-center gap-2 text-[13px]"><input type="checkbox" name="code" value={code} checked={checked} onChange={(e) => setOn((xs) => (e.target.checked ? [...xs, code] : xs.filter((x) => x !== code)))} className="h-4 w-4 accent-[#303030]" />{code}</label>
+              <label className="flex w-20 items-center gap-2 text-[13px]"><input type="checkbox" name="code" value={code} checked={checked} onChange={(e) => setOn((xs) => (e.target.checked ? [...xs, code] : xs.filter((x) => x !== code)))} className="h-4 w-4 accent-[#7c3aed]" />{code}</label>
               {checked && <label className="flex items-center gap-2 text-xs text-muted">1 {base} =<input name={`rate_${code}`} defaultValue={cur?.rate ?? ""} inputMode="decimal" className="input num h-7 w-24 py-1" aria-label={`Taux ${code}`} />{code}</label>}
             </div>
           );

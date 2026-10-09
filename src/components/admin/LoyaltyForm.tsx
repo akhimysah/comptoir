@@ -9,7 +9,7 @@ export function LoyaltyForm(p: { enabled: boolean; perUnit: number; rewardPoints
     <form action={action} className="card flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-[650]">Programme de fidélité</h2>
-        <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="enabled" defaultChecked={p.enabled} className="h-4 w-4 accent-[#303030]" />Activé</label>
+        <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="enabled" defaultChecked={p.enabled} className="h-4 w-4 accent-[#7c3aed]" />Activé</label>
       </div>
       <p className="text-xs text-muted">Vos clients gagnent des points à chaque achat et les échangent contre un bon de réduction depuis « Mon compte ».</p>
       <div className="grid gap-3 sm:grid-cols-3">

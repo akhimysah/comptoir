@@ -131,7 +131,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             <ol className="relative ml-4 flex flex-col gap-4 border-l-2 border-[#d4d4d4] pl-5">
               {timeline.map((t, i) => (
                 <li key={i} className="relative">
-                  <span className={`absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2 border-canvas ${t.kind === "comment" ? "bg-[#4b9fe8]" : "bg-[#8a8a8a]"}`} />
+                  <span className={`absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2 border-canvas ${t.kind === "comment" ? "bg-[#8b5cf6]" : "bg-[#8a8a8a]"}`} />
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     {t.kind === "comment" ? (
                       <div className="card max-w-full px-3 py-2"><div className="text-xs font-[550] text-muted">{t.author}</div><p className="whitespace-pre-line">{t.text}</p></div>

@@ -76,8 +76,8 @@ export function ManualOrderForm({ variants, customers, currency }: { variants: P
             <dt className="font-[650]">Total</dt><dd className="num text-right font-[650]">{m(subtotal + ship)}</dd>
           </dl>
           <fieldset className="mt-3 flex flex-col gap-1.5">
-            <label className="flex items-center gap-2"><input type="radio" name="paid" checked={paid} onChange={() => setPaid(true)} className="accent-[#303030]" />Le client a déjà payé (espèces, virement…)</label>
-            <label className="flex items-center gap-2"><input type="radio" name="paid" checked={!paid} onChange={() => setPaid(false)} className="accent-[#303030]" />Paiement en attente</label>
+            <label className="flex items-center gap-2"><input type="radio" name="paid" checked={paid} onChange={() => setPaid(true)} className="accent-[#7c3aed]" />Le client a déjà payé (espèces, virement…)</label>
+            <label className="flex items-center gap-2"><input type="radio" name="paid" checked={!paid} onChange={() => setPaid(false)} className="accent-[#7c3aed]" />Paiement en attente</label>
           </fieldset>
         </section>
       </div>

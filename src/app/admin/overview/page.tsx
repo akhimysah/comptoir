@@ -9,7 +9,7 @@ import { cx, formatDateTime, initials } from "@/lib/utils";
 
 const PERIODS = { "1": "Aujourd'hui", "7": "7 derniers jours", "30": "30 derniers jours", "90": "90 derniers jours" } as const;
 type Period = keyof typeof PERIODS;
-const STORE_COLORS = ["#4b9fe8", "#e3a008", "#2c9a62", "#c4458a", "#7c5cd6", "#e0613a", "#3aa7a1", "#8a8a8a"];
+const STORE_COLORS = ["#8b5cf6", "#e3a008", "#2c9a62", "#c4458a", "#7c5cd6", "#e0613a", "#3aa7a1", "#8a8a8a"];
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 

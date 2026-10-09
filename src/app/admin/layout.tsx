@@ -14,7 +14,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const toShip = await db.order.count({ where: { storeId: store.id, paymentStatus: { in: ["paid", "partially_refunded"] }, fulfillmentStatus: "unfulfilled", cancelledAt: null } });
   return (
     <div className="min-h-screen bg-canvas">
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 bg-topbar px-3 text-white md:px-4">
+      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 bg-[linear-gradient(90deg,#140b33_0%,#1a1a1a_45%)] px-3 text-white md:px-4">
         <MobileNavToggle />
         <Link href="/admin" className="flex items-center gap-2 pr-2">
           <Logo size={28} withName={false} />
