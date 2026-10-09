@@ -17,6 +17,7 @@ const ICONS: Record<string, string> = {
   chart: "M4 16V9M8.5 16V4.5M13 16v-5M17 16V7.5M3 16.5h14.5",
   stores: "M3.5 8.5 4.5 4h11l1 4.5M3.5 8.5h13M4.5 8.5V16h11V8.5M8 16v-4h4v4",
   channels: "M10 3.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM3.5 10h13M10 3.5c1.8 1.8 2.6 4 2.6 6.5S11.8 14.7 10 16.5M10 3.5C8.2 5.3 7.4 7.5 7.4 10s.8 4.7 2.6 6.5",
+  marketing: "M4 8.5v3l9 4V4.5zM13 7.5h1.5a2.5 2.5 0 0 1 0 5H13M6.5 12l1 4h2l-.8-3.2",
   bell: "M10 3.5a4.5 4.5 0 0 0-4.5 4.5v3L4 13.5h12L14.5 11V8A4.5 4.5 0 0 0 10 3.5zM8.5 16a1.5 1.5 0 0 0 3 0",
   plus: "M10 4.5v11M4.5 10h11",
   back: "M12 4.5 6.5 10l5.5 5.5",
@@ -71,13 +72,14 @@ function NavLink({ item, path }: { item: Item; path: string }) {
 
 export function AdminNav({ toShip, storeSlug, isOwner, storeCount, perms }: { toShip: number; storeSlug: string; isOwner: boolean; storeCount: number; perms: string[] }) {
   const path = usePathname();
-  const need: Record<string, string> = { "/admin/orders": "orders", "/admin/products": "products", "/admin/customers": "customers", "/admin/analytics": "analytics", "/admin/discounts": "discounts" };
+  const need: Record<string, string> = { "/admin/orders": "orders", "/admin/products": "products", "/admin/customers": "customers", "/admin/analytics": "analytics", "/admin/discounts": "discounts", "/admin/marketing": "marketing" };
   const all: Item[] = [
     { href: "/admin", label: "Accueil", icon: "home" },
     { href: "/admin/orders", label: "Commandes", icon: "orders", badge: toShip, match: ["/admin/orders", "/admin/checkouts"], children: [{ href: "/admin/checkouts", label: "Paniers abandonnés" }] },
     { href: "/admin/products", label: "Produits", icon: "products", match: ["/admin/products", "/admin/collections", "/admin/inventory", "/admin/reviews", "/admin/gift-cards"], children: [{ href: "/admin/collections", label: "Collections" }, { href: "/admin/inventory", label: "Stock" }, { href: "/admin/gift-cards", label: "Cartes cadeaux" }, { href: "/admin/reviews", label: "Avis" }] },
     { href: "/admin/customers", label: "Clients", icon: "customers" },
     { href: "/admin/analytics", label: "Statistiques", icon: "chart" },
+    { href: "/admin/marketing", label: "Marketing", icon: "marketing" },
     { href: "/admin/discounts", label: "Remises", icon: "discounts" },
   ];
   const main = all.filter((i) => !need[i.href] || perms.includes(need[i.href]));

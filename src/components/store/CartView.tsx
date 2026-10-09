@@ -22,6 +22,7 @@ export function CartView({ slug, currency, cancelled, demo, recovered, customer 
   const [restored, setRestored] = useState(false);
   const [giftInput, setGiftInput] = useState("");
   const [gift, setGift] = useState("");
+  const [marketing, setMarketing] = useState(false);
 
   // Lien « Reprendre ma commande » reçu par e-mail : on remet le panier mémorisé.
   useEffect(() => {
@@ -56,7 +57,7 @@ export function CartView({ slug, currency, cancelled, demo, recovered, customer 
     setBusy(true);
     setError(null);
     const data = Object.fromEntries(new FormData(e.currentTarget));
-    const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, country, rateId: cart?.shippingRateId ?? rateId, giftCode: gift, slug, items, code: applied }) });
+    const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, country, rateId: cart?.shippingRateId ?? rateId, giftCode: gift, marketing, slug, items, code: applied }) });
     const json = await res.json().catch(() => ({}));
     if (res.ok && json.url) { window.location.href = json.url; return; }
     setError(json.error ?? "La commande n'a pas pu être créée. Réessayez.");
@@ -169,6 +170,7 @@ export function CartView({ slug, currency, cancelled, demo, recovered, customer 
               <p className="text-sm text-[var(--c-muted)]">Votre carte cadeau sera envoyée par e-mail à cette adresse, juste après le paiement.</p>
             )}
             {cart?.shippingError && <p className="text-sm text-red-600">{cart.shippingError}</p>}
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} />Recevoir les nouveautés et offres par e-mail</label>
             <textarea id="co-note" name="note" maxLength={500} placeholder="Note pour la boutique (optionnel)" aria-label="Note" className={`${field} min-h-[70px]`} />
             {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
             <button disabled={busy || !cart?.lines.length || Boolean(cart?.shippingError)} className="h-12 rounded-[var(--t-radius)] bg-[var(--c-accent)] font-semibold text-[var(--c-accent-text)] transition hover:opacity-90 disabled:opacity-40">

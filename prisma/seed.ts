@@ -100,6 +100,9 @@ async function main() {
   await seedContent(db, store.id);
   await seedGiftAndAuto(db, store.id);
   await seedBundle(db, store.id);
+  for (const email of ["lea@exemple.fr", "sophie@exemple.fr", "ines@exemple.fr"]) {
+    await db.customer.updateMany({ where: { storeId: store.id, email }, data: { acceptsMarketing: true, subscribedAt: new Date(), marketingToken: `demo-${email.split("@")[0]}` } });
+  }
   await seedExtraStores(db, user.id);
 
   // Commandes d'exemple réparties sur les 3 dernières semaines

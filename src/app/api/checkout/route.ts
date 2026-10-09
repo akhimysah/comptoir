@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { createOrder, markOrderPaid } from "@/lib/orders";
 import { priceCart } from "@/lib/pricing";
+import { subscribe } from "@/lib/marketing";
 import { appUrl, getStripe, platformFee } from "@/lib/stripe";
 
 const schema = z.object({
@@ -18,6 +19,7 @@ const schema = z.object({
   note: z.string().max(500).optional().default(""),
   rateId: z.string().max(40).optional().nullable(),
   giftCode: z.string().max(40).optional().nullable(),
+  marketing: z.boolean().optional().default(false),
 });
 
 export async function POST(req: Request) {
@@ -50,6 +52,7 @@ export async function POST(req: Request) {
     { email: b.email, name: b.name, address: { line1: b.line1, zip: b.zip, city: b.city, country: b.country }, note: b.note },
     useStripe ? "stripe" : "demo",
   );
+  if (b.marketing) await subscribe(store.id, b.email, b.name);
   const thanks = `${appUrl()}/s/${store.slug}/order/${order.id}`;
 
   if (!useStripe || !stripe) {

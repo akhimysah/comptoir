@@ -62,6 +62,24 @@ model Store {
   pages                 Page[]
   posts                 BlogPost[]
   giftCards             GiftCard[]
+  campaigns             Campaign[]
+}
+
+/// Campagne e-mail envoyée aux abonnés de la newsletter.
+model Campaign {
+  id         String    @id @default(cuid())
+  storeId    String
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  subject    String
+  title      String    @default("")
+  body       String    @default("")
+  productIds String    @default("[]") // JSON : produits mis en avant
+  buttonText String    @default("Découvrir")
+  status     String    @default("draft") // draft | sent
+  recipients Int       @default(0)
+  sentAt     DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 /// Page de contenu (À propos, CGV, FAQ…). Mise en forme simple : ## titre, **gras**, listes « - », [lien](url).
@@ -272,6 +290,9 @@ model Customer {
   email     String
   name      String
   note      String   @default("") // note interne, visible seulement dans l'admin
+  acceptsMarketing Boolean @default(false) // abonné à la newsletter
+  marketingToken   String? @unique // jeton du lien de désabonnement
+  subscribedAt     DateTime?
   createdAt DateTime @default(now())
   orders    Order[]
 

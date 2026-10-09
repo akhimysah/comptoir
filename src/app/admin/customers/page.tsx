@@ -26,7 +26,7 @@ export default async function CustomersPage() {
               <tbody>
                 {rows.map((c) => (
                   <tr key={c.id} className="hover:bg-[#f7f7f7]">
-                    <td className="td"><Link href={`/admin/customers/${c.id}`} className="font-[650] hover:underline">{c.name}</Link><div className="text-xs text-muted">{c.email}</div></td>
+                    <td className="td"><Link href={`/admin/customers/${c.id}`} className="font-[650] hover:underline">{c.name}</Link>{c.acceptsMarketing && <span className="ml-2 rounded-md bg-[#e0f0ff] px-1.5 text-[11px] font-[550] text-[#00527c]">Abonné</span>}<div className="text-xs text-muted">{c.email}</div></td>
                     <td className="td num">{c.orders.length}</td>
                     <td className="td hidden text-muted sm:table-cell">{c.last ? formatDate(c.last) : "—"}</td>
                     <td className="td hidden text-muted sm:table-cell">{formatDate(c.createdAt)}</td>

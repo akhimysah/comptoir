@@ -70,13 +70,14 @@ export const requireStore = cache(async () => {
   return { user, store, stores, isOwner, perms };
 });
 
-export const AREAS = ["orders", "products", "customers", "discounts", "analytics", "content"] as const;
+export const AREAS = ["orders", "products", "customers", "discounts", "marketing", "analytics", "content"] as const;
 export type Area = (typeof AREAS)[number];
 export const AREA_LABELS: Record<Area, string> = {
   orders: "Commandes et paniers abandonnés",
   products: "Produits, stock, cartes cadeaux et avis",
   customers: "Clients",
   discounts: "Remises",
+  marketing: "Marketing (newsletter et campagnes)",
   analytics: "Statistiques et vue d'ensemble",
   content: "Boutique en ligne (thème, pages, blog)",
 };

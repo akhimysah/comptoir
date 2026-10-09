@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import type { Metadata } from "next";
 import { CartLink } from "@/components/store/Header";
+import { NewsletterForm } from "@/components/store/NewsletterForm";
 import { storeFontVars } from "@/components/store/fonts";
 import { getCatalog, getStore } from "@/lib/storefront";
 import { themeVars } from "@/lib/theme";
@@ -44,6 +45,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
       </header>
       <main className="flex-1">{children}</main>
       <footer className="border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)]">
+        <div className="mx-auto max-w-6xl px-4 pt-10 text-[var(--c-muted)]"><NewsletterForm slug={slug} /></div>
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-8 text-sm text-[var(--c-muted)]">
           <span>© {new Date().getFullYear()} {store.name}{store.tagline ? ` · ${store.tagline}` : ""}</span>
           {(footerPages.length > 0 || hasBlog > 0) && (
