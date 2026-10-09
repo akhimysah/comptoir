@@ -63,12 +63,7 @@ export async function refundOrder(args: {
     db.refund.create({ data: { orderId: order.id, amountCents: amount, shippingCents: args.shippingCents, items: JSON.stringify(lines), restock: args.restock, reason: args.reason, stripeRefundId, author: args.author } }),
     db.order.update({ where: { id: order.id }, data: { refundedCents: refunded, paymentStatus: status, ...(args.cancel ? { cancelledAt: new Date() } : {}) } }),
     ...lines.map((l) => db.orderItem.update({ where: { id: l.orderItemId }, data: { refundedQuantity: { increment: l.quantity } } })),
-    ...(args.restock
-      ? lines.flatMap((l) => {
-          const vid = order.items.find((i) => i.id === l.orderItemId)?.variantId;
-          return vid ? [db.variant.updateMany({ where: { id: vid }, data: { stock: { increment: l.quantity } } })] : [];
-        })
-      : []),
+    ...(args.restock ? await restockMoves(order.items, lines) : []),
     db.orderEvent.create({
       data: {
         orderId: order.id,
@@ -84,4 +79,18 @@ export async function refundOrder(args: {
     await sendMail({ to: order.email, storeId: order.storeId, ...refundEmail(order.store, order.number, amount, items, args.reason) });
   }
   return {};
+}
+
+/** Remise en stock : un lot rend leurs pièces à ses composants, une carte cadeau ne revient pas en stock. */
+async function restockMoves(items: { id: string; variantId: string | null; isGiftCard: boolean }[], lines: RefundLine[]) {
+  const ops = [];
+  for (const l of lines) {
+    const item = items.find((i) => i.id === l.orderItemId);
+    if (!item?.variantId || item.isGiftCard) continue;
+    const v = await db.variant.findUnique({ where: { id: item.variantId }, select: { productId: true } });
+    const parts = v ? await db.bundleItem.findMany({ where: { bundleId: v.productId } }) : [];
+    if (parts.length) for (const p of parts) ops.push(db.variant.updateMany({ where: { id: p.variantId }, data: { stock: { increment: p.quantity * l.quantity } } }));
+    else ops.push(db.variant.updateMany({ where: { id: item.variantId }, data: { stock: { increment: l.quantity } } }));
+  }
+  return ops;
 }

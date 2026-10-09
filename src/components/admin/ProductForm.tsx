@@ -12,7 +12,8 @@ import { uploadImage } from "./upload";
 type Option = { name: string; values: string[] };
 type VariantRow = ProductPayload["variants"][number];
 
-export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling"> & { id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean };
+export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle"> & { id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[] };
+export type BundleChoice = { id: string; label: string; stock: number };
 
 const key = (vals: string[]) => vals.join("\u0000");
 
@@ -22,7 +23,7 @@ function cartesian(options: Option[]): string[][] {
   return usable.reduce<string[][]>((acc, o) => acc.flatMap((combo) => o.values.map((v) => [...combo, v])), [[]]);
 }
 
-export function ProductForm({ initial, collections, currency, storeUrl, handle }: { initial: ProductFormInitial; collections: { id: string; title: string }[]; currency: string; storeUrl: string; handle?: string }) {
+export function ProductForm({ initial, collections, currency, storeUrl, handle, bundleChoices = [] }: { initial: ProductFormInitial; collections: { id: string; title: string }[]; currency: string; storeUrl: string; handle?: string; bundleChoices?: BundleChoice[] }) {
   const [state, action, pending] = useActionState(saveProduct, undefined);
   const router = useRouter();
   const [title, setTitle] = useState(initial.title);
@@ -35,6 +36,9 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle }
   const [collectionIds, setCollectionIds] = useState<string[]>(initial.collectionIds);
   const [isGiftCard, setIsGiftCard] = useState(initial.isGiftCard ?? false);
   const [continueSelling, setContinueSelling] = useState(initial.continueSelling ?? false);
+  const [bundle, setBundle] = useState(initial.bundle ?? []);
+  const [bundleQ, setBundleQ] = useState("");
+  const isBundle = bundle.length > 0;
   const [seo, setSeo] = useState({ seoTitle: initial.seoTitle ?? "", seoDescription: initial.seoDescription ?? "" });
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -72,7 +76,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle }
     }
   }
 
-  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling };
+  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle };
   const hasOptions = combos[0].length > 0;
   const [initialJson] = useState(() => JSON.stringify(payload));
   const dirty = !initial.id || JSON.stringify(payload) !== initialJson;
@@ -151,12 +155,45 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle }
               </section>
               <section className="card p-4">
                 <h2 className="mb-3 text-sm font-[650]">Stock</h2>
-                <div className="grid gap-3 sm:grid-cols-2">
+                {isBundle ? <p className="text-[13px] text-muted">Le stock d'un lot se calcule à partir de celui de ses composants : rien à saisir ici.</p> : <div className="grid gap-3 sm:grid-cols-2">
                   <label className="label">SKU (référence)<input id="sku" className="input" maxLength={60} value={single.sku} onChange={(e) => setRow([], { sku: e.target.value })} /></label>
                   <label className="label">Quantité<input id="stock" className="input num" type="number" min={0} value={single.stock} onChange={(e) => setRow([], { stock: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} /></label>
-                </div>
+                </div>}
               </section>
             </>
+          )}
+
+          {!isGiftCard && !hasOptions && (
+            <section className="card flex flex-col gap-3 p-4">
+              <div>
+                <h2 className="text-sm font-[650]">Lot (pack)</h2>
+                <p className="text-xs text-muted">Composez un pack à partir de vos produits. À chaque vente, le stock des composants baisse ; le lot est épuisé dès qu'un composant manque.</p>
+              </div>
+              {bundle.length > 0 && (
+                <ul className="rounded-lg border border-line">
+                  {bundle.map((b) => {
+                    const c = bundleChoices.find((x) => x.id === b.variantId);
+                    return (
+                      <li key={b.variantId} className="flex items-center gap-3 border-b border-line px-3 py-2 last:border-0">
+                        <span className="min-w-0 flex-1 truncate">{c?.label ?? "Produit supprimé"}<span className="ml-2 text-xs text-muted">{c ? `${c.stock} en stock` : ""}</span></span>
+                        <input aria-label="Quantité dans le lot" type="number" min={1} max={99} value={b.quantity} onChange={(e) => setBundle((bs) => bs.map((x) => (x.variantId === b.variantId ? { ...x, quantity: Math.max(1, Math.min(99, Math.floor(Number(e.target.value) || 1))) } : x)))} className="input num w-16" />
+                        <button type="button" aria-label="Retirer du lot" className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-[#f1f1f1]" onClick={() => setBundle((bs) => bs.filter((x) => x.variantId !== b.variantId))}>✕</button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <div className="relative">
+                <input aria-label="Ajouter un produit au lot" className="input" placeholder={bundle.length ? "Ajouter un autre produit au lot" : "Rechercher un produit à mettre dans le lot"} value={bundleQ} onChange={(e) => setBundleQ(e.target.value)} />
+                {bundleQ.trim() && (
+                  <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-60 overflow-y-auto rounded-xl bg-white p-1 shadow-[0_4px_16px_rgba(0,0,0,.15),0_0_0_1px_rgba(0,0,0,.06)]">
+                    {bundleChoices.filter((c) => c.label.toLowerCase().includes(bundleQ.toLowerCase()) && !bundle.some((b) => b.variantId === c.id)).slice(0, 8).map((c) => (
+                      <li key={c.id}><button type="button" className="flex w-full justify-between rounded-lg px-2 py-1.5 text-left hover:bg-[#f1f1f1]" onClick={() => { setBundle((bs) => [...bs, { variantId: c.id, quantity: 1 }]); setBundleQ(""); }}><span>{c.label}</span><span className="text-xs text-muted">{c.stock} en stock</span></button></li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </section>
           )}
 
           <section className="card min-w-0 overflow-hidden">

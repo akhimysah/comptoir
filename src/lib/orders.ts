@@ -83,8 +83,16 @@ export async function markOrderPaid(orderId: string) {
     });
     if (updated.count === 0) return false;
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
+    // Un lot vendu retire du stock chacun de ses composants.
+    const moves: { variantId: string; quantity: number }[] = [];
     for (const item of order.items) {
       if (!item.variantId || item.isGiftCard) continue;
+      const owner = await tx.variant.findUnique({ where: { id: item.variantId }, select: { productId: true } });
+      const parts = owner ? await tx.bundleItem.findMany({ where: { bundleId: owner.productId } }) : [];
+      if (parts.length) for (const p of parts) moves.push({ variantId: p.variantId, quantity: p.quantity * item.quantity });
+      else moves.push({ variantId: item.variantId, quantity: item.quantity });
+    }
+    for (const item of moves) {
       const v = await tx.variant.findUnique({ where: { id: item.variantId }, include: { product: { include: { store: true } } } });
       if (!v) continue;
       // En précommande, le stock peut devenir négatif : il indique ce qui reste à réapprovisionner.

@@ -8,8 +8,8 @@ import { Stars } from "./Stars";
 
 type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number };
 
-export function ProductBuy({ slug, currency, title, description, images, hue, options, variants, rating, isGiftCard, preorder }: {
-  slug: string; currency: string; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean;
+export function ProductBuy({ slug, currency, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [] }: {
+  slug: string; currency: string; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[];
   options: { name: string; values: string[] }[]; variants: V[];
 }) {
   const { add, items } = useCart(slug);
@@ -100,6 +100,12 @@ export function ProductBuy({ slug, currency, title, description, images, hue, op
         </div>
         {added && (
           <p role="status" className="text-sm">Ajouté au panier. <a href={`/s/${slug}/cart`} className="font-semibold underline underline-offset-4">Voir le panier</a></p>
+        )}
+        {contents.length > 0 && (
+          <div className="rounded-[var(--t-radius)] bg-[var(--c-surface)] p-4">
+            <p className="mb-2 text-sm font-semibold">Ce lot contient</p>
+            <ul className="list-disc pl-5 text-sm text-[var(--c-muted)]">{contents.map((c) => <li key={c}>{c}</li>)}</ul>
+          </div>
         )}
         {isPreorder && <p className="text-sm text-[var(--c-muted)]">En précommande : expédié dès le réapprovisionnement.</p>}
         {isGiftCard && <p className="text-sm text-[var(--c-muted)]">Carte cadeau envoyée par e-mail juste après le paiement, utilisable sur toute la boutique.</p>}

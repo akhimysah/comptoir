@@ -3,6 +3,7 @@ import type { Discount, Store } from "@prisma/client";
 import { db } from "./db";
 import { parseJson } from "./utils";
 import { includedTax } from "./tax";
+import { bundleComponents, bundleStock } from "./bundles";
 
 export type CartInput = { variantId: string; quantity: number }[];
 
@@ -80,6 +81,10 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     include: { product: true },
   });
 
+  // Un lot n'a pas de stock propre : il dépend de celui de ses composants.
+  const bundles = await bundleComponents([...new Set(variants.map((v) => v.productId))]);
+  const stockOf = (v: (typeof variants)[number]) => (bundles.has(v.productId) ? bundleStock(bundles.get(v.productId)!) : v.stock);
+
   const notices: string[] = [];
   const lines: PricedLine[] = [];
   for (const [variantId, wanted] of qty) {
@@ -89,12 +94,12 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       continue;
     }
     // Une carte cadeau n'a pas de stock.
-    const quantity = v.product.isGiftCard || v.product.continueSelling ? wanted : Math.min(wanted, v.stock);
+    const quantity = v.product.isGiftCard || v.product.continueSelling ? wanted : Math.min(wanted, stockOf(v));
     if (quantity <= 0) {
       notices.push(`${v.product.title} est épuisé et a été retiré du panier.`);
       continue;
     }
-    if (quantity < wanted) notices.push(`Il ne reste que ${v.stock} × ${v.product.title}.`);
+    if (quantity < wanted) notices.push(`Il ne reste que ${stockOf(v)} × ${v.product.title}.`);
     lines.push({
       variantId: v.id,
       productId: v.productId,
@@ -104,7 +109,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       priceCents: v.priceCents,
       compareAtCents: v.compareAtCents,
       quantity,
-      available: v.product.isGiftCard || v.product.continueSelling ? 99 : v.stock,
+      available: v.product.isGiftCard || v.product.continueSelling ? 99 : stockOf(v),
       image: parseJson<string[]>(v.product.images, [])[0] ?? null,
       hue: v.product.hue,
       isGiftCard: v.product.isGiftCard,

@@ -7,6 +7,7 @@ import { getCatalog } from "@/lib/storefront";
 import type { Store } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getStore } from "@/lib/storefront";
+import { bundleStock } from "@/lib/bundles";
 import { parseJson } from "@/lib/utils";
 
 async function load(slug: string, handle: string) {
@@ -27,6 +28,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function ProductPage({ params }: { params: Promise<{ slug: string; handle: string }> }) {
   const { slug, handle } = await params;
   const { store, product } = await load(slug, handle);
+  const parts = await db.bundleItem.findMany({ where: { bundleId: product.id } });
+  const partVariants = parts.length ? await db.variant.findMany({ where: { id: { in: parts.map((x) => x.variantId) } }, include: { product: true } }) : [];
+  const bundleLeft = parts.length ? bundleStock(parts.map((x) => ({ quantity: x.quantity, stock: partVariants.find((v) => v.id === x.variantId)?.stock ?? 0 }))) : null;
+  const contents = parts.map((x) => { const v = partVariants.find((pv) => pv.id === x.variantId); return v ? `${x.quantity} × ${v.product.title}${v.title !== "Par défaut" ? ` (${v.title})` : ""}` : null; }).filter((x): x is string => !!x);
   const agg = await db.review.aggregate({ where: { productId: product.id, status: "published" }, _avg: { rating: true }, _count: true });
   return (
     <>
@@ -39,7 +44,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       hue={product.hue}
       rating={agg._count ? { avg: agg._avg.rating ?? 0, count: agg._count } : null}
       options={parseJson(product.options, [])}
-      variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: v.priceCents, compareAtCents: v.compareAtCents, stock: product.isGiftCard ? 99 : v.stock }))}
+      variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: v.priceCents, compareAtCents: v.compareAtCents, stock: product.isGiftCard ? 99 : bundleLeft ?? v.stock }))}
+      contents={contents}
       preorder={product.continueSelling}
       isGiftCard={product.isGiftCard}
     />

@@ -222,6 +222,7 @@ model Product {
   variants    Variant[]
   collections ProductCollection[]
   reviews     Review[]
+  bundleItems BundleItem[]        @relation("BundleItems")
 
   @@unique([storeId, handle])
 }
@@ -426,4 +427,15 @@ model ActivityLog {
   createdAt DateTime @default(now())
 
   @@index([storeId, createdAt])
+}
+
+/// Composant d'un lot : le lot (un produit) contient « quantity » exemplaires d'une variante d'un autre produit.
+model BundleItem {
+  id        String  @id @default(cuid())
+  bundleId  String
+  bundle    Product @relation("BundleItems", fields: [bundleId], references: [id], onDelete: Cascade)
+  variantId String
+  quantity  Int     @default(1)
+
+  @@unique([bundleId, variantId])
 }

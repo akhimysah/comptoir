@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import type { CardCollection, CardProduct } from "@/components/store/types";
 import { db } from "./db";
+import { bundleComponents, bundleStock } from "./bundles";
 import { readTheme } from "./theme";
 import { parseJson } from "./utils";
 
@@ -23,6 +24,7 @@ export const getCatalog = cache(async (storeId: string) => {
     db.review.groupBy({ by: ["productId"], where: { storeId, status: "published" }, _avg: { rating: true }, _count: true }),
   ]);
   const ratingBy = new Map(ratings.map((r) => [r.productId, { avg: r._avg.rating ?? 0, count: r._count }]));
+  const bundles = await bundleComponents(products.map((p) => p.id));
   const cards: CardProduct[] = products
     .filter((p) => p.variants.length)
     .map((p) => {
@@ -36,7 +38,7 @@ export const getCatalog = cache(async (storeId: string) => {
         compareAtCents: cheapest.compareAtCents,
         image: parseJson<string[]>(p.images, [])[0] ?? null,
         hue: p.hue,
-        soldOut: !p.isGiftCard && !p.continueSelling && p.variants.every((v) => v.stock <= 0),
+        soldOut: !p.isGiftCard && !p.continueSelling && (bundles.has(p.id) ? bundleStock(bundles.get(p.id)!) <= 0 : p.variants.every((v) => v.stock <= 0)),
         collectionHandles: p.collections.map((c) => c.collection.handle),
         rating: ratingBy.get(p.id) ?? null,
       };

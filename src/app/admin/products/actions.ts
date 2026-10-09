@@ -39,6 +39,7 @@ const payloadSchema = z.object({
   seoDescription: z.string().max(320).optional().default(""),
   isGiftCard: z.boolean().optional().default(false),
   continueSelling: z.boolean().optional().default(false),
+  bundle: z.array(z.object({ variantId: z.string(), quantity: z.number().int().min(1).max(99) })).max(30).optional().default([]),
 });
 export type ProductPayload = z.infer<typeof payloadSchema>;
 export type SaveState = { error?: string } | undefined;
@@ -131,6 +132,14 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
     });
     p.id = created.id;
   }
+  // Composants du lot : uniquement des variantes de cette boutique, ni lots ni cartes cadeaux, et pas lui-même.
+  const ok = p.bundle.length
+    ? await db.variant.findMany({ where: { id: { in: p.bundle.map((b) => b.variantId) }, product: { storeId: store.id, isGiftCard: false, id: { not: p.id! }, bundleItems: { none: {} } } }, select: { id: true } })
+    : [];
+  await db.$transaction([
+    db.bundleItem.deleteMany({ where: { bundleId: p.id! } }),
+    ...p.bundle.filter((b) => ok.some((o) => o.id === b.variantId)).map((b) => db.bundleItem.create({ data: { bundleId: p.id!, variantId: b.variantId, quantity: b.quantity } })),
+  ]);
   await logActivity(`Produit « ${p.title} » enregistré`, `/admin/products/${p.id}`);
   revalidatePath("/admin/products");
   revalidatePath(`/s/${store.slug}`, "layout");
@@ -144,7 +153,8 @@ async function validCollections(storeId: string, ids: string[]) {
 
 export async function deleteProduct(form: FormData) {
   const { store } = await requirePerm("products");
-  await db.product.deleteMany({ where: { id: String(form.get("id")), storeId: store.id } });  await logActivity("Produit supprimé");
+  await db.product.deleteMany({ where: { id: String(form.get("id")), storeId: store.id } });
+  await logActivity("Produit supprimé");
 
   revalidatePath(`/s/${store.slug}`, "layout");
   redirect("/admin/products");

@@ -10,7 +10,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const { store } = await requirePerm("products");
   const variants = await db.variant.findMany({
     where: {
-      product: { storeId: store.id, ...(q ? { title: { contains: q } } : {}) },
+      product: { storeId: store.id, isGiftCard: false, bundleItems: { none: {} }, ...(q ? { title: { contains: q } } : {}) },
       ...(filter === "low" ? { stock: { gt: 0, lte: 5 } } : filter === "out" ? { stock: { lte: 0 } } : {}),
     },
     include: { product: true },

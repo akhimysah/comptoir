@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Empty, PageHeader, Pill, Thumb } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { bundleComponents, bundleStock } from "@/lib/bundles";
 import { formatMoney } from "@/lib/money";
 import { parseJson } from "@/lib/utils";
 
@@ -14,6 +15,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
     orderBy: { createdAt: "desc" },
   });
   const total = await db.product.count({ where: { storeId: store.id } });
+  const bundles = await bundleComponents(products.map((p) => p.id));
+  const stockOf = (p: (typeof products)[number]) => (bundles.has(p.id) ? bundleStock(bundles.get(p.id)!) : p.variants.reduce((s, v) => s + v.stock, 0));
 
   return (
     <>
@@ -39,7 +42,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           </form>
           <ul className="md:hidden">
             {products.map((p) => {
-              const stock = p.variants.reduce((s, v) => s + v.stock, 0);
+              const stock = stockOf(p);
               return (
                 <li key={p.id} className="border-b border-line last:border-0">
                   <Link href={`/admin/products/${p.id}`} className="flex items-center gap-3 px-3 py-2.5">
@@ -61,7 +64,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
               </thead>
               <tbody>
                 {products.map((p) => {
-                  const stock = p.variants.reduce((s, v) => s + v.stock, 0);
+                  const stock = stockOf(p);
                   const prices = p.variants.map((v) => v.priceCents);
                   const min = Math.min(...prices), max = Math.max(...prices);
                   return (
@@ -71,7 +74,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                           <Thumb image={parseJson<string[]>(p.images, [])[0]} hue={p.hue} title={p.title} className="h-10 w-10 text-xs" />
                           <span>
                             <span className="block font-semibold">{p.title}</span>
-                            {p.variants.length > 1 && <span className="text-xs text-muted">{p.variants.length} variantes</span>}
+                            {bundles.has(p.id) ? <span className="text-xs text-muted">Lot de {bundles.get(p.id)!.length} produit{bundles.get(p.id)!.length > 1 ? "s" : ""}</span> : p.variants.length > 1 && <span className="text-xs text-muted">{p.variants.length} variantes</span>}
                           </span>
                         </Link>
                       </td>

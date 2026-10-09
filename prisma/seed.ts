@@ -99,6 +99,7 @@ async function main() {
   await seedReviews(db, store.id);
   await seedContent(db, store.id);
   await seedGiftAndAuto(db, store.id);
+  await seedBundle(db, store.id);
   await seedExtraStores(db, user.id);
 
   // Commandes d'exemple réparties sur les 3 dernières semaines
@@ -245,4 +246,15 @@ export async function seedGiftAndAuto(client: PrismaClient, storeId: string) {
   });
   await client.discount.create({ data: { storeId, code: "AUTO-DEMO", automatic: true, title: "−10 % dès 100 €", type: "percent", value: 10, minSubtotalCents: 10000 } });
   await client.discount.create({ data: { storeId, code: "LIVRAISON", type: "free_shipping", value: 0 } });
+}
+
+export async function seedBundle(client: PrismaClient, storeId: string) {
+  const v = async (h: string) => (await client.variant.findFirst({ where: { product: { storeId, handle: h } } }))!.id;
+  await client.product.create({
+    data: {
+      storeId, title: "Coffret thé", handle: "coffret-the", status: "active", hue: 260, description: "La théière Brume et deux tasses en grès, à prix doux.",
+      variants: { create: [{ title: "Par défaut", priceCents: 9900, compareAtCents: 13300, stock: 0 }] },
+      bundleItems: { create: [{ variantId: await v("theiere-brume"), quantity: 1 }, { variantId: await v("tasse-gres-sable"), quantity: 2 }] },
+    },
+  });
 }

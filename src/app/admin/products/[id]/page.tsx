@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { appUrl } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { bundleChoicesFor } from "@/lib/bundle-choices";
 import { centsToInput } from "@/lib/money";
 import { parseJson } from "@/lib/utils";
 
@@ -15,6 +16,8 @@ export default async function EditProductPage({ params, searchParams }: { params
   const { store } = await requirePerm("products");
   const product = await db.product.findFirst({ where: { id, storeId: store.id }, include: { variants: { orderBy: { position: "asc" } }, collections: true } });
   if (!product) notFound();
+  const bundleParts = await db.bundleItem.findMany({ where: { bundleId: product.id } });
+  const choices = await bundleChoicesFor(store.id, product.id);
   const collections = await db.collection.findMany({ where: { storeId: store.id }, orderBy: { title: "asc" }, select: { id: true, title: true } });
 
   return (
@@ -38,12 +41,14 @@ export default async function EditProductPage({ params, searchParams }: { params
         currency={store.currency}
         collections={collections}
         storeUrl={`${appUrl()}/s/${store.slug}`}
+        bundleChoices={choices}
         handle={product.handle}
         initial={{
           id: product.id,
           seoTitle: product.seoTitle,
           isGiftCard: product.isGiftCard,
           continueSelling: product.continueSelling,
+          bundle: bundleParts.map((b) => ({ variantId: b.variantId, quantity: b.quantity })),
           seoDescription: product.seoDescription,
           title: product.title,
           description: product.description,

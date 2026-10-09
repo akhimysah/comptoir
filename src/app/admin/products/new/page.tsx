@@ -3,9 +3,11 @@ import { PageHeader } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { appUrl } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { bundleChoicesFor } from "@/lib/bundle-choices";
 
 export default async function NewProductPage() {
   const { store } = await requirePerm("products");
+  const choices = await bundleChoicesFor(store.id);
   const collections = await db.collection.findMany({ where: { storeId: store.id }, orderBy: { title: "asc" }, select: { id: true, title: true } });
   return (
     <>
@@ -14,6 +16,7 @@ export default async function NewProductPage() {
         currency={store.currency}
         collections={collections}
         storeUrl={`${appUrl()}/s/${store.slug}`}
+        bundleChoices={choices}
         initial={{ title: "", description: "", status: "active", hue: Math.floor(Math.random() * 360), images: [], options: [], variants: [{ optionValues: [], price: "", compareAt: "", sku: "", stock: 10 }], collectionIds: [] }}
       />
     </>
