@@ -134,6 +134,14 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 - Calcul des taxes et tarifs de livraison par pays ou par poids.
 - Abonnement payant des marchands à la plateforme. Aujourd'hui, la plateforme se rémunère uniquement par la commission.
 
+## Tests
+
+```bash
+npm test
+```
+
+Les calculs sensibles (remises, « Achetez X obtenez Y », TVA, remboursements, double authentification, redirections, exports CSV, filtres, import Shopify, e-mails) sont vérifiés par des tests automatiques (`tests/`). À chaque envoi sur GitHub, le typage et les tests tournent tout seuls (onglet **Actions**) : une croix rouge signale qu'un changement a cassé quelque chose.
+
 ## Organisation du code
 
 ```

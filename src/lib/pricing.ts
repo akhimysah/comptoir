@@ -72,7 +72,7 @@ export function eligibleLines<L extends DiscountLine>(d: Discount, lines: L[], c
   });
 }
 
-/** Montant de la remise sur les articles concernés. « Achetez X, obtenez Y » : dans chaque lot de X+Y articles (du plus cher au moins cher), les Y moins chers sont réduits. */
+/** Montant de la remise sur les articles concernés. « Achetez X, obtenez Y » : pour chaque lot complet de X+Y articles, Y articles réduits, toujours les moins chers. */
 export function discountAmount(d: Discount, lines: DiscountLine[]) {
   const base = lines.reduce((s, l) => s + l.priceCents * l.quantity, 0);
   if (d.type === "percent") return Math.min(base, Math.round((base * Math.min(d.value, 100)) / 100));
@@ -80,9 +80,10 @@ export function discountAmount(d: Discount, lines: DiscountLine[]) {
   if (d.type === "bxgy") {
     const group = d.buyQty + d.getQty;
     if (d.buyQty < 1 || d.getQty < 1) return 0;
-    const units = lines.flatMap((l) => Array<number>(l.quantity).fill(l.priceCents)).sort((a, b) => b - a);
-    let off = 0;
-    for (let i = 0; i + group <= units.length; i += group) for (let k = i + d.buyQty; k < i + group; k++) off += Math.round((units[k] * Math.min(d.value, 100)) / 100);
+    // Comme Shopify : autant d'articles réduits que de lots complets, et ce sont toujours les moins chers du panier.
+    const units = lines.flatMap((l) => Array<number>(l.quantity).fill(l.priceCents)).sort((a, b) => a - b);
+    const reduced = Math.floor(units.length / group) * d.getQty;
+    const off = units.slice(0, reduced).reduce((sum, u) => sum + Math.round((u * Math.min(d.value, 100)) / 100), 0);
     return Math.min(base, off);
   }
   return 0;
