@@ -43,6 +43,9 @@ export async function POST(req: Request) {
   if (cart.discountCode) {
     const d = await db.discount.findUnique({ where: { storeId_code: { storeId: store.id, code: cart.discountCode } } });
     if (d?.customerEmail && d.customerEmail !== b.email.trim().toLowerCase()) return NextResponse.json({ error: "Ce bon est réservé à un autre client : utilisez l'adresse e-mail de votre compte." }, { status: 400 });
+    // « Une fois par client » : une commande non annulée avec ce code et cette adresse suffit à le refuser.
+    if (d?.oncePerCustomer && (await db.order.count({ where: { storeId: store.id, discountId: d.id, email: { in: [b.email.trim(), b.email.trim().toLowerCase()] }, cancelledAt: null } })) > 0)
+      return NextResponse.json({ error: "Vous avez déjà utilisé ce code promo." }, { status: 400 });
   }
   if (cart.notices.length) return NextResponse.json({ error: cart.notices[0], refresh: true }, { status: 409 });
 

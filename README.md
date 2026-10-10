@@ -43,6 +43,7 @@ Ensuite, ouvrez http://localhost:3000.
 | Coût par article, profit et marge ; marge brute dans les statistiques ; valeur du stock | Bons de commande fournisseurs : réception partielle ou totale qui met à jour le stock, envoi au fournisseur, impression |
 | Filtres de la boutique : disponibilité, prix, promotions, catégorie, tailles, couleurs et autres options, avis | Filtres instantanés, partageables par lien, sur mobile aussi |
 | Alertes de retour en stock (« Prévenez-moi ») | E-mail automatique au réassort (stock, bon de commande, retour) |
+| Remises avancées : sur certaines collections ou certains produits, « Achetez X, obtenez Y », programmées, une fois par client | Codes promo et remises automatiques |
 | Navigation : menus avec sous-menus déroulants | Redirections d'URL automatiques quand une adresse change |
 | Référencement : titre et description Google, aperçu du résultat | Sitemap par boutique (`/s/<boutique>/sitemap.xml`), robots.txt |
 | Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau ; achat de cartes cadeaux dans la boutique |

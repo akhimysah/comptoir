@@ -354,7 +354,7 @@ model Discount {
   storeId          String
   store            Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
   code             String // toujours en majuscules
-  type             String // percent | fixed | free_shipping
+  type             String // percent | fixed | free_shipping | bxgy
   value            Int // pourcentage, ou centimes pour fixed
   minSubtotalCents Int       @default(0)
   usageLimit       Int?
@@ -364,6 +364,12 @@ model Discount {
   customerEmail    String? // bon de fidélité : utilisable seulement par ce client
   title            String    @default("") // nom affiché pour une remise automatique
   endsAt           DateTime?
+  startsAt         DateTime? // remise programmée : active à partir de cette date
+  appliesTo        String    @default("all") // all | collections | products
+  targetIds        String    @default("[]") // JSON : collections ou produits concernés
+  buyQty           Int       @default(0) // « Achetez X, obtenez Y » : X
+  getQty           Int       @default(0) // Y (réduction de value % sur ces articles, 100 = offerts)
+  oncePerCustomer  Boolean   @default(false)
   createdAt        DateTime  @default(now())
 
   @@unique([storeId, code])

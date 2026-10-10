@@ -57,16 +57,43 @@ export type ShippingChoice = { country?: string | null; rateId?: string | null }
 
 export const normalizeGiftCode = (c: string) => c.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
-export function discountAmount(d: Discount, subtotalCents: number) {
-  const raw = d.type === "percent" ? Math.round((subtotalCents * Math.min(d.value, 100)) / 100) : d.value;
-  return Math.min(raw, subtotalCents);
+type DiscountLine = { productId: string; priceCents: number; quantity: number; isGiftCard: boolean };
+
+/** Articles concernés par la remise : tout le panier, certaines collections ou certains produits (jamais les cartes cadeaux). */
+export function eligibleLines<L extends DiscountLine>(d: Discount, lines: L[], collectionsOf: Map<string, Set<string>>) {
+  const targets = new Set(parseJson<string[]>(d.targetIds, []));
+  return lines.filter((l) => {
+    if (l.isGiftCard) return false;
+    if (d.appliesTo === "products") return targets.has(l.productId);
+    if (d.appliesTo === "collections") return [...(collectionsOf.get(l.productId) ?? [])].some((c) => targets.has(c));
+    return true;
+  });
 }
 
-export function discountProblem(d: Discount | null, subtotalCents: number): string | null {
+/** Montant de la remise sur les articles concernés. « Achetez X, obtenez Y » : dans chaque lot de X+Y articles (du plus cher au moins cher), les Y moins chers sont réduits. */
+export function discountAmount(d: Discount, lines: DiscountLine[]) {
+  const base = lines.reduce((s, l) => s + l.priceCents * l.quantity, 0);
+  if (d.type === "percent") return Math.min(base, Math.round((base * Math.min(d.value, 100)) / 100));
+  if (d.type === "fixed") return Math.min(base, d.value);
+  if (d.type === "bxgy") {
+    const group = d.buyQty + d.getQty;
+    if (d.buyQty < 1 || d.getQty < 1) return 0;
+    const units = lines.flatMap((l) => Array<number>(l.quantity).fill(l.priceCents)).sort((a, b) => b - a);
+    let off = 0;
+    for (let i = 0; i + group <= units.length; i += group) for (let k = i + d.buyQty; k < i + group; k++) off += Math.round((units[k] * Math.min(d.value, 100)) / 100);
+    return Math.min(base, off);
+  }
+  return 0;
+}
+
+export function discountProblem(d: Discount | null, subtotalCents: number, eligible?: DiscountLine[]): string | null {
   if (!d || !d.active) return "Ce code promo n'existe pas.";
+  if (d.startsAt && d.startsAt > new Date()) return "Ce code promo n'est pas encore actif.";
   if (d.endsAt && d.endsAt < new Date()) return "Ce code promo a expiré.";
   if (d.usageLimit !== null && d.usageCount >= d.usageLimit) return "Ce code promo a déjà été utilisé le nombre maximum de fois.";
   if (subtotalCents < d.minSubtotalCents) return "Le montant du panier est trop bas pour ce code.";
+  if (eligible && !eligible.length && d.type !== "free_shipping") return "Ce code ne s'applique à aucun article de votre panier.";
+  if (eligible && d.type === "bxgy" && eligible.reduce((s, l) => s + l.quantity, 0) < d.buyQty + d.getQty) return `Ajoutez ${d.buyQty + d.getQty} articles concernés au panier pour profiter de l'offre.`;
   return null;
 }
 
@@ -155,15 +182,33 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
   let discountId: string | null = null;
   let discountError: string | null = null;
   let freeShipping = false;
+  // Collections de chaque produit du panier (chargées seulement si une remise cible des collections).
+  let collectionsOf: Map<string, Set<string>> | null = null;
+  const membership = async () => {
+    if (!collectionsOf) {
+      const links = await db.productCollection.findMany({ where: { productId: { in: lines.map((l) => l.productId) } }, select: { productId: true, collectionId: true } });
+      collectionsOf = new Map();
+      for (const l of links) collectionsOf.set(l.productId, (collectionsOf.get(l.productId) ?? new Set()).add(l.collectionId));
+    }
+    return collectionsOf;
+  };
+  const evaluate = async (d: Discount) => {
+    const eligible = eligibleLines(d, lines, d.appliesTo === "collections" ? await membership() : new Map());
+    return { eligible, problem: discountProblem(d, discountable, eligible), amount: discountAmount(d, eligible) };
+  };
   const normalized = code?.trim().toUpperCase();
   if (normalized) {
     const d = await db.discount.findUnique({ where: { storeId_code: { storeId: store.id, code: normalized } } });
-    discountError = d?.automatic ? "Ce code promo n'existe pas." : discountProblem(d, discountable);
-    if (!discountError && d) {
-      if (d.type === "free_shipping") freeShipping = true;
-      else discountCents = discountAmount(d, discountable);
-      discountCode = d.code;
-      discountId = d.id;
+    if (!d || d.automatic) discountError = "Ce code promo n'existe pas.";
+    else {
+      const r = await evaluate(d);
+      discountError = r.problem;
+      if (!discountError) {
+        if (d.type === "free_shipping") freeShipping = true;
+        else discountCents = r.amount;
+        discountCode = d.code;
+        discountId = d.id;
+      }
     }
   }
   // Remise automatique : la plus avantageuse, si aucun code n'est appliqué.
@@ -171,8 +216,10 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     const autos = await db.discount.findMany({ where: { storeId: store.id, automatic: true, active: true } });
     let best: { d: (typeof autos)[number]; amount: number } | null = null;
     for (const d of autos) {
-      if (discountProblem(d, discountable)) continue;
-      const amount = d.type === "free_shipping" ? 0 : discountAmount(d, discountable);
+      const r = await evaluate(d);
+      if (r.problem) continue;
+      const amount = d.type === "free_shipping" ? 0 : r.amount;
+      if (d.type !== "free_shipping" && amount <= 0) continue;
       if (!best || amount > best.amount || (amount === best.amount && d.type === "free_shipping")) best = { d, amount };
     }
     if (best) {
