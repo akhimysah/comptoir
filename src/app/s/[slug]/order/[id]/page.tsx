@@ -21,6 +21,7 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
     const stripe = getStripe();
     const session = stripe ? await stripe.checkout.sessions.retrieve(order.stripeSessionId) : null;
     if (session?.payment_status === "paid") {
+      if (session.metadata?.invoice) await db.order.updateMany({ where: { id: order.id }, data: { paymentMethod: "stripe" } });
       await markOrderPaid(order.id);
       order = (await db.order.findUnique({ where: { id }, include: { items: true } }))!;
     }

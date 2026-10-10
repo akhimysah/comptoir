@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addOrderComment, cancelOrder, markPaid, returnDecision, setFulfilled, updateTracking } from "../actions";
+import { addOrderComment, cancelOrder, markPaid, returnDecision, sendInvoiceAction, setFulfilled, updateTracking } from "../actions";
+import { CopyField } from "@/components/admin/CopyField";
+import { invoicePayable, payLink } from "@/lib/invoices";
 import { TrackingFields } from "@/components/admin/TrackingFields";
 import { carrierLabel, trackingLink } from "@/lib/tracking";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
@@ -15,6 +17,7 @@ import { RETURN_STATUS, returnLines } from "@/lib/returns";
 const EVENT_TEXT: Record<string, string> = {
   fulfilled: "a expédié la commande.",
   tracking_updated: "a modifié le suivi :",
+  invoice_sent: "a envoyé la facture à",
   unfulfilled: "a remis la commande à traiter.",
   cancelled: "a annulé la commande.",
   refunded: "a annulé et remboursé la commande.",
@@ -44,6 +47,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const m = (c: number) => formatMoney(c, store.currency);
   const qty = o.items.reduce((s, i) => s + i.quantity, 0);
   const pay = PAYMENT_LABELS[o.paymentStatus];
+  // Commande créée dans l'admin et pas encore réglée : elle peut être payée en ligne via un lien.
+  const invoiceLink = o.paymentMethod === "manual" && invoicePayable(o) ? await payLink(o, store.slug) : null;
   const ful = FULFILLMENT_LABELS[o.fulfillmentStatus];
 
   // Les étapes automatiques (création, paiement) viennent des champs de la commande ; le reste de la table des événements.
@@ -194,7 +199,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             <div className="px-4 pt-4">{o.cancelledAt && o.paymentStatus !== "refunded" ? <Pill>Annulée</Pill> : <Pill tone={pay.tone}>{pay.label}</Pill>}</div>
             <dl className="m-3 grid grid-cols-[auto_1fr_auto] gap-x-4 gap-y-1.5 rounded-lg border border-line p-3">
               <dt>Sous-total</dt><dd className="text-muted">{qty} article{qty > 1 ? "s" : ""}</dd><dd className="num text-right">{m(o.subtotalCents)}</dd>
-              {o.discountCents > 0 && <><dt>Remise</dt><dd className="text-muted">{o.discountCode}</dd><dd className="num text-right">−{m(o.discountCents)}</dd></>}
+              {o.discountCents > 0 && <><dt>Remise</dt><dd className="text-muted">{o.discountCode ?? "Remise manuelle"}</dd><dd className="num text-right">−{m(o.discountCents)}</dd></>}
               <dt>Expédition</dt><dd className="text-muted">{o.shippingMethod || "Livraison standard"}</dd><dd className="num text-right">{o.shippingCents ? m(o.shippingCents) : "Offerte"}</dd>
               {o.giftCardCents > 0 && <><dt>Carte cadeau</dt><dd className="text-muted">····{o.giftCardCode?.slice(-4)}</dd><dd className="num text-right">−{m(o.giftCardCents)}</dd></>}
               {o.taxCents > 0 && <><dt className="text-xs text-muted">dont TVA</dt><dd className="text-xs text-muted">{(o.taxRateBps / 100).toLocaleString("fr-FR")} %</dd><dd className="num text-right text-xs text-muted">{m(o.taxCents)}</dd></>}
@@ -203,11 +208,38 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
               <dt>Payé par le client</dt><dd /><dd className="num text-right">{o.paymentStatus === "pending" ? m(0) : m(o.totalCents)}</dd>
               {o.refundedCents > 0 && <><dt>Remboursé</dt><dd /><dd className="num text-right">−{m(o.refundedCents)}</dd><dt className="font-[650]">Net</dt><dd /><dd className="num text-right font-[650]">{m(o.totalCents - o.refundedCents)}</dd></>}
             </dl>
-            {!o.cancelledAt && o.paymentStatus === "pending" && o.paymentMethod !== "stripe" && (
+            {!invoiceLink && !o.cancelledAt && o.paymentStatus === "pending" && o.paymentMethod !== "stripe" && (
               <form action={markPaid} className="flex justify-end border-t border-line px-4 py-3">
                 <input type="hidden" name="id" value={o.id} />
                 <button className="btn btn-primary">Marquer comme payée</button>
               </form>
+            )}
+            {invoiceLink && (
+              <div className="flex flex-col gap-2 border-t border-line px-4 py-3">
+                <div className="text-[13px]">
+                  <span className="font-[650]">Lien de paiement</span>
+                  <span className="text-muted"> · {o.invoiceSentAt ? `facture envoyée le ${formatDateTime(o.invoiceSentAt)} à ${o.email}` : "à envoyer au client, ou à copier dans un message"}</span>
+                </div>
+                <CopyField value={invoiceLink} label="Lien de paiement de la commande" />
+              </div>
+            )}
+            {invoiceLink && (
+              <div className="flex flex-wrap items-start justify-end gap-2 border-t border-line px-4 py-3">
+                <details className="mr-auto">
+                  <summary className="btn cursor-pointer list-none">{o.invoiceSentAt ? "Renvoyer la facture" : "Envoyer la facture"}</summary>
+                  <form action={sendInvoiceAction} className="mt-3 flex w-[min(28rem,80vw)] flex-col gap-2">
+                    <input type="hidden" name="id" value={o.id} />
+                    <label className="label">Message au client <span className="hint">Facultatif</span>
+                      <textarea name="message" rows={3} maxLength={1000} className="input" placeholder="Bonjour, voici votre commande comme convenu. Bonne journée !" />
+                    </label>
+                    <button className="btn btn-primary self-start">Envoyer à {o.email}</button>
+                  </form>
+                </details>
+                <form action={markPaid}>
+                  <input type="hidden" name="id" value={o.id} />
+                  <button className="btn">Marquer comme payée</button>
+                </form>
+              </div>
             )}
           </section>
 

@@ -195,3 +195,14 @@ ${reason ? `<p style="font-size:14px;line-height:1.5;color:#616161">Motif : ${es
 <p style="font-size:14px;line-height:1.5">Une question ? Répondez simplement à cet e-mail.</p>`),
   };
 }
+
+export function invoiceEmail(store: Store, order: Order & { items: OrderItem[] }, link: string, message: string) {
+  return {
+    subject: `Facture ${store.name} : commande #${order.number} (${formatMoney(order.totalCents, store.currency)})`,
+    html: layout(store.name, `Votre commande #${order.number}`,
+      `${message ? `<p style="font-size:14px;line-height:1.5;white-space:pre-line">${esc(message)}</p>` : `<p style="font-size:14px;line-height:1.5">Voici le récapitulatif de votre commande. Vous pouvez la régler en ligne en toute sécurité.</p>`}
+${itemsTable(order, store.currency)}
+<p>${button(link, `Payer ${formatMoney(order.totalCents, store.currency)}`)}</p>
+<p style="font-size:12px;color:#8a8a8a">Ou copiez ce lien : ${esc(link)}</p>`),
+  };
+}

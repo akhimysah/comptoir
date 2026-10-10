@@ -10,6 +10,7 @@ import { cancelUnpaidOrder, markOrderPaid, notifyOrderShipped } from "@/lib/orde
 import { PAID_STATUSES, refundableCents, refundOrder } from "@/lib/refunds";
 import { decideReturn } from "@/lib/returns";
 import { carrierLabel } from "@/lib/tracking";
+import { sendInvoice } from "@/lib/invoices";
 
 async function ownOrder(form: FormData) {
   const { user, store } = await requirePerm("orders");
@@ -131,5 +132,13 @@ export async function updateTracking(form: FormData) {
   await db.order.update({ where: { id: order.id }, data: tracking });
   await db.orderEvent.create({ data: { orderId: order.id, type: "tracking_updated", author: user.name, message: trackingText(tracking) || "suivi retiré" } });
   if (form.get("notify") === "on" && tracking.trackingNumber) await notifyOrderShipped(order.id, true);
+  revalidatePath(`/admin/orders/${order.id}`);
+}
+
+export async function sendInvoiceAction(form: FormData) {
+  const { user, store, order } = await ownOrder(form);
+  const res = await sendInvoice(store.id, order.id, user.name, String(form.get("message") ?? ""));
+  if (res.error) redirect(`/admin/orders/${order.id}?err=${encodeURIComponent(res.error)}`);
+  await logActivity(`Facture de la commande #${order.number} envoyée`, `/admin/orders/${order.id}`);
   revalidatePath(`/admin/orders/${order.id}`);
 }

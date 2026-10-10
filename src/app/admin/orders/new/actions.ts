@@ -11,6 +11,7 @@ import { createOrder, markOrderPaid } from "@/lib/orders";
 import type { PricedCart } from "@/lib/pricing";
 import { parseJson } from "@/lib/utils";
 import { includedTax } from "@/lib/tax";
+import { sendInvoice } from "@/lib/invoices";
 
 const schema = z.object({
   lines: z.array(z.object({ variantId: z.string(), quantity: z.number().int().min(1).max(999) })).min(1, "Ajoutez au moins un produit."),
@@ -23,6 +24,9 @@ const schema = z.object({
   shipping: z.string(),
   note: z.string().max(500),
   paid: z.boolean(),
+  discount: z.string().optional().default("0"),
+  invoice: z.boolean().optional().default(false),
+  message: z.string().max(1000).optional().default(""),
 });
 export type ManualOrderInput = z.infer<typeof schema>;
 
@@ -33,6 +37,8 @@ export async function createManualOrder(input: ManualOrderInput): Promise<{ erro
   const d = parsed.data;
   const shippingCents = parseMoney(d.shipping || "0");
   if (shippingCents === null) return { error: "Frais de livraison invalides." };
+  const discountCents = parseMoney(d.discount || "0");
+  if (discountCents === null || discountCents < 0) return { error: "Remise invalide." };
 
   const variants = await db.variant.findMany({ where: { id: { in: d.lines.map((l) => l.variantId) }, product: { storeId: store.id } }, include: { product: true } });
   const lines: PricedCart["lines"] = [];
@@ -47,12 +53,15 @@ export async function createManualOrder(input: ManualOrderInput): Promise<{ erro
     });
   }
   const subtotalCents = lines.reduce((s, l) => s + l.priceCents * l.quantity, 0);
+  if (discountCents > subtotalCents) return { error: "La remise ne peut pas dépasser le sous-total." };
+  const total = subtotalCents - discountCents + shippingCents;
+  if (d.invoice && total <= 0) return { error: "Rien à payer : choisissez « Le client a déjà payé »." };
   const cart: PricedCart = {
-    lines, subtotalCents, discountCents: 0, discountCode: null, discountError: null, discountId: null, shippingCents,
-    totalCents: subtotalCents + shippingCents, freeShippingFromCents: store.freeShippingFromCents, notices: [],
+    lines, subtotalCents, discountCents, discountCode: null, discountError: null, discountId: null, shippingCents,
+    totalCents: total, freeShippingFromCents: store.freeShippingFromCents, notices: [],
     countries: null, shippingOptions: [], shippingRateId: null, shippingMethod: shippingCents ? "Livraison" : "", shippingError: null,
     giftCardCode: null, giftCardCents: 0, giftCardBalanceCents: 0, giftCardError: null,
-    taxRateBps: store.taxRateBps, taxCents: includedTax(subtotalCents + shippingCents - lines.filter((l) => l.isGiftCard).reduce((s, l) => s + l.priceCents * l.quantity, 0), store.taxRateBps),
+    taxRateBps: store.taxRateBps, taxCents: includedTax(total - lines.filter((l) => l.isGiftCard).reduce((s, l) => s + l.priceCents * l.quantity, 0), store.taxRateBps),
   };
   const order = await createOrder(store, cart, { email: d.email, name: d.name, address: { line1: d.line1, zip: d.zip, city: d.city, country: d.country }, note: d.note }, "manual");
   await db.orderEvent.create({ data: { orderId: order.id, type: "created_manual", author: user.name, createdAt: order.createdAt } });
@@ -60,6 +69,7 @@ export async function createManualOrder(input: ManualOrderInput): Promise<{ erro
     await markOrderPaid(order.id);
     await db.orderEvent.create({ data: { orderId: order.id, type: "paid_manual", author: user.name } });
   }
+  if (d.invoice && !d.paid) await sendInvoice(store.id, order.id, user.name, d.message);
   await logActivity(`Commande #${order.number} créée manuellement`, `/admin/orders/${order.id}`);
   redirect(`/admin/orders/${order.id}`);
 }

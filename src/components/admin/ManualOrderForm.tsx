@@ -15,7 +15,9 @@ export function ManualOrderForm({ variants, customers, currency }: { variants: P
   const [c, setC] = useState({ name: "", email: "", line1: "", zip: "", city: "", country: "France" });
   const [shipping, setShipping] = useState("0");
   const [note, setNote] = useState("");
-  const [paid, setPaid] = useState(true);
+  const [payment, setPayment] = useState<"paid" | "pending" | "invoice">("paid");
+  const [discount, setDiscount] = useState("0");
+  const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const m = (x: number) => formatMoney(x, currency);
@@ -24,9 +26,10 @@ export function ManualOrderForm({ variants, customers, currency }: { variants: P
   const custResults = useMemo(() => (cq.trim() ? customers.filter((x) => `${x.name} ${x.email}`.toLowerCase().includes(cq.toLowerCase())).slice(0, 6) : []), [cq, customers]);
   const subtotal = lines.reduce((s, l) => s + (variants.find((v) => v.id === l.variantId)?.priceCents ?? 0) * l.quantity, 0);
   const ship = parseMoney(shipping) ?? 0;
+  const disc = Math.min(subtotal, parseMoney(discount) ?? 0);
 
   const add = (id: string) => { setLines((ls) => (ls.some((l) => l.variantId === id) ? ls.map((l) => (l.variantId === id ? { ...l, quantity: l.quantity + 1 } : l)) : [...ls, { variantId: id, quantity: 1 }])); setQ(""); };
-  const submit = () => start(async () => { setError(null); const res = await createManualOrder({ lines, ...c, shipping, note, paid }); if (res?.error) setError(res.error); });
+  const submit = () => start(async () => { setError(null); const res = await createManualOrder({ lines, ...c, shipping, note, paid: payment === "paid", discount, invoice: payment === "invoice", message }); if (res?.error) setError(res.error); });
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
@@ -72,12 +75,15 @@ export function ManualOrderForm({ variants, customers, currency }: { variants: P
           <h2 className="mb-3 text-sm font-[650]">Paiement</h2>
           <dl className="grid grid-cols-[1fr_auto] items-center gap-y-2 rounded-lg border border-line p-3">
             <dt>Sous-total</dt><dd className="num text-right">{m(subtotal)}</dd>
+            <dt>Remise</dt><dd className="text-right"><input id="mo-discount" aria-label="Remise" inputMode="decimal" className="input num h-7 w-24 py-1 text-right" value={discount} onChange={(e) => setDiscount(e.target.value)} /></dd>
             <dt>Expédition</dt><dd className="text-right"><input id="mo-shipping" aria-label="Frais d'expédition" inputMode="decimal" className="input num h-7 w-24 py-1 text-right" value={shipping} onChange={(e) => setShipping(e.target.value)} /></dd>
-            <dt className="font-[650]">Total</dt><dd className="num text-right font-[650]">{m(subtotal + ship)}</dd>
+            <dt className="font-[650]">Total</dt><dd className="num text-right font-[650]">{m(subtotal - disc + ship)}</dd>
           </dl>
           <fieldset className="mt-3 flex flex-col gap-1.5">
-            <label className="flex items-center gap-2"><input type="radio" name="paid" checked={paid} onChange={() => setPaid(true)} className="accent-[#7c3aed]" />Le client a déjà payé (espèces, virement…)</label>
-            <label className="flex items-center gap-2"><input type="radio" name="paid" checked={!paid} onChange={() => setPaid(false)} className="accent-[#7c3aed]" />Paiement en attente</label>
+            <label className="flex items-center gap-2"><input type="radio" name="paid" checked={payment === "paid"} onChange={() => setPayment("paid")} className="accent-[#7c3aed]" />Le client a déjà payé (espèces, virement…)</label>
+            <label className="flex items-center gap-2"><input type="radio" name="paid" checked={payment === "invoice"} onChange={() => setPayment("invoice")} className="accent-[#7c3aed]" />Envoyer une facture avec un lien de paiement par carte</label>
+            <label className="flex items-center gap-2"><input type="radio" name="paid" checked={payment === "pending"} onChange={() => setPayment("pending")} className="accent-[#7c3aed]" />Paiement en attente</label>
+            {payment === "invoice" && <textarea aria-label="Message joint à la facture" className="input mt-1 min-h-[60px]" maxLength={1000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message joint à la facture (facultatif)" />}
           </fieldset>
         </section>
       </div>

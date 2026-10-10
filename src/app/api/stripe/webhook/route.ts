@@ -33,7 +33,8 @@ export async function POST(req: Request) {
           const inv = await stripe.invoices.retrieve(typeof session.invoice === "string" ? session.invoice : session.invoice.id);
           pi = typeof inv.payment_intent === "string" ? inv.payment_intent : inv.payment_intent?.id ?? null;
         }
-        if (pi) await db.order.updateMany({ where: { id: orderId }, data: { stripePaymentIntentId: pi } });
+        // Facture payée par carte : la commande devient une commande Stripe (remboursable sur la carte).
+        await db.order.updateMany({ where: { id: orderId }, data: { ...(pi ? { stripePaymentIntentId: pi } : {}), ...(session.metadata.invoice ? { paymentMethod: "stripe", stripeSessionId: session.id } : {}) } });
         await markOrderPaid(orderId);
         const subId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
         if (subId) await db.subscription.updateMany({ where: { firstOrderId: orderId }, data: { stripeSubscriptionId: subId } });
@@ -43,7 +44,8 @@ export async function POST(req: Request) {
     case "checkout.session.expired": {
       // Paiement abandonné : la commande est annulée et la carte cadeau / le code promo réservés sont rendus.
       const session = event.data.object;
-      if (session.metadata?.orderId) await cancelUnpaidOrder(session.metadata.orderId, "Stripe");
+      // Une facture envoyée par la boutique reste payable : le client peut rouvrir le lien.
+      if (session.metadata?.orderId && !session.metadata.invoice) await cancelUnpaidOrder(session.metadata.orderId, "Stripe");
       break;
     }
     case "invoice.paid": {
