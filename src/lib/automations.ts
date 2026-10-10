@@ -8,16 +8,25 @@ import { priceCart, type CartInput } from "./pricing";
 import { appUrl } from "./stripe";
 import { parseJson } from "./utils";
 import { storeBase } from "./domains";
+import { isLocale, type Locale } from "./i18n";
+import { localizeItems } from "./locale";
+
+/** Titres des lignes de relance dans la langue du client. */
+async function localizeLines<L extends { title: string }>(lines: L[], src: { baseVariantId: string; productTitle: string; variantTitle: string }[], locale: Locale) {
+  const t = await localizeItems(src.map((l) => ({ variantId: l.baseVariantId, productTitle: l.productTitle, variantTitle: l.variantTitle })), locale);
+  return lines.map((l, i) => ({ ...l, title: t[i].variantTitle === "Par défaut" ? t[i].productTitle : `${t[i].productTitle} (${t[i].variantTitle})` }));
+}
 
 /** Envoie la relance d'un panier abandonné. Renvoie false s'il n'y a plus rien à relancer. */
 export async function remindCheckout(store: Store, checkoutId: string) {
   const c = await db.checkout.findFirst({ where: { id: checkoutId, storeId: store.id, orderId: null } });
   if (!c) return false;
-  const cart = await priceCart(store, parseJson<CartInput>(c.items, []));
+  const locale = isLocale(c.locale) ? c.locale : "fr";
+  const cart = await priceCart(store, parseJson<CartInput>(c.items, []), null, {}, null, { locale });
   if (!cart.lines.length) return false;
   const link = `${storeBase(store)}/cart?recover=${c.token}`;
   const lines = cart.lines.map((l) => ({ title: l.variantTitle === "Par défaut" ? l.productTitle : `${l.productTitle} (${l.variantTitle})`, quantity: l.quantity, priceCents: l.priceCents }));
-  await sendMail({ to: c.email, storeId: store.id, ...abandonedCartEmail(store, c.name, lines, link) });
+  await sendMail({ to: c.email, storeId: store.id, ...abandonedCartEmail(store, c.name, await localizeLines(lines, cart.lines, locale), link, locale) });
   await db.checkout.update({ where: { id: c.id }, data: { remindedAt: new Date() } });
   return true;
 }

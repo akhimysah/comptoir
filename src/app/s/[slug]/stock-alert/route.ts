@@ -28,13 +28,14 @@ const schemaFor = (t: (typeof MSG)[Locale]) => z.object({ variantId: z.string().
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const store = await db.store.findUnique({ where: { slug }, select: { id: true, languages: true } });
-  const t = MSG[store ? await getLocale(store) : "fr"];
+  const locale = store ? await getLocale(store) : "fr";
+  const t = MSG[locale];
   const parsed = schemaFor(t).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   // Limite par appareil pour éviter qu'on inscrive des adresses en masse.
   if (!(await hit(`stock-alert:${await clientIp()}`, 20, 3600_000))) return NextResponse.json({ error: t.tooMany }, { status: 429 });
   if (!store) return NextResponse.json({ error: t.noStore }, { status: 404 });
-  const res = await addStockAlert(store.id, parsed.data.variantId, parsed.data.email);
+  const res = await addStockAlert(store.id, parsed.data.variantId, parsed.data.email, locale);
   // Messages de src/lib/stock-alerts.ts, dans la langue du visiteur.
   const error = res.error === "Article introuvable." ? t.noItem : res.error?.startsWith("Cet article est de nouveau disponible") ? t.inStock : res.error;
   return NextResponse.json(error ? { error } : { ok: true }, { status: res.error ? 400 : 200 });

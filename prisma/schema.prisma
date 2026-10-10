@@ -258,6 +258,7 @@ model Checkout {
   remindedAt  DateTime?
   recoveredAt DateTime? // commande passée après une relance
   activityAt  DateTime  @default(now()) // dernière modification du panier par le client
+  locale      String    @default("fr") // langue du client (e-mail de relance)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -735,6 +736,7 @@ model StockAlert {
   store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
   variantId  String
   email      String
+  locale     String    @default("fr") // langue du client (e-mail de retour en stock)
   createdAt  DateTime  @default(now())
   notifiedAt DateTime?
 

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { cancelUnpaidOrder, confirmTermsOrder, createOrder, markOrderPaid, OrderError } from "@/lib/orders";
 import { priceCart } from "@/lib/pricing";
 import { refundOrder } from "@/lib/refunds";
+import { addStockAlert, notifyBackInStock } from "@/lib/stock-alerts";
 
 /** Parcours d'achat complet sur une base de test : prix, commande, paiement, stock, réductions, remboursements. */
 let store: Awaited<ReturnType<typeof db.store.create>>;
@@ -181,5 +182,17 @@ describe("autoliquidation (professionnel de l'UE)", () => {
       expect(c.reverseCharge).toBe(false);
       expect(c.lines[0].priceCents).toBe(2000);
     }
+  });
+});
+
+describe("e-mails dans la langue du client", () => {
+  it("prévient en anglais du retour en stock, avec le titre traduit", async () => {
+    await db.variant.update({ where: { id: rare.id }, data: { stock: 0, product: { update: { translations: JSON.stringify({ en: { title: "One-of-a-kind piece" } }) } } } });
+    expect(await addStockAlert(store.id, rare.id, "uk@exemple.fr", "en")).toEqual({});
+    await db.variant.update({ where: { id: rare.id }, data: { stock: 2 } });
+    expect(await notifyBackInStock({ storeId: store.id })).toBe(1);
+    const mail = await db.mailLog.findFirstOrThrow({ where: { to: "uk@exemple.fr" } });
+    expect(mail.html).toContain("One-of-a-kind piece");
+    expect(mail.html).not.toContain("Pièce unique");
   });
 });

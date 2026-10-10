@@ -143,7 +143,7 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 - Textes légaux de la plateforme : brouillons en place (/legal/cgu, /legal/confidentialite, /legal/mentions-legales), à compléter (variables PLATFORM_* du .env) et à faire valider par un professionnel du droit (puis LEGAL_VALIDATED=1).
 
 **Fonctionnalités Shopify absentes**
-- Langues autres que le français et l'anglais ; traduction automatique (aujourd'hui le marchand saisit l'anglais dans Paramètres → Langues). Les e-mails de panier abandonné et de retour en stock partent en français.
+- Langues autres que le français et l'anglais ; traduction automatique (aujourd'hui le marchand saisit l'anglais dans Paramètres → Langues).
 - Paiement dans la devise du client (les autres devises sont affichées, le paiement reste dans la devise de la boutique).
 - Étiquettes d'expédition et tarifs transporteurs en direct (Colissimo, Mondial Relay…).
 - B2B : vérification automatique des numéros de TVA sur VIES (aujourd'hui seul le format est contrôlé ; le marchand vérifie sur le site de la Commission).

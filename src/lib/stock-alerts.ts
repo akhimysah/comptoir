@@ -5,14 +5,15 @@ import { sendMail } from "./mail";
 import { appUrl } from "./stripe";
 import { parseJson } from "./utils";
 import { storeBase } from "./domains";
+import { isLocale, translate, type Locale } from "./i18n";
 
 /** Enregistre une demande « Me prévenir » pour une variante épuisée de la boutique. */
-export async function addStockAlert(storeId: string, variantId: string, email: string): Promise<{ error?: string }> {
+export async function addStockAlert(storeId: string, variantId: string, email: string, locale: Locale = "fr"): Promise<{ error?: string }> {
   const v = await db.variant.findFirst({ where: { id: variantId, product: { storeId, status: "active", isGiftCard: false } }, select: { id: true, stock: true } });
   if (!v) return { error: "Article introuvable." };
   if (v.stock > 0) return { error: "Cet article est de nouveau disponible : vous pouvez le commander." };
   // Une nouvelle demande après une alerte déjà envoyée repart de zéro.
-  await db.stockAlert.upsert({ where: { variantId_email: { variantId, email } }, update: { notifiedAt: null, createdAt: new Date() }, create: { storeId, variantId, email } });
+  await db.stockAlert.upsert({ where: { variantId_email: { variantId, email } }, update: { notifiedAt: null, createdAt: new Date(), locale }, create: { storeId, variantId, email, locale } });
   return {};
 }
 
@@ -36,7 +37,8 @@ export async function notifyBackInStock(opts: { storeId?: string; variantIds?: s
     if (!claimed.count) continue;
     const store = v.product.store;
     const url = `${storeBase(store)}/p/${v.product.handle}?variant=${v.id}`;
-    await sendMail({ to: a.email, storeId: store.id, ...backInStockEmail(store, { title: v.product.title, image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null }, v.title, url, v.priceCents) });
+    const loc = isLocale(a.locale) ? a.locale : "fr";
+    await sendMail({ to: a.email, storeId: store.id, ...backInStockEmail(store, { title: translate(v.product, loc, ["title"]).title, image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null }, v.title, url, v.priceCents, loc) });
     sent++;
   }
   return sent;
