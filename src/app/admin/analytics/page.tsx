@@ -3,7 +3,7 @@ import { PageHeader, Thumb } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
-import { cx } from "@/lib/utils";
+import { cx, parseJson } from "@/lib/utils";
 
 const PERIODS = { "7": "7 derniers jours", "30": "30 derniers jours", "90": "90 derniers jours", "365": "12 derniers mois" } as const;
 type Period = keyof typeof PERIODS;
@@ -80,6 +80,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     { label: "Commandes manuelles", cents: orders.filter((o) => o.paymentMethod === "manual").reduce((s, o) => s + o.totalCents - o.refundedCents, 0) },
   ];
 
+  // Produits les plus mis en favoris : l'envie d'achat, même sans vente.
+  const favCounts = await db.favorite.groupBy({ by: ["productId"], where: { storeId: store.id }, _count: true, orderBy: { _count: { productId: "desc" } }, take: 6 });
+  const favProducts = await db.product.findMany({ where: { id: { in: favCounts.map((f) => f.productId) } }, select: { id: true, title: true, images: true, hue: true } });
+  const topFavorites = favCounts.flatMap((f) => { const p = favProducts.find((x) => x.id === f.productId); return p ? [{ id: p.id, title: p.title, hue: p.hue, image: parseJson<string[]>(p.images, [])[0] ?? null, count: f._count }] : []; });
+
   const cards = [
     { label: "Ventes totales", value: m(revenue), delta: pct(revenue, prevRevenue) },
     { label: "Commandes", value: String(orders.length), delta: pct(orders.length, prev.length) },
@@ -151,6 +156,20 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           </div>
         </section>
       </div>
+      {topFavorites.length > 0 && (
+        <section className="card overflow-hidden">
+          <div className="card-h"><h2 className="text-sm font-[650]">Les plus ajoutés aux favoris</h2><span className="text-xs text-muted">clients connectés · tout le temps</span></div>
+          <ul>
+            {topFavorites.map((f) => (
+              <li key={f.id} className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0">
+                <Thumb image={f.image} hue={f.hue} title={f.title} className="h-8 w-8 text-[10px]" />
+                <Link href={`/admin/products/${f.id}`} className="flex-1 truncate font-[550] hover:underline">{f.title}</Link>
+                <span className="text-xs text-muted">{f.count} favori{f.count > 1 ? "s" : ""}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </>
   );
 }

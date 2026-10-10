@@ -736,3 +736,15 @@ model LoginChallenge {
   attempts  Int      @default(0)
   expiresAt DateTime
 }
+
+/// Favori d'un client connecté (les visiteurs gardent leurs favoris dans le navigateur).
+model Favorite {
+  id         String   @id @default(cuid())
+  storeId    String
+  customerId String
+  productId  String
+  createdAt  DateTime @default(now())
+
+  @@unique([customerId, productId])
+  @@index([storeId, productId])
+}

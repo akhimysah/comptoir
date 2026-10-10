@@ -44,6 +44,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   return (
     <>
     <ProductBuy
+      productId={product.id}
       specs={specs}
       initialVariant={initialVariant}
       slug={slug}

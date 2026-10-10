@@ -5,13 +5,14 @@ import { Thumb } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
 import { useCart } from "./cart";
 import { Stars } from "./Stars";
+import { FavoriteButton } from "./FavoriteButton";
 
 const SUB = ":abonnement";
 
 type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number };
 
-export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null, initialVariant, specs = [] }: {
-  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null; initialVariant?: string; specs?: { name: string; value: string }[];
+export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null, initialVariant, specs = [], productId }: {
+  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null; initialVariant?: string; specs?: { name: string; value: string }[]; productId?: string;
   options: { name: string; values: string[] }[]; variants: V[];
 }) {
   const { add, items } = useCart(slug);
@@ -114,6 +115,7 @@ export function ProductBuy({ slug, currency, rate = 1, title, description, image
           >
             {!variant ? "Indisponible" : isPreorder ? "Précommander" : variant.stock <= 0 ? "Épuisé" : left <= 0 ? "Tout le stock est dans votre panier" : "Ajouter au panier"}
           </button>
+          {productId && <FavoriteButton slug={slug} productId={productId} title={title} variant="page" />}
         </div>
         {variant && variant.stock <= 0 && !preorder && !isGiftCard && contents.length === 0 && <StockAlertForm key={variant.id} slug={slug} variantId={variant.id} />}
         {added && (

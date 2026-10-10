@@ -1,6 +1,7 @@
 import { Thumb } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
 import { Stars } from "./Stars";
+import { FavoriteButton } from "./FavoriteButton";
 import { conv, type CardProduct, type StoreInfo } from "./types";
 
 export function ProductCard({ p, store }: { p: CardProduct; store: StoreInfo }) {
@@ -13,6 +14,7 @@ export function ProductCard({ p, store }: { p: CardProduct; store: StoreInfo }) 
         ) : p.compareAtCents && p.compareAtCents > p.priceCents ? (
           <span className="absolute left-3 top-3 rounded-[var(--t-radius)] bg-[var(--c-accent)] px-2 py-1 text-xs font-semibold text-[var(--c-accent-text)]">−{Math.round((1 - p.priceCents / p.compareAtCents) * 100)} %</span>
         ) : null}
+        <FavoriteButton slug={store.slug} productId={p.id} title={p.title} />
       </div>
       <div className="flex flex-col gap-0.5">
         <span className="font-medium leading-snug">{p.title}</span>
