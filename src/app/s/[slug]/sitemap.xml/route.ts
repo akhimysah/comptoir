@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { appUrl } from "@/lib/stripe";
 
+export const dynamic = "force-dynamic";
+
 /** Plan du site d'une boutique, pour Google : /s/<boutique>/sitemap.xml */
 export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
