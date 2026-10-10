@@ -47,6 +47,7 @@ const payloadSchema = z.object({
   subscriptionDiscountPct: z.number().min(0).max(90).optional().default(0),
   bundle: z.array(z.object({ variantId: z.string(), quantity: z.number().int().min(1).max(99) })).max(30).optional().default([]),
   metafields: z.record(z.string().max(2000)).optional().default({}),
+  complementaryIds: z.array(z.string().max(40)).max(6).optional().default([]),
 });
 export type ProductPayload = z.infer<typeof payloadSchema>;
 export type SaveState = { error?: string } | undefined;
@@ -75,6 +76,9 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
   const defs = await db.metafieldDefinition.findMany({ where: { storeId: store.id } });
   const meta = cleanMetafields(defs, p.metafields);
   if (meta.error) return { error: meta.error };
+  // Produits complémentaires : seulement des produits de cette boutique, jamais lui-même, ordre conservé.
+  const allowed = new Set((await db.product.findMany({ where: { storeId: store.id, id: { in: p.complementaryIds } }, select: { id: true } })).map((x) => x.id));
+  const complementaryIds = JSON.stringify([...new Set(p.complementaryIds)].filter((id) => allowed.has(id) && id !== p.id));
 
   const variants = [];
   for (const [i, v] of p.variants.entries()) {
@@ -121,6 +125,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
           seoTitle: p.seoTitle,
           seoDescription: p.seoDescription,
           metafields: JSON.stringify(meta.values),
+          complementaryIds,
           isGiftCard: p.isGiftCard,
           continueSelling: p.continueSelling,
           subscriptionInterval: p.subscriptionInterval || null,
@@ -143,6 +148,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
         seoTitle: p.seoTitle,
         seoDescription: p.seoDescription,
         metafields: JSON.stringify(meta.values),
+        complementaryIds,
         isGiftCard: p.isGiftCard,
         continueSelling: p.continueSelling,
         subscriptionInterval: p.subscriptionInterval || null,

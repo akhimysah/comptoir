@@ -9,6 +9,7 @@ export default async function NewProductPage() {
   const { store } = await requirePerm("products");
   const choices = await bundleChoicesFor(store.id);
   const collections = await db.collection.findMany({ where: { storeId: store.id }, orderBy: { title: "asc" }, select: { id: true, title: true } });
+  const productChoices = await db.product.findMany({ where: { storeId: store.id, isGiftCard: false, status: { not: "archived" } }, orderBy: { title: "asc" }, select: { id: true, title: true } });
   const fieldDefs = await db.metafieldDefinition.findMany({ where: { storeId: store.id }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
   return (
     <>
@@ -19,6 +20,7 @@ export default async function NewProductPage() {
         storeUrl={`${appUrl()}/s/${store.slug}`}
         bundleChoices={choices}
         fieldDefs={fieldDefs}
+        productChoices={productChoices}
         initial={{ title: "", description: "", status: "active", hue: Math.floor(Math.random() * 360), images: [], options: [], variants: [{ optionValues: [], price: "", compareAt: "", cost: "", sku: "", stock: 10 }], collectionIds: [] }}
       />
     </>

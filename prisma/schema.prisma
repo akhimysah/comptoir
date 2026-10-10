@@ -306,6 +306,7 @@ model Product {
   reviews                 Review[]
   bundleItems             BundleItem[]        @relation("BundleItems")
   metafields              String              @default("{}") // JSON { clé: valeur } des champs personnalisés
+  complementaryIds        String              @default("[]") // JSON : produits complémentaires choisis (« Souvent achetés ensemble »)
 
   @@unique([storeId, handle])
 }

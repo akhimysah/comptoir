@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Thumb } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
 import type { PricedCart } from "@/lib/pricing";
+import type { Suggestion } from "@/lib/recommendations";
 import { useCart } from "./cart";
 
 const field = "w-full rounded-[var(--t-radius)] border border-[color-mix(in_srgb,var(--c-text)_22%,transparent)] bg-[var(--c-surface)] px-3 py-2.5 outline-none focus:border-[var(--c-text)]";
@@ -11,8 +12,8 @@ const field = "w-full rounded-[var(--t-radius)] border border-[color-mix(in_srgb
 type Recovered = { items: { variantId: string; quantity: number }[]; email: string; name: string; token: string } | null;
 
 export function CartView({ slug, currency, display, loyalty, cancelled, demo, recovered, customer }: { slug: string; currency: string; display?: { code: string; rate: number }; loyalty?: { perUnit: number } | null; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null }) {
-  const { items, ready, setQuantity, replace } = useCart(slug);
-  const [cart, setCart] = useState<PricedCart | null>(null);
+  const { items, ready, setQuantity, replace, add } = useCart(slug);
+  const [cart, setCart] = useState<(PricedCart & { recommendations?: Suggestion[] }) | null>(null);
   const [code, setCode] = useState("");
   const [applied, setApplied] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
     if (!ready) return;
     const res = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, items, code: applied, country, rateId, giftCode: gift }) });
     if (!res.ok) return;
-    const priced: PricedCart = await res.json();
+    const priced: PricedCart & { recommendations?: Suggestion[] } = await res.json();
     setCart(priced);
     // Aligne le panier local sur ce que la boutique peut réellement fournir (article retiré, stock réduit).
     if (!priced.notices.length) return;
@@ -91,6 +92,7 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
       {cart?.notices.map((n) => <p key={n} className="mb-3 rounded-[var(--t-radius)] bg-[var(--c-surface)] px-4 py-3 text-sm">{n}</p>)}
 
       <div className="grid gap-10 lg:grid-cols-[1.3fr_1fr]">
+        <div className="flex min-w-0 flex-col gap-10">
         <ul className="flex flex-col divide-y divide-[color-mix(in_srgb,var(--c-text)_12%,transparent)]">
           {!cart && <li className="py-6 text-[var(--c-muted)]">Chargement du panier…</li>}
           {cart?.lines.map((l) => (
@@ -114,6 +116,26 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
             </li>
           ))}
         </ul>
+        {cart?.recommendations && cart.recommendations.length > 0 && (
+          <section aria-labelledby="upsell-title" className="flex flex-col gap-3">
+            <h2 id="upsell-title" className="font-[family-name:var(--t-display)] text-xl font-semibold">Complétez votre commande</h2>
+            <ul className="grid gap-3 sm:grid-cols-3">
+              {cart.recommendations.map((r) => (
+                <li key={r.id} className="flex items-center gap-3 rounded-[var(--t-radius)] bg-[var(--c-surface)] p-3 sm:flex-col sm:items-stretch">
+                  <a href={`/s/${slug}/p/${r.handle}`} className="block w-16 shrink-0 sm:w-full"><Thumb image={r.image} hue={r.hue} title={r.title} rounded="rounded-[var(--t-radius)]" className="h-16 w-16 text-sm sm:h-28 sm:w-full" /></a>
+                  <div className="min-w-0 flex-1 text-sm">
+                    <a href={`/s/${slug}/p/${r.handle}`} className="line-clamp-2 font-medium hover:underline">{r.title}</a>
+                    <div className="tabular-nums text-[var(--c-muted)]">{r.maxPriceCents > r.priceCents ? "Dès " : ""}{m(r.priceCents)}</div>
+                  </div>
+                  {r.quickVariantId
+                    ? <button type="button" onClick={() => add(r.quickVariantId!, 1)} className="shrink-0 rounded-[var(--t-radius)] border border-[var(--c-text)] px-3 py-1.5 text-sm font-semibold sm:w-full">Ajouter</button>
+                    : <a href={`/s/${slug}/p/${r.handle}`} className="shrink-0 rounded-[var(--t-radius)] border border-[var(--c-text)] px-3 py-1.5 text-center text-sm font-semibold sm:w-full">Choisir</a>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        </div>
 
         <div className="flex flex-col gap-6 lg:sticky lg:top-24 lg:self-start">
           <div className="flex flex-col gap-3 rounded-[var(--t-radius)] bg-[var(--c-surface)] p-5">

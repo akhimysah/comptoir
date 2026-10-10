@@ -14,7 +14,7 @@ import { uploadImage } from "./upload";
 type Option = { name: string; values: string[] };
 type VariantRow = ProductPayload["variants"][number];
 
-export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle" | "subscriptionInterval" | "subscriptionDiscountPct" | "metafields"> & { metafields?: Record<string, string>; id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[]; subscriptionInterval?: "" | "week" | "month"; subscriptionDiscountPct?: number };
+export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle" | "subscriptionInterval" | "subscriptionDiscountPct" | "metafields" | "complementaryIds"> & { metafields?: Record<string, string>; complementaryIds?: string[]; id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[]; subscriptionInterval?: "" | "week" | "month"; subscriptionDiscountPct?: number };
 export type BundleChoice = { id: string; label: string; stock: number };
 
 const key = (vals: string[]) => vals.join("\u0000");
@@ -25,7 +25,9 @@ function cartesian(options: Option[]): string[][] {
   return usable.reduce<string[][]>((acc, o) => acc.flatMap((combo) => o.values.map((v) => [...combo, v])), [[]]);
 }
 
-export function ProductForm({ initial, collections, currency, storeUrl, handle, bundleChoices = [], fieldDefs = [] }: { initial: ProductFormInitial; collections: { id: string; title: string }[]; currency: string; storeUrl: string; handle?: string; bundleChoices?: BundleChoice[]; fieldDefs?: MetafieldDef[] }) {
+export function ProductForm({ initial, collections, currency, storeUrl, handle, bundleChoices = [], fieldDefs = [], productChoices = [] }: { initial: ProductFormInitial; collections: { id: string; title: string }[]; currency: string; storeUrl: string; handle?: string; bundleChoices?: BundleChoice[]; fieldDefs?: MetafieldDef[]; productChoices?: { id: string; title: string }[] }) {
+  const [complementaryIds, setComplementaryIds] = useState<string[]>(initial.complementaryIds ?? []);
+  const [compQ, setCompQ] = useState("");
   const [metafields, setMetafields] = useState<Record<string, string>>(initial.metafields ?? {});
   const [state, action, pending] = useActionState(saveProduct, undefined);
   const router = useRouter();
@@ -81,7 +83,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
     }
   }
 
-  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle, subscriptionInterval: subInterval, subscriptionDiscountPct: subPct, metafields };
+  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle, subscriptionInterval: subInterval, subscriptionDiscountPct: subPct, metafields, complementaryIds };
   const hasOptions = combos[0].length > 0;
   const [initialJson] = useState(() => JSON.stringify(payload));
   const dirty = !initial.id || JSON.stringify(payload) !== initialJson;
@@ -258,6 +260,38 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
               </>
             )}
           </section>
+          {productChoices.length > 0 && !isGiftCard && (
+            <section className="card flex flex-col gap-3 p-4">
+              <div>
+                <h2 className="text-sm font-[650]">Produits complémentaires</h2>
+                <p className="text-xs text-muted">Proposés dans « Souvent achetés ensemble » sur la fiche et dans le panier. Sans choix, la boutique propose les produits souvent achetés avec celui-ci.</p>
+              </div>
+              {complementaryIds.length > 0 && (
+                <ol className="flex flex-col gap-1">
+                  {complementaryIds.map((id, i) => (
+                    <li key={id} className="flex items-center gap-2 rounded-lg border border-line px-2 py-1.5 text-[13px]">
+                      <span className="w-4 text-muted">{i + 1}</span>
+                      <span className="flex-1 truncate">{productChoices.find((p) => p.id === id)?.title ?? "Produit supprimé"}</span>
+                      <button type="button" disabled={i === 0} onClick={() => setComplementaryIds((c) => { const n = [...c]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; })} className="px-1 text-muted disabled:opacity-30" aria-label="Monter">↑</button>
+                      <button type="button" onClick={() => setComplementaryIds((c) => c.filter((x) => x !== id))} className="px-1 text-muted hover:text-[#8e0b21]" aria-label="Retirer">✕</button>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {complementaryIds.length < 6 && (
+                <div className="relative">
+                  <input value={compQ} onChange={(e) => setCompQ(e.target.value)} placeholder="Ajouter un produit complémentaire" aria-label="Ajouter un produit complémentaire" className="input" />
+                  {compQ.trim() && (
+                    <ul className="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl bg-white p-1 shadow-[0_4px_16px_rgba(0,0,0,.15),0_0_0_1px_rgba(0,0,0,.06)]">
+                      {productChoices.filter((p) => p.id !== initial.id && !complementaryIds.includes(p.id) && p.title.toLowerCase().includes(compQ.toLowerCase())).slice(0, 8).map((p) => (
+                        <li key={p.id}><button type="button" onClick={() => { setComplementaryIds((c) => [...c, p.id]); setCompQ(""); }} className="w-full rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-[#f1f1f1]">{p.title}</button></li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
           {fieldDefs.length > 0 && (
             <section className="card flex flex-col gap-3 p-4">
               <div className="flex items-center justify-between"><h2 className="text-sm font-[650]">Champs personnalisés</h2><Link href="/admin/settings/custom-data" className="text-xs text-pine hover:underline">Gérer les champs</Link></div>

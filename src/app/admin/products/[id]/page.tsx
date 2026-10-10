@@ -19,6 +19,7 @@ export default async function EditProductPage({ params, searchParams }: { params
   const bundleParts = await db.bundleItem.findMany({ where: { bundleId: product.id } });
   const choices = await bundleChoicesFor(store.id, product.id);
   const collections = await db.collection.findMany({ where: { storeId: store.id }, orderBy: { title: "asc" }, select: { id: true, title: true } });
+  const productChoices = await db.product.findMany({ where: { storeId: store.id, isGiftCard: false, status: { not: "archived" } }, orderBy: { title: "asc" }, select: { id: true, title: true } });
   const fieldDefs = await db.metafieldDefinition.findMany({ where: { storeId: store.id }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
   const waiting = await db.stockAlert.count({ where: { storeId: store.id, notifiedAt: null, variantId: { in: product.variants.map((v) => v.id) } } });
 
@@ -51,6 +52,7 @@ export default async function EditProductPage({ params, searchParams }: { params
         storeUrl={`${appUrl()}/s/${store.slug}`}
         bundleChoices={choices}
         fieldDefs={fieldDefs}
+        productChoices={productChoices}
         handle={product.handle}
         initial={{
           id: product.id,
@@ -62,6 +64,7 @@ export default async function EditProductPage({ params, searchParams }: { params
           bundle: bundleParts.map((b) => ({ variantId: b.variantId, quantity: b.quantity })),
           seoDescription: product.seoDescription,
           metafields: parseJson<Record<string, string>>(product.metafields, {}),
+          complementaryIds: parseJson<string[]>(product.complementaryIds, []),
           title: product.title,
           description: product.description,
           status: product.status as "draft" | "active",

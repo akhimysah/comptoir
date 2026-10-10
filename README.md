@@ -50,6 +50,7 @@ Ensuite, ouvrez http://localhost:3000.
 | Retrait en boutique (gratuit, sans adresse) | « Prête pour le retrait » avec e-mail au client, puis « Récupérée » |
 | Rapports : ventes par jour, par produit, par canal, TVA collectée, meilleurs clients | Export CSV pour Excel et la comptabilité |
 | Double authentification (application, QR code, codes de secours) | Code demandé après le mot de passe, codes à usage unique |
+| Produits complémentaires et « Souvent achetés ensemble » (choisis ou appris des commandes) | « Complétez votre commande » dans le panier, ajout en un clic |
 | Navigation : menus avec sous-menus déroulants | Redirections d'URL automatiques quand une adresse change |
 | Référencement : titre et description Google, aperçu du résultat | Sitemap par boutique (`/s/<boutique>/sitemap.xml`), robots.txt |
 | Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau ; achat de cartes cadeaux dans la boutique |

@@ -8,6 +8,7 @@ import type { Store } from "@prisma/client";
 import { db } from "@/lib/db";
 import { notFoundOrRedirect } from "@/lib/navigation";
 import { formatMetafield } from "@/lib/metafields";
+import { complementaryProducts } from "@/lib/recommendations";
 import { getStore } from "@/lib/storefront";
 import { bundleStock } from "@/lib/bundles";
 import { parseJson } from "@/lib/utils";
@@ -70,13 +71,22 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
 async function Related({ slug, storeId, productId, store }: { slug: string; storeId: string; productId: string; store: Store & { rate?: number } }) {
   const { products } = await getCatalog(storeId);
   const me = products.find((p) => p.id === productId);
+  const together = await complementaryProducts(storeId, [productId], 4);
   const shared = (p: (typeof products)[number]) => p.collectionHandles.filter((h) => me?.collectionHandles.includes(h)).length;
-  const list = products.filter((p) => p.id !== productId && !p.soldOut).sort((a, b) => shared(b) - shared(a)).slice(0, 4);
-  if (!list.length) return null;
+  const list = products.filter((p) => p.id !== productId && !p.soldOut && !together.some((t) => t.id === p.id)).sort((a, b) => shared(b) - shared(a)).slice(0, 4);
+  if (!list.length && !together.length) return null;
   return (
-    <section className="mx-auto max-w-6xl border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] px-4 py-12" data-slug={slug}>
+    <>
+    {together.length > 0 && (
+      <section className="mx-auto max-w-6xl border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] px-4 py-12">
+        <h2 className="mb-6 font-[family-name:var(--t-display)] text-2xl font-semibold md:text-3xl">Souvent achetés ensemble</h2>
+        <ProductGrid products={together} store={store} />
+      </section>
+    )}
+    {list.length > 0 && <section className="mx-auto max-w-6xl border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] px-4 py-12" data-slug={slug}>
       <h2 className="mb-6 font-[family-name:var(--t-display)] text-2xl font-semibold md:text-3xl">Vous aimerez aussi</h2>
       <ProductGrid products={list} store={store} />
-    </section>
+    </section>}
+    </>
   );
 }
