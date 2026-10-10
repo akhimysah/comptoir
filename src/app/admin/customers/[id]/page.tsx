@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { adjustPoints, saveCustomerNote, saveCustomerTags } from "../actions";
-import { saveCustomerB2B } from "../price-lists/actions";
+import { recheckVat, saveCustomerB2B } from "../price-lists/actions";
 import { PAYMENT_TERMS, termsLabel } from "@/lib/b2b";
 import { isEuVatNumber } from "@/lib/tax";
 import { splitTags } from "@/lib/segments";
@@ -12,8 +12,8 @@ import { formatMoney } from "@/lib/money";
 import { FULFILLMENT_LABELS, paymentLabel, type Address } from "@/lib/orders";
 import { formatDate, formatDateTime, parseJson } from "@/lib/utils";
 
-export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function CustomerPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ vies?: string }> }) {
+  const [{ id }, { vies }] = await Promise.all([params, searchParams]);
   const { store } = await requirePerm("customers");
   const c = await db.customer.findFirst({ where: { id, storeId: store.id }, include: { orders: { orderBy: { createdAt: "desc" }, include: { items: true } } } });
   if (!c) notFound();
@@ -86,13 +86,23 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             {(() => { const ad = parseJson<{ line1?: string; zip?: string; city?: string; country?: string }>(c.address, {}); return ad.line1 || ad.city ? <div><h3 className="text-[13px] font-[650]">Adresse</h3><address className="not-italic text-muted">{ad.line1}<br />{ad.zip} {ad.city}<br />{ad.country}</address></div> : null; })()}
             {addr && <div><h3 className="text-[13px] font-[650]">Adresse par défaut</h3><address className="not-italic text-muted">{addr.line1}<br />{addr.zip} {addr.city}<br />{addr.country}</address></div>}
           </section>
+          <form id="recheck-vat" action={recheckVat} className="hidden"><input type="hidden" name="id" value={c.id} /></form>
           <form action={saveCustomerB2B} className="card flex flex-col gap-2.5 p-4">
             <input type="hidden" name="id" value={c.id} />
             <h2 className="text-sm font-[650]">Client professionnel</h2>
             <label className="label">Société<input name="company" defaultValue={c.company} maxLength={100} className="input" placeholder="Café des Arts SARL" /></label>
             <label className="label">N° de TVA intracommunautaire<input name="vatNumber" defaultValue={c.vatNumber} maxLength={20} className="input uppercase" placeholder="FR12345678901" /></label>
             {c.vatNumber && !isEuVatNumber(c.vatNumber) && <p className="text-xs text-[#8e0b21]">Ce numéro ne ressemble pas à un numéro de TVA de l'UE (préfixe du pays, puis chiffres).</p>}
-            {c.vatNumber && isEuVatNumber(c.vatNumber) && !c.vatNumber.startsWith("FR") && store.taxRateBps > 0 && <p className="text-xs text-muted">Livré dans son pays ({c.vatNumber.slice(0, 2)}), ce client paie hors taxes (autoliquidation). Vérifiez son numéro sur le site VIES de la Commission européenne.</p>}
+            {c.vatNumber && isEuVatNumber(c.vatNumber) && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                {c.vatValid === true ? <Pill tone="ok">Valide sur VIES</Pill> : c.vatValid === false ? <Pill tone="bad">Invalide sur VIES</Pill> : <Pill>Pas encore vérifié</Pill>}
+                {c.vatRegisteredName && <span className="text-muted">{c.vatRegisteredName}</span>}
+                <button form="recheck-vat" className="text-pine hover:underline">Vérifier{c.vatCheckedAt ? " à nouveau" : ""}</button>
+              </div>
+            )}
+            {vies && <p className="text-xs text-[#8e0b21]">{vies}</p>}
+            {c.vatNumber && isEuVatNumber(c.vatNumber) && !c.vatNumber.startsWith("FR") && store.taxRateBps > 0 && c.vatValid !== false && <p className="text-xs text-muted">Livré dans son pays ({c.vatNumber.slice(0, 2)}), ce client paie hors taxes (autoliquidation).</p>}
+            {c.vatValid === false && <p className="text-xs text-[#8e0b21]">Numéro refusé par VIES : ce client paie la TVA.</p>}
             <label className="label">Liste de prix
               <select name="priceListId" defaultValue={c.priceListId ?? ""} className="input">
                 <option value="">Prix publics</option>

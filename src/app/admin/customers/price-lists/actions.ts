@@ -8,6 +8,7 @@ import { PAYMENT_TERMS } from "@/lib/b2b";
 import { db } from "@/lib/db";
 import { parseMoney } from "@/lib/money";
 import { normalizeVatNumber } from "@/lib/tax";
+import { checkVies } from "@/lib/vies";
 
 const percent = (v: FormDataEntryValue | null) => Math.max(0, Math.min(90, Math.round(Number(String(v ?? "0").replace(",", ".")) || 0)));
 
@@ -63,15 +64,38 @@ export async function saveCustomerB2B(form: FormData) {
   const listId = String(form.get("priceListId") ?? "");
   const list = listId ? await db.priceList.findFirst({ where: { id: listId, storeId: store.id }, select: { id: true } }) : null;
   const days = Number(form.get("paymentTermsDays"));
+  const before = await db.customer.findFirst({ where: { id, storeId: store.id }, select: { vatNumber: true } });
+  if (!before) return;
+  const vatNumber = normalizeVatNumber(String(form.get("vatNumber") ?? "")).slice(0, 20);
   await db.customer.updateMany({
     where: { id, storeId: store.id },
     data: {
       company: String(form.get("company") ?? "").trim().slice(0, 100),
-      vatNumber: normalizeVatNumber(String(form.get("vatNumber") ?? "")).slice(0, 20),
+      vatNumber,
+      // Nouveau numéro : l'ancienne vérification VIES ne vaut plus.
+      ...(vatNumber !== before.vatNumber ? { vatValid: null, vatCheckedAt: null, vatRegisteredName: "" } : {}),
       priceListId: list?.id ?? null,
       paymentTermsDays: (PAYMENT_TERMS as readonly number[]).includes(days) ? days : 0,
     },
   });
+  if (vatNumber && vatNumber !== before.vatNumber) await runVies(id, vatNumber);
   revalidatePath(`/admin/customers/${id}`);
   revalidatePath("/admin/customers/price-lists");
+}
+
+async function runVies(customerId: string, vatNumber: string) {
+  const r = await checkVies(vatNumber);
+  if ("error" in r) return r.error;
+  await db.customer.update({ where: { id: customerId }, data: { vatValid: r.valid, vatCheckedAt: new Date(), vatRegisteredName: r.name.slice(0, 200) } });
+  return null;
+}
+
+/** Nouvelle vérification du numéro de TVA auprès de VIES (bouton de la fiche client). */
+export async function recheckVat(form: FormData) {
+  const { store } = await requirePerm("customers");
+  const c = await db.customer.findFirst({ where: { id: String(form.get("id")), storeId: store.id } });
+  if (!c?.vatNumber) return;
+  const error = await runVies(c.id, c.vatNumber);
+  revalidatePath(`/admin/customers/${c.id}`);
+  if (error) redirect(`/admin/customers/${c.id}?vies=${encodeURIComponent(error)}`);
 }

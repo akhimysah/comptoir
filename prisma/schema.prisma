@@ -380,27 +380,30 @@ model ProductCollection {
 }
 
 model Customer {
-  id               String     @id @default(cuid())
-  storeId          String
-  store            Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  email            String
-  name             String
-  note             String     @default("") // note interne, visible seulement dans l'admin
-  tags             String     @default("") // étiquettes séparées par des virgules (ex. « vip, grossiste »)
-  phone            String     @default("")
-  address          String     @default("") // JSON { line1, zip, city, country } : adresse par défaut (import, commandes manuelles)
-  acceptsMarketing Boolean    @default(false) // abonné à la newsletter
-  points           Int        @default(0) // solde de points de fidélité
-  marketingToken   String?    @unique // jeton du lien de désabonnement
-  subscribedAt     DateTime?
-  createdAt        DateTime   @default(now())
-  orders           Order[]
+  id                String     @id @default(cuid())
+  storeId           String
+  store             Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  email             String
+  name              String
+  note              String     @default("") // note interne, visible seulement dans l'admin
+  tags              String     @default("") // étiquettes séparées par des virgules (ex. « vip, grossiste »)
+  phone             String     @default("")
+  address           String     @default("") // JSON { line1, zip, city, country } : adresse par défaut (import, commandes manuelles)
+  acceptsMarketing  Boolean    @default(false) // abonné à la newsletter
+  points            Int        @default(0) // solde de points de fidélité
+  marketingToken    String?    @unique // jeton du lien de désabonnement
+  subscribedAt      DateTime?
+  createdAt         DateTime   @default(now())
+  orders            Order[]
   // B2B : client professionnel
-  company          String     @default("")
-  vatNumber        String     @default("") // numéro de TVA intracommunautaire
-  priceListId      String?
-  priceList        PriceList? @relation(fields: [priceListId], references: [id], onDelete: SetNull)
-  paymentTermsDays Int        @default(0) // 0 = paiement à la commande ; 15, 30, 45, 60 = paiement à échéance
+  company           String     @default("")
+  vatNumber         String     @default("") // numéro de TVA intracommunautaire
+  vatValid          Boolean? // résultat VIES : true valide, false invalide, null pas encore vérifié (ou VIES indisponible)
+  vatCheckedAt      DateTime?
+  vatRegisteredName String     @default("") // raison sociale enregistrée auprès de VIES
+  priceListId       String?
+  priceList         PriceList? @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  paymentTermsDays  Int        @default(0) // 0 = paiement à la commande ; 15, 30, 45, 60 = paiement à échéance
 
   @@unique([storeId, email])
 }
