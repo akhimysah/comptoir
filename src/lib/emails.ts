@@ -4,14 +4,16 @@ import { formatMoney } from "./money";
 import { appUrl } from "./stripe";
 import { parseJson } from "./utils";
 import { carrierLabel, trackingLink } from "./tracking";
+import { fill, templateText, type TemplateKey } from "./email-templates";
+import { readTheme } from "./theme";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-function layout(storeName: string, title: string, body: string) {
+function layout(storeName: string, title: string, body: string, accent = "#303030") {
   return `<!doctype html><html lang="fr"><body style="margin:0;background:#f1f1f1;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#303030">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
-<table role="presentation" width="100%" style="max-width:560px;background:#fff;border-radius:12px;padding:32px" cellpadding="0" cellspacing="0"><tr><td>
-<div style="font-size:18px;font-weight:700;margin-bottom:24px">${esc(storeName)}</div>
+<table role="presentation" width="100%" style="max-width:560px;background:#fff;border-radius:12px;padding:32px;border-top:4px solid ${accent}" cellpadding="0" cellspacing="0"><tr><td>
+<div style="font-size:18px;font-weight:700;margin-bottom:24px;color:${accent}">${esc(storeName)}</div>
 <h1 style="font-size:20px;margin:0 0 12px">${esc(title)}</h1>
 ${body}
 </td></tr></table>
@@ -19,8 +21,30 @@ ${body}
 </td></tr></table></body></html>`;
 }
 
-const button = (href: string, label: string) =>
-  `<a href="${esc(href)}" style="display:inline-block;background:#303030;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px">${esc(label)}</a>`;
+const button = (href: string, label: string, bg = "#303030", fg = "#fff") =>
+  `<a href="${esc(href)}" style="display:inline-block;background:${bg};color:${fg};text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px">${esc(label)}</a>`;
+
+/** Couleurs de la boutique (thème) et textes personnalisés d'un e-mail client. */
+function brand(store: Store) {
+  const c = readTheme(store.theme, store.name).colors;
+  const safe = (x: string, d: string) => (/^#[0-9a-fA-F]{3,8}$/.test(x) ? x : d);
+  return { accent: safe(c.accent, "#303030"), accentText: safe(c.accentText, "#ffffff") };
+}
+
+function texts(store: Store, key: TemplateKey, vars: Record<string, string>) {
+  const t = templateText(store.emailTemplates, key);
+  const v = { boutique: store.name, ...vars };
+  const b = brand(store);
+  return {
+    subject: fill(t.subject, v),
+    title: fill(t.title, v),
+    intro: fill(t.intro, v).split(/\n{2,}/).map((para) => `<p style="font-size:14px;line-height:1.5">${esc(para).replace(/\n/g, "<br>")}</p>`).join(""),
+    layout: (title: string, body: string) => layout(store.name, title, body, b.accent),
+    button: (href: string, label: string) => button(href, label, b.accent, b.accentText),
+  };
+}
+
+const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? "";
 
 function itemsTable(order: Order & { items: OrderItem[] }, currency: string) {
   const m = (c: number) => formatMoney(c, currency);
@@ -41,24 +65,25 @@ function addressBlock(order: Order, store?: Store) {
 }
 
 export function orderConfirmationEmail(store: Store, order: Order & { items: OrderItem[] }) {
+  const t = texts(store, "order_confirmation", { prenom: firstName(order.name), numero: String(order.number), montant: formatMoney(order.totalCents, store.currency) });
   return {
-    subject: `Commande #${order.number} confirmée`,
-    html: layout(store.name, `Merci pour votre commande, ${order.name.split(" ")[0]} !`,
-      `<p style="font-size:14px;line-height:1.5">Nous préparons votre commande <b>#${order.number}</b>. Vous recevrez un autre e-mail dès qu'elle sera expédiée.</p>
+    subject: t.subject,
+    html: t.layout(t.title, `${t.intro}
 ${itemsTable(order, store.currency)}${addressBlock(order, store)}
-<p style="margin-top:24px">${button(`${appUrl()}/s/${store.slug}`, "Retourner sur la boutique")}</p>`),
+<p style="margin-top:24px">${t.button(`${appUrl()}/s/${store.slug}`, "Retourner sur la boutique")}</p>`),
   };
 }
 
 export function shippingEmail(store: Store, order: Order & { items: OrderItem[] }, update = false) {
+  const t = texts(store, "shipping", { prenom: firstName(order.name), numero: String(order.number) });
   const link = trackingLink(order);
   const tracking = order.trackingNumber
-    ? `<div style="margin:16px 0;background:#f7f7f7;border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.5"><b>${esc(carrierLabel(order.trackingCarrier) || "Transporteur")}</b> · numéro de suivi <span style="font-family:monospace">${esc(order.trackingNumber)}</span>${link ? `<div style="margin-top:10px">${button(link, "Suivre mon colis")}</div>` : ""}</div>`
+    ? `<div style="margin:16px 0;background:#f7f7f7;border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.5"><b>${esc(carrierLabel(order.trackingCarrier) || "Transporteur")}</b> · numéro de suivi <span style="font-family:monospace">${esc(order.trackingNumber)}</span>${link ? `<div style="margin-top:10px">${t.button(link, "Suivre mon colis")}</div>` : ""}</div>`
     : "";
   return {
-    subject: update ? `Suivi de votre commande #${order.number} mis à jour` : `Votre commande #${order.number} est en route`,
-    html: layout(store.name, update ? "Nouveau suivi pour votre colis" : "Votre commande a été expédiée",
-      `<p style="font-size:14px;line-height:1.5">${update ? `Les informations de suivi de votre commande <b>#${order.number}</b> ont changé.` : `Bonne nouvelle : votre commande <b>#${order.number}</b> a quitté nos mains et arrive bientôt.`}</p>${tracking}${itemsTable(order, store.currency)}${addressBlock(order, store)}`),
+    subject: update ? `Suivi de votre commande #${order.number} mis à jour` : t.subject,
+    html: t.layout(update ? "Nouveau suivi pour votre colis" : t.title,
+      `${update ? `<p style="font-size:14px;line-height:1.5">Les informations de suivi de votre commande <b>#${order.number}</b> ont changé.</p>` : t.intro}${tracking}${itemsTable(order, store.currency)}${addressBlock(order, store)}`),
   };
 }
 
@@ -91,13 +116,13 @@ export function inviteEmail(storeName: string, invitedBy: string, link: string) 
 
 export function abandonedCartEmail(store: Store, name: string, lines: { title: string; quantity: number; priceCents: number }[], link: string) {
   const m = (c: number) => formatMoney(c, store.currency);
+  const t = texts(store, "abandoned_cart", { prenom: firstName(name) });
   const rows = lines.map((l) => `<tr><td style="padding:8px 0;border-bottom:1px solid #ebebeb">${esc(l.title)} × ${l.quantity}</td><td align="right" style="padding:8px 0;border-bottom:1px solid #ebebeb">${m(l.priceCents * l.quantity)}</td></tr>`).join("");
   return {
-    subject: `Vous avez oublié quelque chose chez ${store.name}`,
-    html: layout(store.name, name ? `${name.split(" ")[0]}, votre panier vous attend` : "Votre panier vous attend",
-      `<p style="font-size:14px;line-height:1.5">Vous avez laissé des articles dans votre panier. Nous les avons gardés pour vous.</p>
+    subject: t.subject,
+    html: t.layout(t.title, `${t.intro}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;margin:16px 0">${rows}</table>
-<p>${button(link, "Reprendre ma commande")}</p>`),
+<p>${t.button(link, "Reprendre ma commande")}</p>`),
   };
 }
 
@@ -118,10 +143,10 @@ ${expiresAt ? `<div style="font-size:12px;color:#616161;margin-top:6px">Valable 
 }
 
 export function refundEmail(store: Store, number: number, amountCents: number, items: { title: string; quantity: number }[], reason: string) {
+  const t = texts(store, "refund", { numero: String(number), montant: formatMoney(amountCents, store.currency) });
   return {
-    subject: `Remboursement de ${formatMoney(amountCents, store.currency)} pour votre commande #${number}`,
-    html: layout(store.name, "Votre remboursement est en route",
-      `<p style="font-size:14px;line-height:1.5">Nous avons remboursé <b>${formatMoney(amountCents, store.currency)}</b> sur votre commande <b>#${number}</b>. Selon votre banque, le montant apparaît sous 5 à 10 jours.</p>
+    subject: t.subject,
+    html: t.layout(t.title, `${t.intro}
 ${items.length ? `<ul style="font-size:14px;line-height:1.6;color:#616161">${items.map((i) => `<li>${esc(i.title)} × ${i.quantity}</li>`).join("")}</ul>` : ""}
 ${reason ? `<p style="font-size:13px;color:#616161">Motif : ${esc(reason)}</p>` : ""}`),
   };
@@ -148,10 +173,10 @@ export function lowStockEmail(store: Store, items: { title: string; stock: numbe
 }
 
 export function reviewRequestEmail(store: Store, name: string, products: { title: string; url: string }[]) {
+  const t = texts(store, "review_request", { prenom: firstName(name) });
   return {
-    subject: `Que pensez-vous de votre commande ${store.name} ?`,
-    html: layout(store.name, `${name.split(" ")[0]}, votre avis compte`,
-      `<p style="font-size:14px;line-height:1.5">Votre commande est arrivée il y a quelques jours. Un mot sur vos articles aide d'autres clients à choisir, et nous aide à nous améliorer.</p>
+    subject: t.subject,
+    html: t.layout(t.title, `${t.intro}
 ${products.map((p) => `<p style="margin:10px 0"><a href="${esc(p.url)}" style="display:block;border:1px solid #e3e3e3;border-radius:10px;padding:12px 14px;color:#303030;text-decoration:none"><b>${esc(p.title)}</b><span style="float:right;color:#e3a008;letter-spacing:2px">★★★★★</span></a></p>`).join("")}
 <p style="font-size:13px;color:#616161">Il suffit de cliquer sur un produit puis sur « Écrire un avis ».</p>`),
   };
@@ -180,11 +205,11 @@ ${note ? `<p style="font-size:14px;line-height:1.5;color:#616161">« ${esc(note)
 }
 
 export function returnApprovedEmail(store: Store, number: number, items: ReturnItem[]) {
+  const t = texts(store, "return_approved", { numero: String(number) });
   const instructions = store.returnInstructions.trim();
   return {
-    subject: `Votre retour pour la commande #${number} est accepté`,
-    html: layout(store.name, "Votre retour est accepté",
-      `<p style="font-size:14px;line-height:1.5">Vous pouvez nous renvoyer les articles ci-dessous. Nous vous rembourserons dès leur réception.</p>${returnList(items)}
+    subject: t.subject,
+    html: t.layout(t.title, `${t.intro}${returnList(items)}
 ${instructions ? `<div style="font-size:14px;line-height:1.5;background:#f7f7f7;border-radius:8px;padding:12px 14px;white-space:pre-line"><b>Comment nous les renvoyer</b><br>${esc(instructions)}</div>` : `<p style="font-size:14px;line-height:1.5">Indiquez le numéro de commande <b>#${number}</b> dans le colis.</p>`}`),
   };
 }
@@ -200,12 +225,13 @@ ${reason ? `<p style="font-size:14px;line-height:1.5;color:#616161">Motif : ${es
 }
 
 export function invoiceEmail(store: Store, order: Order & { items: OrderItem[] }, link: string, message: string) {
+  const t = texts(store, "invoice", { prenom: firstName(order.name), numero: String(order.number), montant: formatMoney(order.totalCents, store.currency) });
   return {
-    subject: `Facture ${store.name} : commande #${order.number} (${formatMoney(order.totalCents, store.currency)})`,
-    html: layout(store.name, `Votre commande #${order.number}`,
-      `${message ? `<p style="font-size:14px;line-height:1.5;white-space:pre-line">${esc(message)}</p>` : `<p style="font-size:14px;line-height:1.5">Voici le récapitulatif de votre commande. Vous pouvez la régler en ligne en toute sécurité.</p>`}
+    subject: t.subject,
+    html: t.layout(t.title,
+      `${message ? `<p style="font-size:14px;line-height:1.5;white-space:pre-line">${esc(message)}</p>` : t.intro}
 ${itemsTable(order, store.currency)}
-<p>${button(link, `Payer ${formatMoney(order.totalCents, store.currency)}`)}</p>
+<p>${t.button(link, `Payer ${formatMoney(order.totalCents, store.currency)}`)}</p>
 <p style="font-size:12px;color:#8a8a8a">Ou copiez ce lien : ${esc(link)}</p>`),
   };
 }
@@ -258,10 +284,10 @@ export function chatReplyEmail(store: Store, name: string, authorName: string, b
 }
 
 export function pickupReadyEmail(store: Store, order: Order & { items: OrderItem[] }) {
+  const t = texts(store, "pickup_ready", { prenom: firstName(order.name), numero: String(order.number) });
   return {
-    subject: `Votre commande #${order.number} est prête à être retirée`,
-    html: layout(store.name, "Votre commande vous attend !",
-      `<p style="font-size:14px;line-height:1.5">Bonne nouvelle : votre commande <b>#${order.number}</b> est prête. Présentez ce numéro au moment du retrait.</p>
+    subject: t.subject,
+    html: t.layout(t.title, `${t.intro}
 ${addressBlock(order, store)}${itemsTable(order, store.currency)}`),
   };
 }

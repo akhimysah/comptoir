@@ -3,12 +3,25 @@ import { PageHeader, Pill } from "@/components/ui";
 import { requireOwner } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/utils";
+import { TemplateEditor } from "@/components/admin/TemplateEditor";
+import { TEMPLATE_KEYS, TEMPLATES, templateText, type TemplateKey } from "@/lib/email-templates";
 
 const STATUS = { sent: { label: "Envoyé", tone: "ok" }, logged: { label: "Enregistré, non envoyé", tone: "neutral" }, failed: { label: "Échec", tone: "bad" } } as const;
 
-export default async function NotificationsPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
-  const { id } = await searchParams;
+export default async function NotificationsPage({ searchParams }: { searchParams: Promise<{ id?: string; template?: string }> }) {
+  const { id, template } = await searchParams;
   const { store } = await requireOwner();
+  const custom: Record<string, Record<string, string>> = JSON.parse(store.emailTemplates || "{}");
+  const isCustom = (k: TemplateKey) => Object.values(custom[k] ?? {}).some((v) => v?.trim());
+  if (template && template in TEMPLATES) {
+    const k = template as TemplateKey;
+    return (
+      <>
+        <PageHeader back="/admin/settings/notifications" title={TEMPLATES[k].label} subtitle={TEMPLATES[k].when} />
+        <TemplateEditor templateKey={k} initial={templateText(store.emailTemplates, k)} defaults={TEMPLATES[k].defaults} vars={TEMPLATES[k].vars} />
+      </>
+    );
+  }
   const mails = await db.mailLog.findMany({ where: { storeId: store.id }, orderBy: { createdAt: "desc" }, take: 100 });
   const open = mails.find((m) => m.id === id) ?? null;
   const live = Boolean(process.env.RESEND_API_KEY);
@@ -16,6 +29,19 @@ export default async function NotificationsPage({ searchParams }: { searchParams
   return (
     <>
       <PageHeader back="/admin/settings" title="Notifications" subtitle="E-mails envoyés automatiquement à vos clients et à vous." />
+      <section className="card mb-4 overflow-hidden">
+        <div className="card-h flex-col items-start gap-0.5"><h2 className="text-sm font-[650]">E-mails aux clients</h2><p className="text-xs text-muted">Personnalisez l'objet et le message de chaque e-mail. Les couleurs suivent celles de votre boutique.</p></div>
+        <ul className="grid sm:grid-cols-2">
+          {TEMPLATE_KEYS.map((k) => (
+            <li key={k} className="border-b border-line sm:odd:border-r">
+              <Link href={`/admin/settings/notifications?template=${k}`} className="flex items-center justify-between gap-2 px-4 py-3 hover:bg-[#f7f7f7]">
+                <span><span className="block font-[550]">{TEMPLATES[k].label}</span><span className="text-xs text-muted">{TEMPLATES[k].when}</span></span>
+                {isCustom(k) && <Pill tone="info" dot={false}>Personnalisé</Pill>}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
       {!live && (
         <p className="card bg-[#fff8db] px-4 py-3 text-[13px]">
           Aucun service d'envoi n'est configuré : les e-mails sont enregistrés ici mais ne partent pas. Ajoutez <code>RESEND_API_KEY</code> dans le fichier <code>.env</code> pour les envoyer vraiment (voir le README).

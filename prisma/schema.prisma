@@ -65,6 +65,7 @@ model Store {
   pickupEnabled         Boolean               @default(false) // retrait en boutique proposé au paiement
   pickupAddress         String                @default("")
   pickupInstructions    String                @default("") // horaires, consignes (pièce d'identité, numéro de commande…)
+  emailTemplates        String                @default("{}") // JSON { modèle: { subject, title, intro } } : textes personnalisés des e-mails clients
   returnsEnabled        Boolean               @default(true) // retours en libre-service depuis « Mon compte »
   returnWindowDays      Int                   @default(30)
   returnInstructions    String                @default("") // adresse de retour, emballage… envoyé à l'acceptation
