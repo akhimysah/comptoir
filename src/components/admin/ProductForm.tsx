@@ -6,6 +6,7 @@ import { useActionState, useMemo, useRef, useState } from "react";
 import { saveProduct, type ProductPayload } from "@/app/admin/products/actions";
 import { Thumb } from "@/components/ui";
 import { formatMoney, parseMoney } from "@/lib/money";
+import { choicesOf, type MetafieldDef } from "@/lib/metafields";
 import { SaveBar } from "./SaveBar";
 import { SeoCard } from "./SeoCard";
 import { uploadImage } from "./upload";
@@ -13,7 +14,7 @@ import { uploadImage } from "./upload";
 type Option = { name: string; values: string[] };
 type VariantRow = ProductPayload["variants"][number];
 
-export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle" | "subscriptionInterval" | "subscriptionDiscountPct"> & { id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[]; subscriptionInterval?: "" | "week" | "month"; subscriptionDiscountPct?: number };
+export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle" | "subscriptionInterval" | "subscriptionDiscountPct" | "metafields"> & { metafields?: Record<string, string>; id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[]; subscriptionInterval?: "" | "week" | "month"; subscriptionDiscountPct?: number };
 export type BundleChoice = { id: string; label: string; stock: number };
 
 const key = (vals: string[]) => vals.join("\u0000");
@@ -24,7 +25,8 @@ function cartesian(options: Option[]): string[][] {
   return usable.reduce<string[][]>((acc, o) => acc.flatMap((combo) => o.values.map((v) => [...combo, v])), [[]]);
 }
 
-export function ProductForm({ initial, collections, currency, storeUrl, handle, bundleChoices = [] }: { initial: ProductFormInitial; collections: { id: string; title: string }[]; currency: string; storeUrl: string; handle?: string; bundleChoices?: BundleChoice[] }) {
+export function ProductForm({ initial, collections, currency, storeUrl, handle, bundleChoices = [], fieldDefs = [] }: { initial: ProductFormInitial; collections: { id: string; title: string }[]; currency: string; storeUrl: string; handle?: string; bundleChoices?: BundleChoice[]; fieldDefs?: MetafieldDef[] }) {
+  const [metafields, setMetafields] = useState<Record<string, string>>(initial.metafields ?? {});
   const [state, action, pending] = useActionState(saveProduct, undefined);
   const router = useRouter();
   const [title, setTitle] = useState(initial.title);
@@ -79,7 +81,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
     }
   }
 
-  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle, subscriptionInterval: subInterval, subscriptionDiscountPct: subPct };
+  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle, subscriptionInterval: subInterval, subscriptionDiscountPct: subPct, metafields };
   const hasOptions = combos[0].length > 0;
   const [initialJson] = useState(() => JSON.stringify(payload));
   const dirty = !initial.id || JSON.stringify(payload) !== initialJson;
@@ -256,6 +258,25 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
               </>
             )}
           </section>
+          {fieldDefs.length > 0 && (
+            <section className="card flex flex-col gap-3 p-4">
+              <div className="flex items-center justify-between"><h2 className="text-sm font-[650]">Champs personnalisés</h2><Link href="/admin/settings/custom-data" className="text-xs text-pine hover:underline">Gérer les champs</Link></div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {fieldDefs.map((d) => {
+                  const v = metafields[d.key] ?? "";
+                  const set = (x: string) => setMetafields((m) => { const n = { ...m }; if (x === "") delete n[d.key]; else n[d.key] = x; return n; });
+                  return (
+                    <label key={d.key} className={`label ${d.type === "multiline" ? "sm:col-span-2" : ""}`}>{d.name}{d.unit ? ` (${d.unit})` : ""}
+                      {d.type === "multiline" ? <textarea value={v} onChange={(e) => set(e.target.value)} rows={3} maxLength={2000} className="input" />
+                        : d.type === "boolean" ? <select value={v} onChange={(e) => set(e.target.value)} className="input"><option value="">—</option><option value="true">Oui</option><option value="false">Non</option></select>
+                        : d.type === "choice" ? <select value={v} onChange={(e) => set(e.target.value)} className="input"><option value="">—</option>{choicesOf(d).map((c) => <option key={c} value={c}>{c}</option>)}</select>
+                        : <input value={v} onChange={(e) => set(e.target.value)} inputMode={d.type === "number" ? "decimal" : undefined} maxLength={200} className="input" />}
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+          )}
           <SeoCard
             title={seo.seoTitle}
             description={seo.seoDescription}

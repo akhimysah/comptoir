@@ -45,6 +45,7 @@ Ensuite, ouvrez http://localhost:3000.
 | Alertes de retour en stock (« Prévenez-moi ») | E-mail automatique au réassort (stock, bon de commande, retour) |
 | Remises avancées : sur certaines collections ou certains produits, « Achetez X, obtenez Y », programmées, une fois par client | Codes promo et remises automatiques |
 | Messagerie (comme Shopify Inbox) : bulle de discussion sur la boutique | Réponses depuis l'admin, aussi envoyées par e-mail |
+| Données personnalisées (métachamps) : matière, dimensions, entretien… | Tableau « Caractéristiques » sur la fiche produit, champs utilisables comme filtres |
 | Navigation : menus avec sous-menus déroulants | Redirections d'URL automatiques quand une adresse change |
 | Référencement : titre et description Google, aperçu du résultat | Sitemap par boutique (`/s/<boutique>/sitemap.xml`), robots.txt |
 | Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau ; achat de cartes cadeaux dans la boutique |

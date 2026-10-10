@@ -7,6 +7,7 @@ import { getCatalog } from "@/lib/storefront";
 import type { Store } from "@prisma/client";
 import { db } from "@/lib/db";
 import { notFoundOrRedirect } from "@/lib/navigation";
+import { formatMetafield } from "@/lib/metafields";
 import { getStore } from "@/lib/storefront";
 import { bundleStock } from "@/lib/bundles";
 import { parseJson } from "@/lib/utils";
@@ -30,6 +31,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const { variant: initialVariant } = await searchParams;
   const { slug, handle } = await params;
   const { store, product } = await load(slug, handle);
+  const defs = await db.metafieldDefinition.findMany({ where: { storeId: store.id, showOnProduct: true }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
+  const values = parseJson<Record<string, string>>(product.metafields, {});
+  const specs = defs.flatMap((d) => { const v = formatMetafield(d, values[d.key]); return v ? [{ name: d.name, value: v }] : []; });
   const parts = await db.bundleItem.findMany({ where: { bundleId: product.id } });
   const partVariants = parts.length ? await db.variant.findMany({ where: { id: { in: parts.map((x) => x.variantId) } }, include: { product: true } }) : [];
   const bundleLeft = parts.length ? bundleStock(parts.map((x) => ({ quantity: x.quantity, stock: partVariants.find((v) => v.id === x.variantId)?.stock ?? 0 }))) : null;
@@ -39,6 +43,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   return (
     <>
     <ProductBuy
+      specs={specs}
       initialVariant={initialVariant}
       slug={slug}
       currency={cur.code}

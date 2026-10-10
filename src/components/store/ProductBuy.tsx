@@ -10,8 +10,8 @@ const SUB = ":abonnement";
 
 type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number };
 
-export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null, initialVariant }: {
-  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null; initialVariant?: string;
+export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null, initialVariant, specs = [] }: {
+  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null; initialVariant?: string; specs?: { name: string; value: string }[];
   options: { name: string; values: string[] }[]; variants: V[];
 }) {
   const { add, items } = useCart(slug);
@@ -130,6 +130,14 @@ export function ProductBuy({ slug, currency, rate = 1, title, description, image
         {!isGiftCard && !preorder && variant && variant.stock > 0 && variant.stock <= 5 && <p className="text-sm text-[var(--c-muted)]">Plus que {variant.stock} en stock.</p>}
 
         {description && <div className="whitespace-pre-line border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-6 leading-relaxed text-[var(--c-muted)]">{description}</div>}
+        {specs.length > 0 && (
+          <div className="border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-6">
+            <h2 className="mb-3 font-semibold">Caractéristiques</h2>
+            <dl className="grid grid-cols-[minmax(110px,auto)_1fr] gap-x-6 gap-y-2 text-sm">
+              {specs.map((s) => <div key={s.name} className="contents"><dt className="text-[var(--c-muted)]">{s.name}</dt><dd className="whitespace-pre-line">{s.value}</dd></div>)}
+            </dl>
+          </div>
+        )}
       </div>
     </div>
   );

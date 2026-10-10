@@ -6,6 +6,7 @@ import { db } from "./db";
 import { bundleComponents, bundleStock } from "./bundles";
 import { readTheme } from "./theme";
 import { parseJson } from "./utils";
+import { formatMetafield } from "./metafields";
 
 export const getStore = cache(async (slug: string) => {
   const store = await db.store.findUnique({ where: { slug } });
@@ -23,6 +24,8 @@ export const getCatalog = cache(async (storeId: string) => {
     db.collection.findMany({ where: { storeId }, include: { products: { where: { product: { status: "active" } } } }, orderBy: { title: "asc" } }),
     db.review.groupBy({ by: ["productId"], where: { storeId, status: "published" }, _avg: { rating: true }, _count: true }),
   ]);
+  // Champs personnalisés « filtrables » : ajoutés aux options pour apparaître dans les filtres de la boutique.
+  const filterDefs = await db.metafieldDefinition.findMany({ where: { storeId, filterable: true }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
   const ratingBy = new Map(ratings.map((r) => [r.productId, { avg: r._avg.rating ?? 0, count: r._count }]));
   const bundles = await bundleComponents(products.map((p) => p.id));
   const cards: CardProduct[] = products
@@ -45,7 +48,12 @@ export const getCatalog = cache(async (storeId: string) => {
         options: (p.isGiftCard ? [] : parseJson<{ name: string; values: string[] }[]>(p.options, [])).map((o, idx) => ({
           name: o.name.trim(),
           values: [...new Set(p.variants.map((v) => parseJson<string[]>(v.optionValues, [])[idx]).filter((x): x is string => !!x).map((x) => x.trim()))],
-        })).filter((o) => o.name && o.values.length),
+        })).filter((o) => o.name && o.values.length).concat(filterDefs.flatMap((d) => {
+          const raw = parseJson<Record<string, string>>(p.metafields, {})[d.key];
+          if (d.type === "boolean") return raw === "true" ? [{ name: d.name, values: ["Oui"] }] : [];
+          const shown = formatMetafield(d, raw);
+          return shown ? [{ name: d.name, values: [shown] }] : [];
+        })),
       };
     });
   const cols: CardCollection[] = collections.map((c) => ({ handle: c.handle, title: c.title, image: c.image, count: c.products.length }));

@@ -29,41 +29,41 @@ model Session {
 }
 
 model Store {
-  id                    String          @id @default(cuid())
-  slug                  String          @unique
+  id                    String                @id @default(cuid())
+  slug                  String                @unique
   name                  String
-  tagline               String          @default("")
-  currency              String          @default("EUR")
-  shippingCents         Int             @default(490)
-  freeShippingFromCents Int             @default(6000)
+  tagline               String                @default("")
+  currency              String                @default("EUR")
+  shippingCents         Int                   @default(490)
+  freeShippingFromCents Int                   @default(6000)
   theme                 String // JSON, voir src/lib/theme.ts
   themeUpdatedAt        DateTime?
   stripeAccountId       String?
-  stripeChargesEnabled  Boolean         @default(false)
-  displayCurrencies     String          @default("[]") // JSON : { code, rate }[] — devises d'affichage et leur taux par rapport à la devise de la boutique
-  loyaltyEnabled        Boolean         @default(false) // programme de fidélité
-  loyaltyPointsPerUnit  Int             @default(1) // points gagnés par unité de devise dépensée (1 € = 1 point)
-  loyaltyRewardPoints   Int             @default(100) // points nécessaires pour un bon
-  loyaltyRewardCents    Int             @default(500) // valeur du bon
-  autoCartReminder      Boolean         @default(false) // relance automatique des paniers abandonnés
-  cartReminderHours     Int             @default(4)
-  autoReviewRequest     Boolean         @default(false) // demande d'avis après expédition
-  reviewRequestDays     Int             @default(7)
-  menus                 String          @default("") // JSON { main, footer } : menus de navigation (vide = menus par défaut)
-  chatEnabled           Boolean         @default(true) // bulle de discussion sur la boutique
-  chatGreeting          String          @default("Bonjour ! Une question sur un produit ou une commande ? Écrivez-nous, nous répondons vite.")
-  returnsEnabled        Boolean         @default(true) // retours en libre-service depuis « Mon compte »
-  returnWindowDays      Int             @default(30)
-  returnInstructions    String          @default("") // adresse de retour, emballage… envoyé à l'acceptation
-  lowStockThreshold     Int             @default(3) // alerte e-mail quand une variante passe sous ce seuil
-  taxRateBps            Int             @default(2000) // TVA incluse dans les prix, en points de base (2000 = 20 %) ; 0 = franchise
-  legalName             String          @default("") // pour les factures
-  legalAddress          String          @default("")
-  siret                 String          @default("")
-  vatNumber             String          @default("")
+  stripeChargesEnabled  Boolean               @default(false)
+  displayCurrencies     String                @default("[]") // JSON : { code, rate }[] — devises d'affichage et leur taux par rapport à la devise de la boutique
+  loyaltyEnabled        Boolean               @default(false) // programme de fidélité
+  loyaltyPointsPerUnit  Int                   @default(1) // points gagnés par unité de devise dépensée (1 € = 1 point)
+  loyaltyRewardPoints   Int                   @default(100) // points nécessaires pour un bon
+  loyaltyRewardCents    Int                   @default(500) // valeur du bon
+  autoCartReminder      Boolean               @default(false) // relance automatique des paniers abandonnés
+  cartReminderHours     Int                   @default(4)
+  autoReviewRequest     Boolean               @default(false) // demande d'avis après expédition
+  reviewRequestDays     Int                   @default(7)
+  menus                 String                @default("") // JSON { main, footer } : menus de navigation (vide = menus par défaut)
+  chatEnabled           Boolean               @default(true) // bulle de discussion sur la boutique
+  chatGreeting          String                @default("Bonjour ! Une question sur un produit ou une commande ? Écrivez-nous, nous répondons vite.")
+  returnsEnabled        Boolean               @default(true) // retours en libre-service depuis « Mon compte »
+  returnWindowDays      Int                   @default(30)
+  returnInstructions    String                @default("") // adresse de retour, emballage… envoyé à l'acceptation
+  lowStockThreshold     Int                   @default(3) // alerte e-mail quand une variante passe sous ce seuil
+  taxRateBps            Int                   @default(2000) // TVA incluse dans les prix, en points de base (2000 = 20 %) ; 0 = franchise
+  legalName             String                @default("") // pour les factures
+  legalAddress          String                @default("")
+  siret                 String                @default("")
+  vatNumber             String                @default("")
   ownerId               String
-  owner                 User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt             DateTime        @default(now())
+  owner                 User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt             DateTime              @default(now())
   products              Product[]
   collections           Collection[]
   orders                Order[]
@@ -86,6 +86,7 @@ model Store {
   purchaseOrders        PurchaseOrder[]
   stockAlerts           StockAlert[]
   conversations         Conversation[]
+  metafieldDefinitions  MetafieldDefinition[]
 }
 
 /// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
@@ -291,6 +292,7 @@ model Product {
   collections             ProductCollection[]
   reviews                 Review[]
   bundleItems             BundleItem[]        @relation("BundleItems")
+  metafields              String              @default("{}") // JSON { clé: valeur } des champs personnalisés
 
   @@unique([storeId, handle])
 }
@@ -690,4 +692,22 @@ model ChatMessage {
   createdAt      DateTime     @default(now())
 
   @@index([conversationId, createdAt])
+}
+
+/// Champ personnalisé des produits (comme les métachamps Shopify) : matière, dimensions, entretien…
+model MetafieldDefinition {
+  id            String   @id @default(cuid())
+  storeId       String
+  store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  key           String // identifiant stable (ex. « matiere »)
+  name          String // libellé affiché (ex. « Matière »)
+  type          String   @default("text") // text | multiline | number | boolean | choice
+  choices       String   @default("[]") // JSON : valeurs possibles pour « choice »
+  unit          String   @default("") // ex. « cm », « g »
+  showOnProduct Boolean  @default(true) // tableau « Caractéristiques » sur la fiche produit
+  filterable    Boolean  @default(false) // proposé dans les filtres de la boutique
+  position      Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@unique([storeId, key])
 }

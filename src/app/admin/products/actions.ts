@@ -10,6 +10,7 @@ import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { addAutoRedirect } from "@/lib/navigation";
 import { notifyBackInStock } from "@/lib/stock-alerts";
+import { cleanMetafields } from "@/lib/metafields";
 import { parseMoney } from "@/lib/money";
 import { slugify } from "@/lib/utils";
 
@@ -45,6 +46,7 @@ const payloadSchema = z.object({
   subscriptionInterval: z.enum(["", "week", "month"]).optional().default(""),
   subscriptionDiscountPct: z.number().min(0).max(90).optional().default(0),
   bundle: z.array(z.object({ variantId: z.string(), quantity: z.number().int().min(1).max(99) })).max(30).optional().default([]),
+  metafields: z.record(z.string().max(2000)).optional().default({}),
 });
 export type ProductPayload = z.infer<typeof payloadSchema>;
 export type SaveState = { error?: string } | undefined;
@@ -70,6 +72,9 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
   const parsed = payloadSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const p = parsed.data;
+  const defs = await db.metafieldDefinition.findMany({ where: { storeId: store.id } });
+  const meta = cleanMetafields(defs, p.metafields);
+  if (meta.error) return { error: meta.error };
 
   const variants = [];
   for (const [i, v] of p.variants.entries()) {
@@ -115,6 +120,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
           options: JSON.stringify(p.options),
           seoTitle: p.seoTitle,
           seoDescription: p.seoDescription,
+          metafields: JSON.stringify(meta.values),
           isGiftCard: p.isGiftCard,
           continueSelling: p.continueSelling,
           subscriptionInterval: p.subscriptionInterval || null,
@@ -136,6 +142,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
         options: JSON.stringify(p.options),
         seoTitle: p.seoTitle,
         seoDescription: p.seoDescription,
+        metafields: JSON.stringify(meta.values),
         isGiftCard: p.isGiftCard,
         continueSelling: p.continueSelling,
         subscriptionInterval: p.subscriptionInterval || null,
