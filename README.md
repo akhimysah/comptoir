@@ -151,7 +151,7 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 npm test
 ```
 
-Les calculs sensibles (remises, « Achetez X obtenez Y », TVA, remboursements, double authentification, redirections, exports CSV, filtres, import Shopify, e-mails) sont vérifiés par des tests automatiques (`tests/`). À chaque envoi sur GitHub, le typage et les tests tournent tout seuls (onglet **Actions**) : une croix rouge signale qu'un changement a cassé quelque chose.
+Les calculs sensibles (remises, « Achetez X obtenez Y », TVA, remboursements, double authentification, redirections, exports CSV, filtres, import Shopify, e-mails) et le parcours d'achat complet sur une base de test dédiée (commande, paiement, stock, carte cadeau et code promo utilisés en même temps, remboursements simultanés) sont vérifiés par des tests automatiques (`tests/`). À chaque envoi sur GitHub, le typage et les tests tournent tout seuls (onglet **Actions**) : une croix rouge signale qu'un changement a cassé quelque chose.
 
 ## Organisation du code
 

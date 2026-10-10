@@ -8,3 +8,5 @@ uploads/*
 next-env.d.ts
 *.tsbuildinfo
 .DS_Store
+prisma/test.db
+prisma/test.db-journal
