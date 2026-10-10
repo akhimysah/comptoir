@@ -1,5 +1,6 @@
 import type { Order, OrderItem, Store } from "@prisma/client";
 import { formatMoney } from "@/lib/money";
+import { orderCurrency } from "@/lib/presentment";
 import type { Address } from "@/lib/orders";
 import { FRANCHISE_MENTION, includedTax, rateLabel, REVERSE_CHARGE_MENTION } from "@/lib/tax";
 import { parseJson } from "@/lib/utils";
@@ -26,12 +27,16 @@ function ShipTo({ order }: { order: FullOrder }) {
 }
 
 export function Invoice({ store, order }: { store: Store; order: FullOrder }) {
-  const m = (c: number) => formatMoney(c, store.currency);
+  // Facture dans la devise payée par le client, avec le taux appliqué.
+  const cur = orderCurrency(order, store.currency);
+  const m = (c: number) => formatMoney(cur.convert(c), cur.currency);
   // Autoliquidation : facture hors taxes, sans TVA (et sans la mention de franchise).
   const rate = order.reverseCharge ? 0 : order.taxRateBps || store.taxRateBps;
   const unit = order.reverseCharge ? "HT" : "TTC";
-  const gross = order.totalCents + order.giftCardCents; // valeur TTC des articles et de la livraison
-  const tax = order.taxCents || includedTax(gross, rate);
+  const fm = (c: number) => formatMoney(c, cur.currency);
+  // Valeur des articles et de la livraison ; en devise étrangère, d'après le montant réellement payé.
+  const gross = cur.foreign ? cur.total + cur.convert(order.giftCardCents) : order.totalCents + order.giftCardCents;
+  const tax = cur.foreign ? includedTax(gross, rate) : order.taxCents || includedTax(gross, rate);
   return (
     <section className={sheet}>
       <header className="mb-10 flex justify-between gap-6">
@@ -56,7 +61,7 @@ export function Invoice({ store, order }: { store: Store; order: FullOrder }) {
               <td className="py-2">{i.productTitle}{i.variantTitle !== "Par défaut" ? ` · ${i.variantTitle}` : ""}</td>
               <td className="py-2 text-right tabular-nums">{i.quantity}</td>
               <td className="py-2 text-right tabular-nums">{m(i.priceCents)}</td>
-              <td className="py-2 text-right tabular-nums">{m(i.priceCents * i.quantity)}</td>
+              <td className="py-2 text-right tabular-nums">{fm(cur.convert(i.priceCents) * i.quantity)}</td>
             </tr>
           ))}
           {order.shippingCents > 0 && <tr className="border-b border-[#ddd]"><td className="py-2">Livraison{order.shippingMethod ? ` · ${order.shippingMethod}` : ""}</td><td className="py-2 text-right">1</td><td className="py-2 text-right tabular-nums">{m(order.shippingCents)}</td><td className="py-2 text-right tabular-nums">{m(order.shippingCents)}</td></tr>}
@@ -65,16 +70,17 @@ export function Invoice({ store, order }: { store: Store; order: FullOrder }) {
       <div className="ml-auto mt-4 w-72">
         <dl className="grid grid-cols-[1fr_auto] gap-y-1">
           {order.discountCents > 0 && <><dt>Remise {order.discountCode}</dt><dd className="text-right tabular-nums">−{m(order.discountCents)}</dd></>}
-          {rate > 0 && <><dt>Total HT</dt><dd className="text-right tabular-nums">{m(gross - tax)}</dd><dt>TVA {rateLabel(rate)}</dt><dd className="text-right tabular-nums">{m(tax)}</dd></>}
+          {rate > 0 && <><dt>Total HT</dt><dd className="text-right tabular-nums">{fm(gross - tax)}</dd><dt>TVA {rateLabel(rate)}</dt><dd className="text-right tabular-nums">{fm(tax)}</dd></>}
           {order.reverseCharge && <><dt>TVA</dt><dd className="text-right tabular-nums">{m(0)}</dd></>}
-          <dt className="border-t-2 border-[#111] pt-1 font-bold">Total {unit}</dt><dd className="border-t-2 border-[#111] pt-1 text-right font-bold tabular-nums">{m(gross)}</dd>
+          <dt className="border-t-2 border-[#111] pt-1 font-bold">Total {unit}</dt><dd className="border-t-2 border-[#111] pt-1 text-right font-bold tabular-nums">{fm(gross)}</dd>
           {order.giftCardCents > 0 && <><dt className="text-[#555]">Payé par carte cadeau</dt><dd className="text-right tabular-nums text-[#555]">−{m(order.giftCardCents)}</dd></>}
-          <dt className="text-[#555]">{order.paymentStatus === "pending" ? "Reste à payer" : "Payé"}</dt><dd className="text-right tabular-nums text-[#555]">{m(order.totalCents)}</dd>
+          <dt className="text-[#555]">{order.paymentStatus === "pending" ? "Reste à payer" : "Payé"}</dt><dd className="text-right tabular-nums text-[#555]">{fm(cur.total)}</dd>
           {order.refundedCents > 0 && <><dt className="text-[#555]">Remboursé</dt><dd className="text-right tabular-nums text-[#555]">−{m(order.refundedCents)}</dd></>}
         </dl>
       </div>
       <footer className="mt-12 border-t border-[#ddd] pt-3 text-[10px] text-[#777]">
         {order.reverseCharge ? <div className="font-semibold text-[#111]">{REVERSE_CHARGE_MENTION}</div> : rate === 0 && <div className="font-semibold text-[#111]">{FRANCHISE_MENTION}</div>}
+        {cur.foreign && <div>Montants en {cur.currency}, au taux de 1 {store.currency} = {cur.rate.toLocaleString("fr-FR", { maximumFractionDigits: 4 })} {cur.currency} appliqué à la commande.</div>}
         <div>Facture émise par {store.legalName || store.name}. {order.reverseCharge ? "Les prix s'entendent hors taxes." : "Les prix s'entendent toutes taxes comprises."}</div>
       </footer>
     </section>

@@ -28,7 +28,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <SettingsForm name={store.name} tagline={store.tagline} currency={store.currency} shipping={centsToInput(store.shippingCents)} freeFrom={centsToInput(store.freeShippingFromCents)} lowStockThreshold={store.lowStockThreshold} />
           <LoyaltyForm enabled={store.loyaltyEnabled} perUnit={store.loyaltyPointsPerUnit} rewardPoints={store.loyaltyRewardPoints} rewardValue={centsToInput(store.loyaltyRewardCents)} currency={store.currency} />
           <ReturnsForm enabled={store.returnsEnabled} days={store.returnWindowDays} instructions={store.returnInstructions} />
-          <CurrenciesForm base={store.currency} current={parseJson(store.displayCurrencies, [])} />
+          <CurrenciesForm base={store.currency} current={parseJson(store.displayCurrencies, [])} charge={store.chargeInCustomerCurrency} />
           <TaxForm taxRateBps={store.taxRateBps} vatByCountry={store.vatByCountry} legalName={store.legalName} legalAddress={store.legalAddress} siret={store.siret} vatNumber={store.vatNumber} />
         </div>
 

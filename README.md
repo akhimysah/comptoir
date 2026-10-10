@@ -144,7 +144,7 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 
 **Fonctionnalités Shopify absentes**
 - Langues autres que le français et l'anglais ; traduction automatique (aujourd'hui le marchand saisit l'anglais dans Paramètres → Langues).
-- Paiement dans la devise du client (les autres devises sont affichées, le paiement reste dans la devise de la boutique).
+- Taux de change mis à jour automatiquement chaque jour (aujourd'hui : bouton « Utiliser les taux du jour » dans Paramètres) ; paiement en devise étrangère pour les abonnements.
 - Étiquettes d'expédition et tarifs transporteurs en direct (Colissimo, Mondial Relay…).
 - Boutique d'applications (des logiciels tiers se branchent déjà via l'API et les webhooks : Paramètres → API et webhooks).
 - Éditeur de code du thème : les sections, les réglages et un CSS personnalisé sont modifiables, pas le gabarit des pages.

@@ -5,6 +5,7 @@ import { Thumb } from "@/components/ui";
 import { dict, intlLocale } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
 import { countryLabel } from "@/lib/countries";
+import { presentmentTotal } from "@/lib/presentment";
 import type { PricedCart } from "@/lib/pricing";
 import type { Suggestion } from "@/lib/recommendations";
 import { useCart } from "./cart";
@@ -45,6 +46,7 @@ const T = dict(
     loyaltyPoints: (n: number) => `${n} points`,
     loyaltyAfter: " de fidélité, à retrouver dans « Mon compte ».",
     indicative: (code: string, currency: string) => `Prix indicatifs en ${code}. Le paiement est effectué en ${currency} : `,
+    chargedIn: (code: string) => `Vous payez en ${code}.`,
     freeShippingLeft: (amount: string) => `Plus que ${amount} pour la livraison offerte.`,
     pickupTitle: "Réception",
     email: "E-mail",
@@ -108,6 +110,7 @@ const T = dict(
     loyaltyPoints: (n: number) => `${n} loyalty points`,
     loyaltyAfter: ", which you'll find in “My account”.",
     indicative: (code: string, currency: string) => `Prices in ${code} are approximate. Payment is made in ${currency}: `,
+    chargedIn: (code: string) => `You pay in ${code}.`,
     freeShippingLeft: (amount: string) => `Spend ${amount} more for free shipping.`,
     pickupTitle: "Delivery",
     email: "Email",
@@ -143,7 +146,7 @@ const field = "w-full rounded-[var(--t-radius)] border border-[color-mix(in_srgb
 
 type Recovered = { items: { variantId: string; quantity: number }[]; email: string; name: string; token: string } | null;
 
-export function CartView({ slug, currency, display, loyalty, cancelled, demo, recovered, customer }: { slug: string; currency: string; display?: { code: string; rate: number }; loyalty?: { perUnit: number } | null; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null }) {
+export function CartView({ slug, currency, display, chargeDisplay = false, loyalty, cancelled, demo, recovered, customer }: { slug: string; currency: string; display?: { code: string; rate: number }; chargeDisplay?: boolean; loyalty?: { perUnit: number } | null; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null }) {
   const { items, ready, setQuantity, replace, add } = useCart(slug);
   const locale = useLocale();
   const t = T[locale];
@@ -181,6 +184,9 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
   // Montants affichés dans la devise choisie ; le paiement se fait dans la devise de la boutique.
   const shown = display && display.code !== currency ? display : null;
   const m = (c: number) => (shown ? formatMoney(Math.round(c * shown.rate), shown.code, loc) : formatMoney(c, currency, loc));
+  // Paiement dans la devise du client (pas pour un abonnement, prélevé dans la devise de la boutique) : total exact prélevé par Stripe.
+  const charged = Boolean(shown && chargeDisplay && cart && !cart.lines.some((l) => l.subscription));
+  const toPay = (c: PricedCart) => (charged && shown ? formatMoney(presentmentTotal(c, shown.rate), shown.code, loc) : formatMoney(c.totalCents, currency, loc));
 
   const refresh = useCallback(async () => {
     if (!ready) return;
@@ -248,7 +254,7 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
                   <button type="button" className="text-sm text-[var(--c-muted)] underline underline-offset-4" onClick={() => setQuantity(l.variantId, 0)}>{t.remove}</button>
                 </div>
               </div>
-              <span className="font-medium tabular-nums">{m(l.priceCents * l.quantity)}</span>
+              <span className="font-medium tabular-nums">{shown ? formatMoney(Math.round(l.priceCents * shown.rate) * l.quantity, shown.code, loc) : m(l.priceCents * l.quantity)}</span>
             </li>
           ))}
         </ul>
@@ -295,11 +301,12 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
                 {cart.taxRateBps > 0 && <><dt className="text-xs text-[var(--c-muted)]">{t.vat((cart.taxRateBps / 100).toLocaleString(loc))}</dt><dd className="text-right text-xs text-[var(--c-muted)]">{m(cart.taxCents)}</dd></>}
                 {cart.giftCardCents > 0 && <><dt className="text-[var(--c-muted)]">{t.giftCard} ····{cart.giftCardCode?.slice(-4)} <button type="button" className="underline" onClick={() => { setGift(""); setGiftInput(""); }}>{t.removeLower}</button><span className="block text-xs">{t.giftBalance}{m(cart.giftCardBalanceCents - cart.giftCardCents)}</span></dt><dd className="text-right">−{m(cart.giftCardCents)}</dd></>}
                 <dt className="mt-2 border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-2 text-base font-semibold">{t.total}</dt>
-                <dd className="mt-2 border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-2 text-right text-base font-semibold">{m(cart.totalCents)}</dd>
+                <dd className="mt-2 border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-2 text-right text-base font-semibold">{charged ? toPay(cart) : m(cart.totalCents)}</dd>
               </dl>
             )}
             {cart && loyalty && cart.lines.length > 0 && <p className="text-xs text-[var(--c-muted)]">{t.loyaltyBefore}<b>{t.loyaltyPoints(Math.floor(((cart.totalCents + cart.giftCardCents - cart.shippingCents - cart.lines.filter((l) => l.isGiftCard).reduce((s, l) => s + l.priceCents * l.quantity, 0)) / 100) * loyalty.perUnit))}</b>{t.loyaltyAfter}</p>}
-            {cart && shown && <p className="text-xs text-[var(--c-muted)]">{t.indicative(shown.code, currency)}<b className="tabular-nums">{formatMoney(cart.totalCents, currency, loc)}</b>.</p>}
+            {cart && shown && charged && <p className="text-xs text-[var(--c-muted)]">{t.chargedIn(shown.code)}</p>}
+            {cart && shown && !charged && <p className="text-xs text-[var(--c-muted)]">{t.indicative(shown.code, currency)}<b className="tabular-nums">{formatMoney(cart.totalCents, currency, loc)}</b>.</p>}
             {cart && !cart.countries && cart.shippingCents > 0 && cart.freeShippingFromCents > 0 && (
               <p className="text-xs text-[var(--c-muted)]">{t.freeShippingLeft(m(cart.freeShippingFromCents - (cart.subtotalCents - cart.discountCents)))}</p>
             )}
@@ -377,7 +384,7 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
             ) : null}
             {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
             <button disabled={busy || !cart?.lines.length || Boolean(cart?.shippingError)} className="h-12 rounded-[var(--t-radius)] bg-[var(--c-accent)] font-semibold text-[var(--c-accent-text)] transition hover:opacity-90 disabled:opacity-40">
-              {busy ? t.wait : payLater && cart?.paymentTermsDays ? t.orderTerms(cart.paymentTermsDays) : demo ? t.placeOrder(cart ? formatMoney(cart.totalCents, currency, loc) : "") : t.pay(cart ? formatMoney(cart.totalCents, currency, loc) : "")}
+              {busy ? t.wait : payLater && cart?.paymentTermsDays ? t.orderTerms(cart.paymentTermsDays) : demo ? t.placeOrder(cart ? toPay(cart) : "") : t.pay(cart ? toPay(cart) : "")}
             </button>
             <p className="text-center text-xs text-[var(--c-muted)]">{demo ? t.demo : t.secure}</p>
           </form>

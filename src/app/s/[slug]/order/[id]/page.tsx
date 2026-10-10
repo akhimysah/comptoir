@@ -4,6 +4,7 @@ import { TrackPurchase } from "@/components/store/Tracking";
 import { Thumb } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
+import { orderCurrency } from "@/lib/presentment";
 import { markOrderPaid } from "@/lib/orders";
 import { getStore } from "@/lib/storefront";
 import { localizeItems } from "@/lib/locale";
@@ -85,7 +86,9 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
   const onTerms = order.paymentStatus === "pending" && Boolean(order.dueAt) && !order.cancelledAt;
   const confirmed = paid || onTerms;
   const payUrl = onTerms && order.totalCents > 0 ? await payLink(order, slug) : null;
-  const m = (c: number) => formatMoney(c, store.currency, intlLocale(locale));
+  // Montants dans la devise payée par le client.
+  const cur = orderCurrency(order, store.currency);
+  const m = (c: number) => formatMoney(cur.convert(c), cur.currency, intlLocale(locale));
   const carrier = (c: string) => (c === "other" ? t.carrier : carrierLabel(c));
 
   return (
@@ -138,7 +141,7 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex justify-between border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-3 font-semibold tabular-nums"><span>{onTerms ? t.totalDue : t.totalPaid}</span><span>{m(order.totalCents)}</span></div>
+        <div className="mt-4 flex justify-between border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-3 font-semibold tabular-nums"><span>{onTerms ? t.totalDue : t.totalPaid}</span><span>{formatMoney(cur.total, cur.currency, intlLocale(locale))}</span></div>
       </div>
       <div className="flex flex-wrap justify-center gap-3">
         {confirmed && <a href={`/print/invoice/${order.id}`} target="_blank" className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-6 py-3 font-semibold">{t.invoice}</a>}

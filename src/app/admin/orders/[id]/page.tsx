@@ -228,7 +228,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
               {o.taxCents > 0 && <><dt className="text-xs text-muted">dont TVA</dt><dd className="text-xs text-muted">{(o.taxRateBps / 100).toLocaleString("fr-FR")} %</dd><dd className="num text-right text-xs text-muted">{m(o.taxCents)}</dd></>}
               <dt className="font-[650]">{o.giftCardCents > 0 ? "Reste à payer" : "Total"}</dt><dd /><dd className="num text-right font-[650]">{m(o.totalCents)}</dd>
               <dt className="col-span-3 my-1 border-t border-line" />
-              <dt>Payé par le client</dt><dd /><dd className="num text-right">{o.paymentStatus === "pending" ? m(0) : m(o.totalCents)}</dd>
+              <dt>Payé par le client</dt><dd className="text-muted">{o.presentmentCurrency && o.paymentStatus !== "pending" ? `${formatMoney(o.presentmentTotalCents ?? 0, o.presentmentCurrency)} (1 ${store.currency} = ${o.presentmentRate.toLocaleString("fr-FR", { maximumFractionDigits: 4 })} ${o.presentmentCurrency})` : ""}</dd><dd className="num text-right">{o.paymentStatus === "pending" ? m(0) : m(o.totalCents)}</dd>
               {o.refundedCents > 0 && <><dt>Remboursé</dt><dd /><dd className="num text-right">−{m(o.refundedCents)}</dd><dt className="font-[650]">Net</dt><dd /><dd className="num text-right font-[650]">{m(o.totalCents - o.refundedCents)}</dd></>}
             </dl>
             {!invoiceLink && !o.cancelledAt && o.paymentStatus === "pending" && o.paymentMethod !== "stripe" && (

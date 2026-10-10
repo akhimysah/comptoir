@@ -8,6 +8,8 @@ import { storeAccess } from "@/lib/store-access";
 import { subscribe } from "@/lib/marketing";
 import { appUrl, demoPaymentsAllowed, getStripe } from "@/lib/stripe";
 import { canSell, SALES_PAUSED, storeFeePercent, storePlatformFee } from "@/lib/billing";
+import { displayCurrency } from "@/lib/currency";
+import { CHARGEABLE_CURRENCIES, presentmentTotal, toPresentment } from "@/lib/presentment";
 import { storeBase } from "@/lib/domains";
 import { dict, translate, type Locale } from "@/lib/i18n";
 import { getLocale } from "@/lib/locale";
@@ -160,8 +162,15 @@ export async function POST(req: Request) {
     if (e instanceof OrderError) return NextResponse.json({ error: orderError(e.message, locale), refresh: true }, { status: 409 });
     throw e;
   }
+  // Devise du client : encaissée telle quelle si la boutique l'a choisi (pas pour un abonnement, prélevé dans la devise de la boutique).
+  const shown = await displayCurrency(store);
+  const isSub = subIntervals.length === 1;
+  const foreign = store.chargeInCustomerCurrency && !isSub && shown.code !== store.currency && CHARGEABLE_CURRENCIES.has(shown.code) ? shown : null;
+  const rate = foreign?.rate ?? 1;
+  const conv = (c: number) => (foreign ? toPresentment(c, rate) : c);
+  const payTotal = foreign ? presentmentTotal(cart, rate) : cart.totalCents;
   // Langue du client : les e-mails de la commande seront envoyés dans cette langue.
-  await db.order.update({ where: { id: order.id }, data: { locale, ...(pickup ? { deliveryMethod: "pickup" } : {}) } });
+  await db.order.update({ where: { id: order.id }, data: { locale, ...(pickup ? { deliveryMethod: "pickup" } : {}), ...(foreign ? { presentmentCurrency: foreign.code, presentmentRate: rate, presentmentTotalCents: payTotal } : {}) } });
   if (b.marketing) await subscribe(store.id, b.email, b.name);
   const thanks = `${storeBase(store)}/order/${order.id}`;
 
@@ -170,11 +179,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ url: thanks });
   }
 
-  const currency = store.currency.toLowerCase();
-  const reduction = cart.discountCents + cart.giftCardCents;
+  const currency = (foreign?.code ?? store.currency).toLowerCase();
+  const reduction = conv(cart.discountCents + cart.giftCardCents);
   const coupon = reduction > 0 ? await stripe.coupons.create({ amount_off: reduction, currency, duration: "once", name: [cart.discountCode, cart.giftCardCode && t.giftCard].filter(Boolean).join(" + ") || t.reduction }) : null;
   // Abonnement : Stripe prélève ensuite le client à chaque échéance et reverse l'argent au marchand.
-  const isSub = subIntervals.length === 1;
   // Noms des produits sur la page Stripe : dans la langue du client (les lignes de commande gardent le titre d'origine).
   const titles = new Map<string, string>();
   if (locale !== "fr") for (const p of await db.product.findMany({ where: { id: { in: [...new Set(cart.lines.map((l) => l.productId))] } }, select: { id: true, title: true, translations: true } })) titles.set(p.id, translate(p, locale, ["title"]).title);
@@ -187,17 +195,17 @@ export async function POST(req: Request) {
         quantity: l.quantity,
         price_data: {
           currency,
-          unit_amount: l.priceCents,
+          unit_amount: conv(l.priceCents),
           product_data: { name: l.variantTitle === "Par défaut" ? titles.get(l.productId) ?? l.productTitle : `${titles.get(l.productId) ?? l.productTitle} — ${l.variantTitle}` },
           ...(l.subscription ? { recurring: { interval: l.subscription as "week" | "month" } } : {}),
         },
       })),
-      ...(cart.shippingCents ? [{ quantity: 1, price_data: { currency, unit_amount: cart.shippingCents, product_data: { name: cart.shippingMethod || t.shipping } } }] : []),
+      ...(cart.shippingCents ? [{ quantity: 1, price_data: { currency, unit_amount: conv(cart.shippingCents), product_data: { name: cart.shippingMethod || t.shipping } } }] : []),
     ],
     ...(coupon ? { discounts: [{ coupon: coupon.id }] } : {}),
     ...(isSub
       ? { subscription_data: { application_fee_percent: storeFeePercent(store), transfer_data: { destination: store.stripeAccountId! }, metadata: { orderId: order.id, storeId: store.id } } }
-      : { payment_intent_data: { application_fee_amount: storePlatformFee(store, cart.totalCents), transfer_data: { destination: store.stripeAccountId! }, metadata: { orderId: order.id, storeId: store.id } } }),
+      : { payment_intent_data: { application_fee_amount: storePlatformFee(store, payTotal), transfer_data: { destination: store.stripeAccountId! }, metadata: { orderId: order.id, storeId: store.id } } }),
     metadata: { orderId: order.id, storeId: store.id },
     success_url: `${thanks}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${storeBase(store)}/cart?cancelled=1`,

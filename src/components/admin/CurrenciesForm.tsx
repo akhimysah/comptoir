@@ -6,13 +6,13 @@ import { keepOnSubmit } from "@/lib/keep-form";
 
 const CHOICES = ["USD", "GBP", "CHF", "CAD", "JPY", "MAD", "XOF", "DZD", "TND", "AED", "SAR", "EUR"];
 
-export function CurrenciesForm({ base, current }: { base: string; current: { code: string; rate: number }[] }) {
+export function CurrenciesForm({ base, current, charge }: { base: string; current: { code: string; rate: number }[]; charge: boolean }) {
   const [state, action, pending] = useActionState(saveCurrencies, undefined);
   const [on, setOn] = useState<string[]>(current.map((c) => c.code));
   return (
     <form onSubmit={keepOnSubmit(action)} className="card flex flex-col gap-3 p-4">
       <h2 className="text-sm font-[650]">Devises affichées</h2>
-      <p className="text-xs text-muted">Vos clients choisissent une devise dans le menu de la boutique et voient les prix convertis. Le paiement reste en {base}.</p>
+      <p className="text-xs text-muted">Vos clients choisissent une devise dans le menu de la boutique et voient les prix convertis.</p>
       <div className="flex flex-col gap-1.5">
         {CHOICES.filter((c) => c !== base).map((code) => {
           const cur = current.find((c) => c.code === code);
@@ -25,6 +25,10 @@ export function CurrenciesForm({ base, current }: { base: string; current: { cod
           );
         })}
       </div>
+      <label className="flex items-start gap-2 border-t border-line pt-3 text-[13px]">
+        <input type="checkbox" name="charge" defaultChecked={charge} className="mt-0.5 h-4 w-4 accent-[#7c3aed]" />
+        <span>Encaisser dans la devise du client<span className="block text-xs text-muted">Paiement par carte dans la devise choisie, au taux ci-dessus (USD, GBP, CHF, CAD, MAD, DZD, AED, SAR). Sinon, les prix sont indicatifs et le paiement se fait en {base}. Vos rapports restent en {base}.</span></span>
+      </label>
       {state?.error && <p role="alert" className="text-[13px] text-[#8e0b21]">{state.error}</p>}
       {state?.ok && <p role="status" className="text-[13px] text-[#0c5132]">{state.ok}</p>}
       <div className="flex flex-wrap gap-2">

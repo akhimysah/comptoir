@@ -1,6 +1,7 @@
 import "server-only";
 import type { Order, OrderItem, Store } from "@prisma/client";
 import { formatMoney } from "./money";
+import { orderCurrency } from "./presentment";
 import { appUrl } from "./stripe";
 import { parseJson } from "./utils";
 import { carrierLabel, trackingLink } from "./tracking";
@@ -161,14 +162,16 @@ function texts(store: Store, key: TemplateKey, vars: Record<string, string>, loc
 const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? "";
 
 function itemsTable(order: Order & { items: OrderItem[] }, currency: string, locale: Locale = "fr") {
-  const m = (c: number) => money(c, currency, locale);
+  // Montants dans la devise payée par le client (conversion au taux de la commande).
+  const cur = orderCurrency(order, currency);
+  const m = (c: number) => money(cur.convert(c), cur.currency, locale);
   const L = T[locale];
   const rows = order.items
     .map((i) => `<tr><td style="padding:8px 0;border-bottom:1px solid #ebebeb">${esc(i.productTitle)}${i.variantTitle !== "Par défaut" ? ` <span style="color:#616161">· ${esc(i.variantTitle)}</span>` : ""} × ${i.quantity}</td><td align="right" style="padding:8px 0;border-bottom:1px solid #ebebeb">${m(i.priceCents * i.quantity)}</td></tr>`)
     .join("");
   const line = (k: string, v: string, bold = false) => `<tr><td style="padding:4px 0;${bold ? "font-weight:700" : "color:#616161"}">${k}</td><td align="right" style="padding:4px 0;${bold ? "font-weight:700" : ""}">${v}</td></tr>`;
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;margin:16px 0">${rows}
-${line(L.subtotal, m(order.subtotalCents))}${order.discountCents ? line(`${L.discount} ${esc(order.discountCode ?? "")}`, `−${m(order.discountCents)}`) : ""}${line(L.shipping, order.shippingCents ? m(order.shippingCents) : L.free)}${order.giftCardCents ? line(`${L.giftCard} ····${esc((order.giftCardCode ?? "").slice(-4))}`, `−${m(order.giftCardCents)}`) : ""}${line(L.totalPaid, m(order.totalCents), true)}</table>`;
+${line(L.subtotal, m(order.subtotalCents))}${order.discountCents ? line(`${L.discount} ${esc(order.discountCode ?? "")}`, `−${m(order.discountCents)}`) : ""}${line(L.shipping, order.shippingCents ? m(order.shippingCents) : L.free)}${order.giftCardCents ? line(`${L.giftCard} ····${esc((order.giftCardCode ?? "").slice(-4))}`, `−${m(order.giftCardCents)}`) : ""}${line(L.totalPaid, money(cur.total, cur.currency, locale), true)}</table>`;
 }
 
 function addressBlock(order: Order, store?: Store, locale: Locale = "fr") {
@@ -181,7 +184,8 @@ function addressBlock(order: Order, store?: Store, locale: Locale = "fr") {
 
 export function orderConfirmationEmail(store: Store, order: Order & { items: OrderItem[] }, payUrl?: string | null, locale: Locale = orderLocale(order)) {
   const L = T[locale];
-  const t = texts(store, "order_confirmation", { prenom: firstName(order.name), numero: String(order.number), montant: money(order.totalCents, store.currency, locale) }, locale);
+  const cur = orderCurrency(order, store.currency);
+  const t = texts(store, "order_confirmation", { prenom: firstName(order.name), numero: String(order.number), montant: money(cur.total, cur.currency, locale) }, locale);
   // Client professionnel à échéance : montant et date limite, avec le lien pour payer en ligne.
   const due = order.dueAt && order.paymentStatus === "pending"
     ? `<div style="margin:16px 0;background:#f7f7f7;border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.5"><b>${L.dueBy(money(order.totalCents, store.currency, locale), order.dueAt.toLocaleDateString(intlLocale(locale), { day: "numeric", month: "long", year: "numeric" }))}</b>${payUrl ? `<div style="margin-top:10px">${t.button(payUrl, L.payOnline)}</div>` : ""}</div>`
@@ -265,8 +269,8 @@ ${expiresAt ? `<div style="font-size:12px;color:#616161;margin-top:6px">${L.vali
   };
 }
 
-export function refundEmail(store: Store, number: number, amountCents: number, items: { title: string; quantity: number }[], reason: string, locale: Locale = "fr") {
-  const t = texts(store, "refund", { numero: String(number), montant: money(amountCents, store.currency, locale) }, locale);
+export function refundEmail(store: Store, number: number, amountCents: number, items: { title: string; quantity: number }[], reason: string, locale: Locale = "fr", currency = store.currency) {
+  const t = texts(store, "refund", { numero: String(number), montant: money(amountCents, currency, locale) }, locale);
   return {
     subject: t.subject,
     html: t.layout(t.title, `${t.intro}

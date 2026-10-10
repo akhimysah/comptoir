@@ -35,90 +35,91 @@ model Session {
 }
 
 model Store {
-  id                    String                @id @default(cuid())
-  slug                  String                @unique
-  domain                String?               @unique // nom de domaine personnalisé (ex. www.maboutique.fr)
-  domainToken           String? // valeur de l'enregistrement TXT qui prouve que le domaine appartient au marchand
-  domainVerifiedAt      DateTime? // la boutique n'est servie sur ce domaine qu'une fois vérifié
+  id                       String                @id @default(cuid())
+  slug                     String                @unique
+  domain                   String?               @unique // nom de domaine personnalisé (ex. www.maboutique.fr)
+  domainToken              String? // valeur de l'enregistrement TXT qui prouve que le domaine appartient au marchand
+  domainVerifiedAt         DateTime? // la boutique n'est servie sur ce domaine qu'une fois vérifié
   // Forfait du marchand (facturation de la plateforme)
-  plan                  String                @default("trial") // trial | essentiel | pro | avance
-  planStatus            String                @default("trialing") // trialing | active | past_due | canceled
-  trialEndsAt           DateTime? // fin de l'essai gratuit (null : 14 jours après la création)
-  billingCustomerId     String? // client Stripe de la plateforme (le marchand)
-  planSubscriptionId    String?               @unique // abonnement Stripe du forfait
-  planRenewsAt          DateTime? // prochaine échéance, ou fin d'accès après résiliation
-  name                  String
-  tagline               String                @default("")
-  languages             String                @default("[\"fr\"]") // JSON : langues de la boutique, la première est la langue principale
-  translations          String                @default("{}") // JSON { en: { tagline, passwordMessage } }
-  currency              String                @default("EUR")
-  shippingCents         Int                   @default(490)
-  freeShippingFromCents Int                   @default(6000)
-  theme                 String // JSON, voir src/lib/theme.ts
-  customCss             String                @default("") // CSS personnalisé de la boutique (filtré, sans HTML)
-  themeUpdatedAt        DateTime?
-  stripeAccountId       String?
-  stripeChargesEnabled  Boolean               @default(false)
-  displayCurrencies     String                @default("[]") // JSON : { code, rate }[] — devises d'affichage et leur taux par rapport à la devise de la boutique
-  loyaltyEnabled        Boolean               @default(false) // programme de fidélité
-  loyaltyPointsPerUnit  Int                   @default(1) // points gagnés par unité de devise dépensée (1 € = 1 point)
-  loyaltyRewardPoints   Int                   @default(100) // points nécessaires pour un bon
-  loyaltyRewardCents    Int                   @default(500) // valeur du bon
-  autoCartReminder      Boolean               @default(false) // relance automatique des paniers abandonnés
-  cartReminderHours     Int                   @default(4)
-  autoReviewRequest     Boolean               @default(false) // demande d'avis après expédition
-  reviewRequestDays     Int                   @default(7)
-  menus                 String                @default("") // JSON { main, footer } : menus de navigation (vide = menus par défaut)
-  chatEnabled           Boolean               @default(true) // bulle de discussion sur la boutique
-  chatGreeting          String                @default("Bonjour ! Une question sur un produit ou une commande ? Écrivez-nous, nous répondons vite.")
-  passwordEnabled       Boolean               @default(false) // boutique protégée par mot de passe (en préparation)
-  storePassword         String                @default("") // mot de passe partagé, à donner aux visiteurs
-  passwordMessage       String                @default("Notre boutique ouvre très bientôt. Revenez nous voir !")
-  gaId                  String                @default("") // Google Analytics 4 (G-XXXXXXX)
-  metaPixelId           String                @default("") // Meta (Facebook / Instagram) Pixel
-  pickupEnabled         Boolean               @default(false) // retrait en boutique proposé au paiement
-  pickupAddress         String                @default("")
-  pickupInstructions    String                @default("") // horaires, consignes (pièce d'identité, numéro de commande…)
-  emailTemplates        String                @default("{}") // JSON { modèle: { subject, title, intro } } : textes personnalisés des e-mails clients
-  returnsEnabled        Boolean               @default(true) // retours en libre-service depuis « Mon compte »
-  returnWindowDays      Int                   @default(30)
-  returnInstructions    String                @default("") // adresse de retour, emballage… envoyé à l'acceptation
-  lowStockThreshold     Int                   @default(3) // alerte e-mail quand une variante passe sous ce seuil
-  taxRateBps            Int                   @default(2000) // TVA incluse dans les prix, en points de base (2000 = 20 %) ; 0 = franchise
-  vatByCountry          Boolean               @default(false) // TVA du pays de livraison (ventes à distance UE, guichet OSS) et 0 % à l'export
-  legalName             String                @default("") // pour les factures
-  legalAddress          String                @default("")
-  siret                 String                @default("")
-  vatNumber             String                @default("")
-  ownerId               String
-  owner                 User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt             DateTime              @default(now())
-  products              Product[]
-  collections           Collection[]
-  orders                Order[]
-  customers             Customer[]
-  discounts             Discount[]
-  priceLists            PriceList[]
-  apiKeys               ApiKey[]
-  webhooks              Webhook[]
-  members               StoreMember[]
-  invites               StoreInvite[]
-  shippingZones         ShippingZone[]
-  checkouts             Checkout[]
-  reviews               Review[]
-  pages                 Page[]
-  posts                 BlogPost[]
-  giftCards             GiftCard[]
-  campaigns             Campaign[]
-  subscriptions         Subscription[]
-  returns               ReturnRequest[]
-  redirects             Redirect[]
-  segments              Segment[]
-  suppliers             Supplier[]
-  purchaseOrders        PurchaseOrder[]
-  stockAlerts           StockAlert[]
-  conversations         Conversation[]
-  metafieldDefinitions  MetafieldDefinition[]
+  plan                     String                @default("trial") // trial | essentiel | pro | avance
+  planStatus               String                @default("trialing") // trialing | active | past_due | canceled
+  trialEndsAt              DateTime? // fin de l'essai gratuit (null : 14 jours après la création)
+  billingCustomerId        String? // client Stripe de la plateforme (le marchand)
+  planSubscriptionId       String?               @unique // abonnement Stripe du forfait
+  planRenewsAt             DateTime? // prochaine échéance, ou fin d'accès après résiliation
+  name                     String
+  tagline                  String                @default("")
+  languages                String                @default("[\"fr\"]") // JSON : langues de la boutique, la première est la langue principale
+  translations             String                @default("{}") // JSON { en: { tagline, passwordMessage } }
+  currency                 String                @default("EUR")
+  shippingCents            Int                   @default(490)
+  freeShippingFromCents    Int                   @default(6000)
+  theme                    String // JSON, voir src/lib/theme.ts
+  customCss                String                @default("") // CSS personnalisé de la boutique (filtré, sans HTML)
+  themeUpdatedAt           DateTime?
+  stripeAccountId          String?
+  stripeChargesEnabled     Boolean               @default(false)
+  displayCurrencies        String                @default("[]") // JSON : { code, rate }[] — devises d'affichage et leur taux par rapport à la devise de la boutique
+  chargeInCustomerCurrency Boolean               @default(false) // encaisser dans la devise choisie par le client (sinon affichage seulement)
+  loyaltyEnabled           Boolean               @default(false) // programme de fidélité
+  loyaltyPointsPerUnit     Int                   @default(1) // points gagnés par unité de devise dépensée (1 € = 1 point)
+  loyaltyRewardPoints      Int                   @default(100) // points nécessaires pour un bon
+  loyaltyRewardCents       Int                   @default(500) // valeur du bon
+  autoCartReminder         Boolean               @default(false) // relance automatique des paniers abandonnés
+  cartReminderHours        Int                   @default(4)
+  autoReviewRequest        Boolean               @default(false) // demande d'avis après expédition
+  reviewRequestDays        Int                   @default(7)
+  menus                    String                @default("") // JSON { main, footer } : menus de navigation (vide = menus par défaut)
+  chatEnabled              Boolean               @default(true) // bulle de discussion sur la boutique
+  chatGreeting             String                @default("Bonjour ! Une question sur un produit ou une commande ? Écrivez-nous, nous répondons vite.")
+  passwordEnabled          Boolean               @default(false) // boutique protégée par mot de passe (en préparation)
+  storePassword            String                @default("") // mot de passe partagé, à donner aux visiteurs
+  passwordMessage          String                @default("Notre boutique ouvre très bientôt. Revenez nous voir !")
+  gaId                     String                @default("") // Google Analytics 4 (G-XXXXXXX)
+  metaPixelId              String                @default("") // Meta (Facebook / Instagram) Pixel
+  pickupEnabled            Boolean               @default(false) // retrait en boutique proposé au paiement
+  pickupAddress            String                @default("")
+  pickupInstructions       String                @default("") // horaires, consignes (pièce d'identité, numéro de commande…)
+  emailTemplates           String                @default("{}") // JSON { modèle: { subject, title, intro } } : textes personnalisés des e-mails clients
+  returnsEnabled           Boolean               @default(true) // retours en libre-service depuis « Mon compte »
+  returnWindowDays         Int                   @default(30)
+  returnInstructions       String                @default("") // adresse de retour, emballage… envoyé à l'acceptation
+  lowStockThreshold        Int                   @default(3) // alerte e-mail quand une variante passe sous ce seuil
+  taxRateBps               Int                   @default(2000) // TVA incluse dans les prix, en points de base (2000 = 20 %) ; 0 = franchise
+  vatByCountry             Boolean               @default(false) // TVA du pays de livraison (ventes à distance UE, guichet OSS) et 0 % à l'export
+  legalName                String                @default("") // pour les factures
+  legalAddress             String                @default("")
+  siret                    String                @default("")
+  vatNumber                String                @default("")
+  ownerId                  String
+  owner                    User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt                DateTime              @default(now())
+  products                 Product[]
+  collections              Collection[]
+  orders                   Order[]
+  customers                Customer[]
+  discounts                Discount[]
+  priceLists               PriceList[]
+  apiKeys                  ApiKey[]
+  webhooks                 Webhook[]
+  members                  StoreMember[]
+  invites                  StoreInvite[]
+  shippingZones            ShippingZone[]
+  checkouts                Checkout[]
+  reviews                  Review[]
+  pages                    Page[]
+  posts                    BlogPost[]
+  giftCards                GiftCard[]
+  campaigns                Campaign[]
+  subscriptions            Subscription[]
+  returns                  ReturnRequest[]
+  redirects                Redirect[]
+  segments                 Segment[]
+  suppliers                Supplier[]
+  purchaseOrders           PurchaseOrder[]
+  stockAlerts              StockAlert[]
+  conversations            Conversation[]
+  metafieldDefinitions     MetafieldDefinition[]
 }
 
 /// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
@@ -483,6 +484,9 @@ model Order {
   paymentMethod         String          @default("demo") // demo | stripe | manual
   locale                String          @default("fr") // langue du client au moment de la commande (e-mails)
   reverseCharge         Boolean         @default(false) // vente hors taxes à un professionnel de l'UE (autoliquidation)
+  presentmentCurrency   String? // devise payée par le client quand elle diffère de celle de la boutique
+  presentmentRate       Float           @default(1) // taux appliqué : 1 unité de la boutique = presentmentRate unités payées
+  presentmentTotalCents Int? // total réellement payé dans cette devise
   shippingMethod        String          @default("")
   stripeSessionId       String?         @unique
   paidAt                DateTime?

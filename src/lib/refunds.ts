@@ -5,6 +5,7 @@ import { sendMail } from "./mail";
 import { getStripe } from "./stripe";
 import { orderLocale, refundEmail } from "./emails";
 import { revokePoints } from "./loyalty";
+import { presentmentRefund } from "./presentment";
 
 export const PAID_STATUSES = ["paid", "partially_refunded"];
 
@@ -58,6 +59,8 @@ export async function refundOrder(args: {
   const claim = await db.order.updateMany({ where: { id: order.id, refundedCents: order.refundedCents }, data: { refundedCents: { increment: amount } } });
   if (!claim.count) return { error: "La commande vient d'être modifiée. Rechargez la page et réessayez." };
 
+  // Montant dans la devise réellement payée par le client (identique sans paiement en devise étrangère).
+  const paidAmount = presentmentRefund(order, amount);
   let stripeRefundId: string | null = null;
   if (amount > 0 && order.paymentMethod === "stripe") {
     const stripe = getStripe();
@@ -66,7 +69,8 @@ export async function refundOrder(args: {
     try {
       const pi = await paymentIntentOf(order);
       if (!pi) { await undo(); return { error: "Paiement Stripe introuvable pour cette commande : remboursez le client depuis votre tableau de bord Stripe." }; }
-      const r = await stripe.refunds.create({ payment_intent: pi, amount, reverse_transfer: true, refund_application_fee: true });
+      // Paiement dans la devise du client : Stripe rembourse dans cette devise.
+      const r = await stripe.refunds.create({ payment_intent: pi, amount: paidAmount, reverse_transfer: true, refund_application_fee: true });
       stripeRefundId = r.id;
     } catch (e) {
       await undo();
@@ -104,7 +108,7 @@ export async function refundOrder(args: {
   }
   if (amount > 0 && args.notify !== false) {
     const items = lines.map((l) => { const i = order.items.find((x) => x.id === l.orderItemId)!; return { title: i.productTitle, quantity: l.quantity }; });
-    await sendMail({ to: order.email, storeId: order.storeId, ...refundEmail(order.store, order.number, amount, items, args.reason, orderLocale(order)) });
+    await sendMail({ to: order.email, storeId: order.storeId, ...refundEmail(order.store, order.number, paidAmount, items, args.reason, orderLocale(order), order.presentmentCurrency ?? order.store.currency) });
   }
   return {};
 }

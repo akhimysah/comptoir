@@ -70,7 +70,7 @@ export async function saveCurrencies(_: { error?: string; ok?: string } | undefi
   }
   const bad = list.find((c) => !(c.rate > 0));
   if (bad) return { error: `Indiquez un taux pour ${bad.code}.` };
-  await db.store.update({ where: { id: store.id }, data: { displayCurrencies: JSON.stringify(list.map((c) => ({ code: c.code, rate: Math.round(c.rate * 10000) / 10000 }))) } });
+  await db.store.update({ where: { id: store.id }, data: { displayCurrencies: JSON.stringify(list.map((c) => ({ code: c.code, rate: Math.round(c.rate * 10000) / 10000 }))), chargeInCustomerCurrency: form.get("charge") === "on" } });
   await logActivity(`Devises affichées : ${list.map((c) => c.code).join(", ") || "aucune"}`, "/admin/settings");
   revalidatePath("/admin/settings");
   revalidatePath(`/s/${store.slug}`, "layout");
