@@ -8,14 +8,14 @@ import { formatMoney, parseMoney } from "@/lib/money";
 export type PickVariant = { id: string; productTitle: string; variantTitle: string; priceCents: number; stock: number; image: string | null; hue: number };
 export type PickCustomer = { id: string; name: string; email: string; address: { line1: string; zip: string; city: string; country: string } | null };
 
-export function ManualOrderForm({ variants, customers, currency }: { variants: PickVariant[]; customers: PickCustomer[]; currency: string }) {
+export function ManualOrderForm({ variants, customers, currency, prefill }: { variants: PickVariant[]; customers: PickCustomer[]; currency: string; prefill?: { name: string; email: string; line1: string; zip: string; city: string; country: string; note: string } }) {
   const [lines, setLines] = useState<{ variantId: string; quantity: number }[]>([]);
   const [q, setQ] = useState("");
   const [cq, setCq] = useState("");
-  const [c, setC] = useState({ name: "", email: "", line1: "", zip: "", city: "", country: "France" });
+  const [c, setC] = useState(prefill ? { name: prefill.name, email: prefill.email, line1: prefill.line1, zip: prefill.zip, city: prefill.city, country: prefill.country || "France" } : { name: "", email: "", line1: "", zip: "", city: "", country: "France" });
   const [shipping, setShipping] = useState("0");
-  const [note, setNote] = useState("");
-  const [payment, setPayment] = useState<"paid" | "pending" | "invoice">("paid");
+  const [note, setNote] = useState(prefill?.note ?? "");
+  const [payment, setPayment] = useState<"paid" | "pending" | "invoice">(prefill ? "invoice" : "paid");
   const [discount, setDiscount] = useState("0");
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);

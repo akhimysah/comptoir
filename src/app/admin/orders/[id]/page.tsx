@@ -19,6 +19,7 @@ const EVENT_TEXT: Record<string, string> = {
   tracking_updated: "a modifié le suivi :",
   invoice_sent: "a envoyé la facture à",
   pickup_ready: "a indiqué que la commande est prête pour le retrait.",
+  edited: "a modifié la commande :",
   unfulfilled: "a remis la commande à traiter.",
   cancelled: "a annulé la commande.",
   refunded: "a annulé et remboursé la commande.",
@@ -67,6 +68,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         subtitle={`${formatDateTime(o.createdAt)} · ${o.paymentMethod === "manual" ? "Créée dans l'admin" : o.paymentMethod.startsWith("pos") ? "Point de vente" : "Boutique en ligne"}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            {!o.cancelledAt && o.fulfillmentStatus !== "fulfilled" && !o.paymentMethod.startsWith("pos") && <Link href={`/admin/orders/${o.id}/edit`} className="btn h-8">Modifier</Link>}
             <a href={`/print/packing?ids=${o.id}`} target="_blank" className="btn h-8">Bon de préparation</a>
             {o.paymentStatus !== "pending" && <a href={`/print/invoice/${o.id}`} target="_blank" className="btn h-8">Facture</a>}
             {o.cancelledAt ? <Pill>Annulée</Pill> : <><Pill tone={pay.tone}>{pay.label}</Pill><Pill tone={ful.tone}>{ful.label}</Pill></>}
