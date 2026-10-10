@@ -36,7 +36,7 @@ export function parseCsv(text: string): string[][] {
 export const PRODUCT_COLUMNS = [
   "Identifiant", "Titre", "Description", "Statut", "Collections",
   "Option1 nom", "Option1 valeur", "Option2 nom", "Option2 valeur", "Option3 nom", "Option3 valeur",
-  "Prix", "Prix avant réduction", "SKU", "Stock",
+  "Prix", "Prix avant réduction", "SKU", "Stock", "Poids (g)",
 ] as const;
 
 export function csvResponse(csv: string, filename: string) {

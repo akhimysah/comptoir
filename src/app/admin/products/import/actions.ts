@@ -96,7 +96,7 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
     const head = g[0];
     if (!head.Titre && !head.Identifiant) { errors.push(`Ligne ${head.line} : titre manquant.`); continue; }
     const optionNames = [head["Option1 nom"], head["Option2 nom"], head["Option3 nom"]].filter(Boolean);
-    const variants: { title: string; optionValues: string; priceCents: number; compareAtCents: number | null; sku: string; stock: number; position: number }[] = [];
+    const variants: { title: string; optionValues: string; priceCents: number; compareAtCents: number | null; sku: string; stock: number; position: number; weightGrams?: number }[] = [];
     let bad = false;
     for (const [i, r] of g.entries()) {
       const price = parseMoney(r.Prix);
@@ -113,6 +113,8 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
         sku: r.SKU,
         stock: Number.isFinite(stock) && stock > 0 ? stock : 0,
         position: i,
+        // Colonne absente : le poids existant n'est pas effacé.
+        ...(r["Poids (g)"] && Number.isFinite(Number(r["Poids (g)"].replace(",", "."))) ? { weightGrams: Math.max(0, Math.round(Number(r["Poids (g)"].replace(",", ".")))) } : {}),
       });
     }
     if (bad) continue;

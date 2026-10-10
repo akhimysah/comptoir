@@ -55,7 +55,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
   const combos = useMemo(() => cartesian(options), [options]);
   const firstRow = Object.values(rows)[0];
   const variants: VariantRow[] = combos.map(
-    (vals) => rows[key(vals)] ?? { optionValues: vals, price: firstRow?.price ?? "", compareAt: firstRow?.compareAt ?? "", cost: firstRow?.cost ?? "", sku: "", stock: 0 },
+    (vals) => rows[key(vals)] ?? { optionValues: vals, price: firstRow?.price ?? "", compareAt: firstRow?.compareAt ?? "", cost: firstRow?.cost ?? "", weight: firstRow?.weight ?? "", sku: "", stock: 0 },
   );
   // Une seule variante sans option garde son id même quand on retire les options.
   if (combos.length === 1 && combos[0].length === 0 && !rows[key([])] && firstRow) variants[0] = { ...firstRow, optionValues: [] };
@@ -172,6 +172,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
                 {isBundle ? <p className="text-[13px] text-muted">Le stock d'un lot se calcule à partir de celui de ses composants : rien à saisir ici.</p> : <div className="grid gap-3 sm:grid-cols-2">
                   <label className="label">SKU (référence)<input id="sku" className="input" maxLength={60} value={single.sku} onChange={(e) => setRow([], { sku: e.target.value })} /></label>
                   <label className="label">Quantité<input id="stock" className="input num" type="number" min={0} value={single.stock} onChange={(e) => setRow([], { stock: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} /></label>
+                  <label className="label">Poids (kg) <span className="hint">Pour les tarifs d'expédition au poids.</span><input id="weight" className="input num" inputMode="decimal" value={single.weight} onChange={(e) => setRow([], { weight: e.target.value })} placeholder="0,45" /></label>
                 </div>}
               </section>
             </>
@@ -241,7 +242,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
                 )}
                 <div className="overflow-x-auto border-t border-line">
                   <table className="w-full min-w-[560px]">
-                    <thead><tr><th className="th">Variante</th>{images.length > 0 && <th className="th">Photo</th>}<th className="th">Prix</th><th className="th">Prix avant réduction</th><th className="th">Coût</th><th className="th">Disponible</th><th className="th">SKU</th></tr></thead>
+                    <thead><tr><th className="th">Variante</th>{images.length > 0 && <th className="th">Photo</th>}<th className="th">Prix</th><th className="th">Prix avant réduction</th><th className="th">Coût</th><th className="th">Poids (kg)</th><th className="th">Disponible</th><th className="th">SKU</th></tr></thead>
                     <tbody>
                       {variants.map((v) => (
                         <tr key={key(v.optionValues)}>
@@ -261,6 +262,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
                           <td className="td"><input aria-label={`Prix ${v.optionValues.join(" / ")}`} className="input num w-28" inputMode="decimal" required value={v.price} onChange={(e) => setRow(v.optionValues, { price: e.target.value })} placeholder="0,00" /></td>
                           <td className="td"><input aria-label={`Prix avant réduction ${v.optionValues.join(" / ")}`} className="input num w-28" inputMode="decimal" value={v.compareAt} onChange={(e) => setRow(v.optionValues, { compareAt: e.target.value })} placeholder="0,00" /></td>
                           <td className="td"><input aria-label={`Coût par article ${v.optionValues.join(" / ")}`} className="input num w-24" inputMode="decimal" value={v.cost} onChange={(e) => setRow(v.optionValues, { cost: e.target.value })} placeholder="0,00" /></td>
+                          <td className="td"><input aria-label={`Poids ${v.optionValues.join(" / ")}`} className="input num w-20" inputMode="decimal" value={v.weight} onChange={(e) => setRow(v.optionValues, { weight: e.target.value })} placeholder="0,45" /></td>
                           <td className="td"><input aria-label={`Disponible ${v.optionValues.join(" / ")}`} className="input num w-20" type="number" min={0} value={v.stock} onChange={(e) => setRow(v.optionValues, { stock: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} /></td>
                           <td className="td"><input aria-label={`SKU ${v.optionValues.join(" / ")}`} className="input w-28" value={v.sku} maxLength={60} onChange={(e) => setRow(v.optionValues, { sku: e.target.value })} /></td>
                         </tr>

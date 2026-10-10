@@ -58,6 +58,7 @@ Ensuite, ouvrez http://localhost:3000.
 | E-mails clients personnalisables (objet, titre, message, variables) | Aperçu en direct, couleurs de la boutique |
 | Import d'un export Shopify (produits, variantes, stock, photos) | Migration depuis Shopify en un fichier |
 | Import et export des clients (format Shopify ou CSV) | Consentement newsletter respecté, pas de doublon |
+| Tarifs d'expédition au poids et au montant | Poids par variante, repris de l'import Shopify |
 | Navigation : menus avec sous-menus déroulants | Redirections d'URL automatiques quand une adresse change |
 | Référencement : titre et description Google, aperçu du résultat | Sitemap par boutique (`/s/<boutique>/sitemap.xml`), robots.txt |
 | Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau ; achat de cartes cadeaux dans la boutique |

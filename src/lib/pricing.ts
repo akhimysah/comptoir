@@ -45,6 +45,8 @@ export type PricedCart = {
   shippingRateId: string | null;
   shippingMethod: string;
   shippingError: string | null;
+  /** Poids des articles à expédier, en grammes. */
+  weightGrams?: number;
   /** Retrait en boutique proposé (adresse et consignes), ou null. */
   pickup?: { address: string; instructions: string } | null;
   giftCardCode: string | null;
@@ -175,6 +177,16 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
   }
   for (let i = lines.length - 1; i >= 0; i--) if (lines[i].quantity <= 0) lines.splice(i, 1);
 
+  // Poids à expédier : celui de la variante, ou pour un lot sans poids propre, celui de ses composants.
+  const partIds = [...bundles.values()].flat().map((p) => p.variantId);
+  const partWeight = new Map((partIds.length ? await db.variant.findMany({ where: { id: { in: partIds } }, select: { id: true, weightGrams: true } }) : []).map((x) => [x.id, x.weightGrams]));
+  const weightGrams = lines.reduce((sum, l) => {
+    const v = variants.find((x) => x.id === l.baseVariantId);
+    if (!v || v.product.isGiftCard) return sum;
+    const w = v.weightGrams || (bundles.get(v.productId) ?? []).reduce((t, p) => t + (partWeight.get(p.variantId) ?? 0) * p.quantity, 0);
+    return sum + w * l.quantity;
+  }, 0);
+
   const subtotalCents = lines.reduce((s, l) => s + l.priceCents * l.quantity, 0);
   // Les remises ne s'appliquent pas aux cartes cadeaux achetées (comme sur Shopify).
   const giftItemsCents = lines.filter((l) => l.isGiftCard).reduce((s, l) => s + l.priceCents * l.quantity, 0);
@@ -236,7 +248,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
   const afterDiscount = subtotalCents - discountCents;
   const needsShipping = lines.some((l) => !l.isGiftCard);
   const shipping = needsShipping
-    ? await computeShipping(store, afterDiscount - giftItemsCents, true, ship)
+    ? await computeShipping(store, afterDiscount - giftItemsCents, true, ship, weightGrams)
     : { countries: null, shippingOptions: [], shippingRateId: null, shippingMethod: lines.length ? "Envoi par e-mail" : "", shippingCents: 0, shippingError: null };
   if (freeShipping && !shipping.shippingError) {
     shipping.shippingCents = 0;
@@ -272,6 +284,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     taxCents: includedTax(due - giftItemsCents, store.taxRateBps),
     totalCents: due - giftCardCents,
     freeShippingFromCents: store.freeShippingFromCents,
+    weightGrams,
     notices,
     pickup: store.pickupEnabled && store.pickupAddress.trim() && needsShipping ? { address: store.pickupAddress, instructions: store.pickupInstructions } : null,
   };
@@ -281,15 +294,21 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
 export const PICKUP_ID = "pickup";
 
 /** Livraison, plus le retrait en boutique (gratuit, sans adresse ni pays) quand la boutique le propose. */
-async function computeShipping(store: Store, amount: number, hasItems: boolean, ship: ShippingChoice) {
-  const base = await computeDelivery(store, amount, hasItems, ship);
+async function computeShipping(store: Store, amount: number, hasItems: boolean, ship: ShippingChoice, weightGrams = 0) {
+  const base = await computeDelivery(store, amount, hasItems, ship, weightGrams);
   if (!store.pickupEnabled || !store.pickupAddress.trim()) return base;
   const pickup = { id: PICKUP_ID, name: "Retrait en boutique", priceCents: 0 };
   if (ship.rateId === PICKUP_ID) return { ...base, shippingOptions: [...base.shippingOptions, pickup], shippingRateId: PICKUP_ID, shippingMethod: pickup.name, shippingCents: 0, shippingError: null };
   return { ...base, shippingOptions: [...base.shippingOptions, pickup] };
 }
 
-async function computeDelivery(store: Store, amount: number, hasItems: boolean, ship: ShippingChoice) {
+/** Un tarif s'applique-t-il à ce panier (poids et montant dans ses bornes, incluses) ? */
+export function rateMatches(r: { minWeightGrams: number | null; maxWeightGrams: number | null; minSubtotalCents: number | null; maxSubtotalCents: number | null }, weightGrams: number, amount: number) {
+  return (r.minWeightGrams === null || weightGrams >= r.minWeightGrams) && (r.maxWeightGrams === null || weightGrams <= r.maxWeightGrams)
+    && (r.minSubtotalCents === null || amount >= r.minSubtotalCents) && (r.maxSubtotalCents === null || amount <= r.maxSubtotalCents);
+}
+
+async function computeDelivery(store: Store, amount: number, hasItems: boolean, ship: ShippingChoice, weightGrams = 0) {
   const zones = await db.shippingZone.findMany({ where: { storeId: store.id }, include: { rates: { orderBy: { position: "asc" } } } });
   if (!zones.length) {
     const free = !hasItems || store.freeShippingFromCents === 0 || amount >= store.freeShippingFromCents;
@@ -298,6 +317,12 @@ async function computeDelivery(store: Store, amount: number, hasItems: boolean, 
   }
   const countries = [...new Set(zones.flatMap((z) => parseJson<string[]>(z.countries, [])))].sort((a, b) => a.localeCompare(b, "fr"));
   const zone = ship.country ? zones.find((z) => parseJson<string[]>(z.countries, []).includes(ship.country!)) : null;
+  if (zone && zone.rates.length) {
+    // Seuls les tarifs dont les conditions (poids, montant) correspondent au panier sont proposés.
+    const rates = zone.rates.filter((r) => rateMatches(r, weightGrams, amount));
+    if (!rates.length) return { countries, shippingOptions: [], shippingRateId: null, shippingMethod: "", shippingCents: 0, shippingError: `Aucun mode de livraison ne correspond à ce panier (${(weightGrams / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} kg). Contactez-nous pour l'envoyer.` };
+    zone.rates = rates;
+  }
   if (!zone || !zone.rates.length) {
     return { countries, shippingOptions: [], shippingRateId: null, shippingMethod: "", shippingCents: 0, shippingError: ship.country ? "Nous ne livrons pas encore dans ce pays." : "Choisissez votre pays de livraison." };
   }

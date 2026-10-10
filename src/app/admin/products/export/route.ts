@@ -28,6 +28,7 @@ export async function GET() {
         v.compareAtCents ? centsToInput(v.compareAtCents).replace(".", ",") : "",
         v.sku,
         v.stock,
+        v.weightGrams || "",
       ]);
     });
   }

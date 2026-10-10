@@ -43,7 +43,15 @@ export async function addRate(form: FormData) {
   const price = parseMoney(String(form.get("price") ?? ""));
   if (!zone || !name || price === null) return;
   const free = parseMoney(String(form.get("freeAbove") ?? ""));
-  await db.shippingRate.create({ data: { zoneId: zone.id, name, priceCents: price, freeAboveCents: free || null, position: zone._count.rates } });
+  // Conditions facultatives : poids saisi en kg (gardé en grammes) et montant du panier.
+  const kg = (k: string) => { const v = String(form.get(k) ?? "").trim().replace(",", "."); const n = Number(v); return v && Number.isFinite(n) && n >= 0 ? Math.round(n * 1000) : null; };
+  const money = (k: string) => { const v = String(form.get(k) ?? "").trim(); return v ? parseMoney(v) : null; };
+  await db.shippingRate.create({
+    data: {
+      zoneId: zone.id, name, priceCents: price, freeAboveCents: free || null, position: zone._count.rates,
+      minWeightGrams: kg("minWeight"), maxWeightGrams: kg("maxWeight"), minSubtotalCents: money("minSubtotal"), maxSubtotalCents: money("maxSubtotal"),
+    },
+  });
   refresh();
 }
 

@@ -8,6 +8,8 @@ import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { parseJson } from "@/lib/utils";
 
+const kg = (g: number) => `${(g / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 3 })} kg`;
+
 export default async function ShippingPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
   const { edit } = await searchParams;
   const { store } = await requireOwner();
@@ -55,7 +57,11 @@ export default async function ShippingPage({ searchParams }: { searchParams: Pro
                 {z.rates.map((r) => (
                   <tr key={r.id}>
                     <td className="td font-[550]">{r.name}</td>
-                    <td className="td text-muted">{r.freeAboveCents ? `Gratuit dès ${m(r.freeAboveCents)}` : "—"}</td>
+                    <td className="td text-muted">{[
+                      r.minWeightGrams !== null || r.maxWeightGrams !== null ? `${r.minWeightGrams !== null ? `de ${kg(r.minWeightGrams)}` : "jusqu'à"}${r.maxWeightGrams !== null ? ` ${r.minWeightGrams !== null ? "à" : ""} ${kg(r.maxWeightGrams)}` : " et plus"}` : "",
+                      r.minSubtotalCents !== null || r.maxSubtotalCents !== null ? `commande ${r.minSubtotalCents !== null ? `dès ${m(r.minSubtotalCents)}` : ""}${r.maxSubtotalCents !== null ? ` jusqu'à ${m(r.maxSubtotalCents)}` : ""}` : "",
+                      r.freeAboveCents ? `gratuit dès ${m(r.freeAboveCents)}` : "",
+                    ].filter(Boolean).join(" · ") || "Tous les paniers"}</td>
                     <td className="td num text-right">{r.priceCents ? m(r.priceCents) : "Gratuit"}</td>
                     <td className="td w-24 text-right"><form action={deleteRate}><input type="hidden" name="id" value={r.id} /><button className="btn btn-sm">Retirer</button></form></td>
                   </tr>
@@ -67,6 +73,15 @@ export default async function ShippingPage({ searchParams }: { searchParams: Pro
               <label className="label text-xs">Nom du tarif<input name="name" required maxLength={60} placeholder="Express" className="input h-8 w-36" /></label>
               <label className="label text-xs">Prix<input name="price" required inputMode="decimal" placeholder="9,90" className="input num h-8 w-24" /></label>
               <label className="label text-xs">Gratuit dès (optionnel)<input name="freeAbove" inputMode="decimal" placeholder="100,00" className="input num h-8 w-28" /></label>
+              <details className="w-full">
+                <summary className="cursor-pointer text-xs font-[550] text-pine">Conditions (poids, montant)</summary>
+                <div className="mt-2 flex flex-wrap items-end gap-2">
+                  <label className="label text-xs">Poids min (kg)<input name="minWeight" inputMode="decimal" placeholder="0" className="input num h-8 w-24" /></label>
+                  <label className="label text-xs">Poids max (kg)<input name="maxWeight" inputMode="decimal" placeholder="1" className="input num h-8 w-24" /></label>
+                  <label className="label text-xs">Commande min<input name="minSubtotal" inputMode="decimal" placeholder="0,00" className="input num h-8 w-24" /></label>
+                  <label className="label text-xs">Commande max<input name="maxSubtotal" inputMode="decimal" placeholder="—" className="input num h-8 w-24" /></label>
+                </div>
+              </details>
               <button className="btn">Ajouter un tarif</button>
             </form>
           </section>

@@ -66,6 +66,7 @@ export function convertShopify(table: string[][]): { table: string[][]; images: 
       "Prix avant réduction": col(row, "Variant Compare At Price"),
       SKU: col(row, "Variant SKU"),
       Stock: col(row, "Variant Inventory Qty"),
+      "Poids (g)": col(row, "Variant Grams"),
     };
     out.push(PRODUCT_COLUMNS.map((c) => r[c] ?? ""));
     const vImg = col(row, "Variant Image");

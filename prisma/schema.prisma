@@ -212,13 +212,17 @@ model ShippingZone {
 }
 
 model ShippingRate {
-  id             String       @id @default(cuid())
-  zoneId         String
-  zone           ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  name           String // « Standard », « Express »…
-  priceCents     Int
-  freeAboveCents Int? // gratuit à partir de ce montant
-  position       Int          @default(0)
+  id               String       @id @default(cuid())
+  zoneId           String
+  zone             ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  name             String // « Standard », « Express »…
+  priceCents       Int
+  freeAboveCents   Int? // gratuit à partir de ce montant
+  minWeightGrams   Int? // tarif proposé seulement pour un panier de ce poids…
+  maxWeightGrams   Int? // …jusqu'à ce poids (inclus)
+  minSubtotalCents Int? // et/ou à partir de ce montant
+  maxSubtotalCents Int? // jusqu'à ce montant (inclus)
+  position         Int          @default(0)
 }
 
 /// Panier d'un client qui a donné son e-mail sans terminer sa commande.
@@ -322,6 +326,7 @@ model Variant {
   compareAtCents Int?
   costCents      Int? // coût d'achat par article (marge)
   image          String? // photo de cette variante (une des photos du produit)
+  weightGrams    Int     @default(0) // poids pour les tarifs d'expédition
   sku            String  @default("")
   stock          Int     @default(0)
   position       Int     @default(0)

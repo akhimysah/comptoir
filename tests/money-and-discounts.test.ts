@@ -77,3 +77,15 @@ describe("remboursements", () => {
     expect(suggestedItemRefund({ subtotalCents: 10000, discountCents: 1000 }, 4000, 1)).toBe(3600);
   });
 });
+
+describe("tarifs d'expédition", () => {
+  it("propose un tarif selon le poids et le montant du panier (bornes incluses)", async () => {
+    const { rateMatches } = await import("@/lib/pricing");
+    const r = (o: Partial<{ minWeightGrams: number; maxWeightGrams: number; minSubtotalCents: number; maxSubtotalCents: number }>) => ({ minWeightGrams: null, maxWeightGrams: null, minSubtotalCents: null, maxSubtotalCents: null, ...o });
+    expect(rateMatches(r({ maxWeightGrams: 1000 }), 1000, 0)).toBe(true);
+    expect(rateMatches(r({ maxWeightGrams: 1000 }), 1001, 0)).toBe(false);
+    expect(rateMatches(r({ minWeightGrams: 1001, maxWeightGrams: 5000 }), 3000, 0)).toBe(true);
+    expect(rateMatches(r({ minSubtotalCents: 5000 }), 0, 4999)).toBe(false);
+    expect(rateMatches(r({}), 99999, 0)).toBe(true);
+  });
+});
