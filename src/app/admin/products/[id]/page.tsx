@@ -71,7 +71,7 @@ export default async function EditProductPage({ params, searchParams }: { params
           hue: product.hue,
           images: parseJson(product.images, []),
           options: parseJson(product.options, []),
-          variants: product.variants.map((v) => ({ id: v.id, optionValues: parseJson(v.optionValues, []), price: centsToInput(v.priceCents), compareAt: centsToInput(v.compareAtCents), cost: v.costCents === null ? "" : centsToInput(v.costCents), sku: v.sku, stock: v.stock })),
+          variants: product.variants.map((v) => ({ id: v.id, optionValues: parseJson(v.optionValues, []), price: centsToInput(v.priceCents), compareAt: centsToInput(v.compareAtCents), cost: v.costCents === null ? "" : centsToInput(v.costCents), image: v.image, sku: v.sku, stock: v.stock })),
           collectionIds: product.collections.map((c) => c.collectionId),
         }}
       />

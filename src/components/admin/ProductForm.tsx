@@ -241,11 +241,23 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
                 )}
                 <div className="overflow-x-auto border-t border-line">
                   <table className="w-full min-w-[560px]">
-                    <thead><tr><th className="th">Variante</th><th className="th">Prix</th><th className="th">Prix avant réduction</th><th className="th">Coût</th><th className="th">Disponible</th><th className="th">SKU</th></tr></thead>
+                    <thead><tr><th className="th">Variante</th>{images.length > 0 && <th className="th">Photo</th>}<th className="th">Prix</th><th className="th">Prix avant réduction</th><th className="th">Coût</th><th className="th">Disponible</th><th className="th">SKU</th></tr></thead>
                     <tbody>
                       {variants.map((v) => (
                         <tr key={key(v.optionValues)}>
                           <td className="td font-[550]">{v.optionValues.join(" / ")}</td>
+                          {images.length > 0 && (
+                            <td className="td">
+                              <div className="flex items-center gap-1.5">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                {v.image && images.includes(v.image) ? <img src={v.image} alt="" className="h-8 w-8 rounded-md object-cover" /> : <span className="grid h-8 w-8 place-items-center rounded-md border border-dashed border-line text-[10px] text-muted">—</span>}
+                                <select aria-label={`Photo de ${v.optionValues.join(" / ")}`} value={v.image && images.includes(v.image) ? v.image : ""} onChange={(e) => setRow(v.optionValues, { image: e.target.value || null })} className="input h-8 w-24 py-0 text-xs">
+                                  <option value="">Aucune</option>
+                                  {images.map((src, i) => <option key={src} value={src}>Photo {i + 1}</option>)}
+                                </select>
+                              </div>
+                            </td>
+                          )}
                           <td className="td"><input aria-label={`Prix ${v.optionValues.join(" / ")}`} className="input num w-28" inputMode="decimal" required value={v.price} onChange={(e) => setRow(v.optionValues, { price: e.target.value })} placeholder="0,00" /></td>
                           <td className="td"><input aria-label={`Prix avant réduction ${v.optionValues.join(" / ")}`} className="input num w-28" inputMode="decimal" value={v.compareAt} onChange={(e) => setRow(v.optionValues, { compareAt: e.target.value })} placeholder="0,00" /></td>
                           <td className="td"><input aria-label={`Coût par article ${v.optionValues.join(" / ")}`} className="input num w-24" inputMode="decimal" value={v.cost} onChange={(e) => setRow(v.optionValues, { cost: e.target.value })} placeholder="0,00" /></td>

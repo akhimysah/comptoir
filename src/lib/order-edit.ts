@@ -46,7 +46,7 @@ export async function editPendingOrder(storeId: string, orderId: string, lines: 
     changes.push(`ajouté : ${Math.floor(l.quantity)} × ${v.product.title}${v.title !== "Par défaut" ? ` (${v.title})` : ""}`);
     return {
       orderId: order.id, variantId: v.id, productTitle: v.product.title, variantTitle: v.title, priceCents: v.priceCents, costCents: v.costCents,
-      quantity: Math.min(9999, Math.floor(l.quantity)), image: parseJson<string[]>(v.product.images, [])[0] ?? null, hue: v.product.hue, isGiftCard: v.product.isGiftCard,
+      quantity: Math.min(9999, Math.floor(l.quantity)), image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null, hue: v.product.hue, isGiftCard: v.product.isGiftCard,
     };
   });
   if (shippingCents !== order.shippingCents) changes.push(`livraison : ${formatMoney(order.shippingCents, order.store.currency)} → ${formatMoney(shippingCents, order.store.currency)}`);

@@ -149,7 +149,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       compareAtCents: sub && v.product.subscriptionDiscountBps ? v.priceCents : v.compareAtCents,
       quantity,
       available: v.product.isGiftCard || v.product.continueSelling ? 99 : stockOf(v),
-      image: parseJson<string[]>(v.product.images, [])[0] ?? null,
+      image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null,
       hue: v.product.hue,
       isGiftCard: v.product.isGiftCard,
     });

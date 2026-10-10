@@ -56,7 +56,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       hue={product.hue}
       rating={agg._count ? { avg: agg._avg.rating ?? 0, count: agg._count } : null}
       options={parseJson(product.options, [])}
-      variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: v.priceCents, compareAtCents: v.compareAtCents, stock: product.isGiftCard ? 99 : bundleLeft ?? v.stock }))}
+      variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: v.priceCents, compareAtCents: v.compareAtCents, stock: product.isGiftCard ? 99 : bundleLeft ?? v.stock, image: v.image }))}
       contents={contents}
       preorder={product.continueSelling}
       subscription={product.subscriptionInterval ? { interval: product.subscriptionInterval, discountBps: product.subscriptionDiscountBps } : null}

@@ -32,6 +32,7 @@ const payloadSchema = z.object({
         price: z.string(),
         compareAt: z.string(),
         cost: z.string().optional().default(""),
+        image: z.string().max(500).nullable().optional(),
         sku: z.string().max(60),
         stock: z.number().int().min(0).max(1_000_000),
       }),
@@ -94,6 +95,8 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
       priceCents,
       compareAtCents: compareAtCents && compareAtCents > priceCents ? compareAtCents : null,
       costCents,
+      // La photo d'une variante doit être l'une des photos du produit.
+      image: v.image && p.images.includes(v.image) ? v.image : null,
       sku: v.sku.trim(),
       stock: v.stock,
       position: i,

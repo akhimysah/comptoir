@@ -320,6 +320,7 @@ model Variant {
   priceCents     Int
   compareAtCents Int?
   costCents      Int? // coût d'achat par article (marge)
+  image          String? // photo de cette variante (une des photos du produit)
   sku            String  @default("")
   stock          Int     @default(0)
   position       Int     @default(0)

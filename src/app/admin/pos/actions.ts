@@ -36,7 +36,7 @@ export async function posCheckout(input: z.infer<typeof schema>): Promise<{ erro
     lines.push({
       variantId: v.id, baseVariantId: v.id, subscription: null, productId: v.productId, productTitle: v.product.title, productHandle: v.product.handle, variantTitle: v.title,
       priceCents: v.priceCents, compareAtCents: v.compareAtCents, quantity: l.quantity, available: stock,
-      image: parseJson<string[]>(v.product.images, [])[0] ?? null, hue: v.product.hue, isGiftCard: v.product.isGiftCard,
+      image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null, hue: v.product.hue, isGiftCard: v.product.isGiftCard,
     });
   }
   const subtotal = lines.reduce((s, l) => s + l.priceCents * l.quantity, 0);

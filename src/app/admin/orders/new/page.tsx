@@ -21,7 +21,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
       <ManualOrderForm
         prefill={source && a ? { name: source.name, email: source.email, ...a, note: `Complément de la commande #${source.number}` } : undefined}
         currency={store.currency}
-        variants={variants.map((v) => ({ id: v.id, productTitle: v.product.title, variantTitle: v.title, priceCents: v.priceCents, stock: v.stock, image: parseJson<string[]>(v.product.images, [])[0] ?? null, hue: v.product.hue }))}
+        variants={variants.map((v) => ({ id: v.id, productTitle: v.product.title, variantTitle: v.title, priceCents: v.priceCents, stock: v.stock, image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null, hue: v.product.hue }))}
         customers={customers.map((c) => ({ id: c.id, name: c.name, email: c.email, address: c.orders[0] ? parseJson<Address | null>(c.orders[0].address, null) : null }))}
       />
     </>

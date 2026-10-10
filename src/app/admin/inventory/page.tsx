@@ -53,7 +53,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                   <tr key={v.id} className="hover:bg-[#f7f7f7]">
                     <td className="td">
                       <Link href={`/admin/products/${v.productId}`} className="flex items-center gap-3">
-                        <Thumb image={parseJson<string[]>(v.product.images, [])[0]} hue={v.product.hue} title={v.product.title} className="h-9 w-9 text-[10px]" />
+                        <Thumb image={(v.image ?? parseJson<string[]>(v.product.images, [])[0])} hue={v.product.hue} title={v.product.title} className="h-9 w-9 text-[10px]" />
                         <span>
                           <span className="block whitespace-nowrap font-[550] hover:underline">{v.product.title}</span>
                           {v.title !== "Par défaut" && <span className="mt-0.5 inline-block rounded-md bg-[#ebebeb] px-1.5 text-xs">{v.title}</span>}

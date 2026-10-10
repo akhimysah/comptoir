@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Thumb } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
 import { useCart } from "./cart";
@@ -9,7 +9,7 @@ import { FavoriteButton } from "./FavoriteButton";
 
 const SUB = ":abonnement";
 
-type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number };
+type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number; image?: string | null };
 
 export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null, initialVariant, specs = [], productId }: {
   slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null; initialVariant?: string; specs?: { name: string; value: string }[]; productId?: string;
@@ -19,12 +19,18 @@ export function ProductBuy({ slug, currency, rate = 1, title, description, image
   const firstAvailable = variants.find((v) => v.stock > 0) ?? variants[0];
   const [picked, setPicked] = useState<string[]>((variants.find((v) => v.id === initialVariant) ?? firstAvailable).optionValues);
   const [qty, setQty] = useState(1);
-  const [image, setImage] = useState(0);
+  const startVariant = variants.find((v) => v.id === initialVariant) ?? firstAvailable;
+  const [image, setImage] = useState(() => Math.max(0, startVariant.image ? images.indexOf(startVariant.image) : 0));
   const [added, setAdded] = useState(false);
   const [subscribe, setSubscribe] = useState(false);
   const subPrice = (c: number) => Math.round(c * (1 - (subscription?.discountBps ?? 0) / 10000));
 
   const variant = useMemo(() => variants.find((v) => v.optionValues.every((x, i) => x === picked[i])) ?? null, [variants, picked]);
+  // Une variante avec sa propre photo l'affiche dès qu'elle est choisie.
+  useEffect(() => {
+    const i = variant?.image ? images.indexOf(variant.image) : -1;
+    if (i >= 0) setImage(i);
+  }, [variant, images]);
   const inCart = variant ? items.find((i) => i.variantId === variant.id)?.quantity ?? 0 : 0;
   const isPreorder = Boolean(preorder && variant && variant.stock - inCart <= 0);
   const left = variant ? (preorder ? 99 - inCart : variant.stock - inCart) : 0;

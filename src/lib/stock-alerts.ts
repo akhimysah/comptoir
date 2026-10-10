@@ -35,7 +35,7 @@ export async function notifyBackInStock(opts: { storeId?: string; variantIds?: s
     if (!claimed.count) continue;
     const store = v.product.store;
     const url = `${appUrl()}/s/${store.slug}/p/${v.product.handle}?variant=${v.id}`;
-    await sendMail({ to: a.email, storeId: store.id, ...backInStockEmail(store, { title: v.product.title, image: parseJson<string[]>(v.product.images, [])[0] ?? null }, v.title, url, v.priceCents) });
+    await sendMail({ to: a.email, storeId: store.id, ...backInStockEmail(store, { title: v.product.title, image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null }, v.title, url, v.priceCents) });
     sent++;
   }
   return sent;

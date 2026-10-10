@@ -52,7 +52,7 @@ export default async function EditOrderPage({ params }: { params: Promise<{ id: 
         invoiceSent={Boolean(o.invoiceSentAt)}
         discount={discount?.type === "percent" ? { kind: "percent", value: discount.value } : o.discountCents > 0 ? { kind: "fixed", value: o.discountCents } : { kind: "none", value: 0 }}
         items={o.items.map((i) => ({ id: i.id, title: i.productTitle, variant: i.variantTitle, priceCents: i.priceCents, quantity: i.quantity, image: i.image, hue: i.hue }))}
-        variants={variants.map((v) => ({ id: v.id, title: v.product.title, variant: v.title, priceCents: v.priceCents, stock: v.stock, image: parseJson<string[]>(v.product.images, [])[0] ?? null, hue: v.product.hue }))}
+        variants={variants.map((v) => ({ id: v.id, title: v.product.title, variant: v.title, priceCents: v.priceCents, stock: v.stock, image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null, hue: v.product.hue }))}
       />
     </>
   );

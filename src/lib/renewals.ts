@@ -38,7 +38,7 @@ export async function renewSubscription(storeId: string, subscriptionId: string,
     lines: [{
       variantId: sub.variantId, baseVariantId: sub.variantId, subscription: null, productId: v?.productId ?? "", productTitle: sub.productTitle, productHandle: v?.product.handle ?? "",
       variantTitle: sub.variantTitle, priceCents: sub.priceCents, compareAtCents: null, quantity: sub.quantity, available: 999,
-      image: v ? parseJson<string[]>(v.product.images, [])[0] ?? null : null, hue: v?.product.hue ?? 200, isGiftCard: false,
+      image: v ? (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null : null, hue: v?.product.hue ?? 200, isGiftCard: false,
     }],
     subtotalCents: subtotal, discountCents: Math.max(0, subtotal + shipping - total), discountCode: null, discountError: null, discountId: null, shippingCents: shipping, totalCents: total,
     freeShippingFromCents: store.freeShippingFromCents, notices: [], countries: null, shippingOptions: [], shippingRateId: null,
