@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { createOrder, markOrderPaid, OrderError } from "@/lib/orders";
 import { priceCart } from "@/lib/pricing";
+import { storeAccess } from "@/lib/store-access";
 import { subscribe } from "@/lib/marketing";
 import { appUrl, demoPaymentsAllowed, feePercent, getStripe, platformFee } from "@/lib/stripe";
 
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
 
   const store = await db.store.findUnique({ where: { slug: b.slug } });
   if (!store) return NextResponse.json({ error: "Boutique introuvable." }, { status: 404 });
+  if (!(await storeAccess(store)).allowed) return NextResponse.json({ error: "Cette boutique n'est pas encore ouverte." }, { status: 403 });
 
   const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode);
   if (b.giftCode && cart.giftCardError) return NextResponse.json({ error: cart.giftCardError }, { status: 400 });

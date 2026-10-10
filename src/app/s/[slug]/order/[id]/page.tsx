@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ClearCart } from "@/components/store/ClearCart";
+import { TrackPurchase } from "@/components/store/Tracking";
 import { Thumb } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -32,6 +33,7 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-8 px-4 py-16">
       {paid && <ClearCart slug={slug} />}
+      {paid && (store.gaId || store.metaPixelId) && <TrackPurchase orderId={order.id} valueCents={order.totalCents} currency={store.currency} />}
       <div className="flex flex-col items-center gap-3 text-center">
         <div className="grid h-14 w-14 place-items-center rounded-full bg-[var(--c-accent)] text-2xl text-[var(--c-accent-text)]">{paid ? "✓" : "…"}</div>
         <h1 className="font-[family-name:var(--t-display)] text-3xl font-semibold">{paid ? `Merci ${order.name.split(" ")[0]} !` : "Paiement en cours de validation"}</h1>

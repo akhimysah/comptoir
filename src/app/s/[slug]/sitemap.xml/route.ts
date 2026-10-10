@@ -5,7 +5,7 @@ import { appUrl } from "@/lib/stripe";
 export async function GET(_: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const store = await db.store.findUnique({ where: { slug } });
-  if (!store) return new Response("Introuvable", { status: 404 });
+  if (!store || store.passwordEnabled) return new Response("Introuvable", { status: 404 });
   const [products, collections, pages, posts] = await Promise.all([
     db.product.findMany({ where: { storeId: store.id, status: "active" }, select: { handle: true, updatedAt: true } }),
     db.collection.findMany({ where: { storeId: store.id }, select: { handle: true, createdAt: true } }),

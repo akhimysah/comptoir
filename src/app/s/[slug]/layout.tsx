@@ -3,27 +3,43 @@ import type { Metadata } from "next";
 import { CartLink } from "@/components/store/Header";
 import { NewsletterForm } from "@/components/store/NewsletterForm";
 import { ChatWidget } from "@/components/store/ChatWidget";
+import { PasswordGate } from "@/components/store/PasswordGate";
+import { ConsentLink, Tracking } from "@/components/store/Tracking";
+import { storeAccess } from "@/lib/store-access";
 import { CurrencySelect } from "@/components/store/CurrencySelect";
 import { storeFontVars } from "@/components/store/fonts";
-import { getStore } from "@/lib/storefront";
+import { getStoreUngated } from "@/lib/storefront";
 import { resolveMenus, type ResolvedLink } from "@/lib/navigation";
 
 const ext = (l: ResolvedLink) => (l.external ? { target: "_blank", rel: "noopener noreferrer" } : {});
 import { themeVars } from "@/lib/theme";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const { store } = await getStore((await params).slug);
-  return { title: { absolute: store.name, template: `%s · ${store.name}` }, description: store.tagline || undefined };
+  const { store } = await getStoreUngated((await params).slug);
+  return { title: { absolute: store.name, template: `%s · ${store.name}` }, description: store.tagline || undefined, ...(store.passwordEnabled ? { robots: { index: false, follow: false } } : {}) };
 }
 
 export default async function StoreLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { store, theme } = await getStore(slug);
+  const { store, theme } = await getStoreUngated(slug);
   const currencies = storeCurrencies(store);
   const current = await displayCurrency(store);
+  const access = await storeAccess(store);
+  if (!access.allowed) {
+    return (
+      <div style={themeVars(theme) as React.CSSProperties} className={`${storeFontVars} min-h-screen bg-[var(--c-bg)] font-[family-name:var(--t-body)] text-[var(--c-text)]`}>
+        <PasswordGate slug={slug} name={store.name} message={store.passwordMessage} />
+      </div>
+    );
+  }
   const menus = await resolveMenus(store);
   return (
     <div style={themeVars(theme) as React.CSSProperties} className={`${storeFontVars} flex min-h-screen flex-col bg-[var(--c-bg)] font-[family-name:var(--t-body)] text-[var(--c-text)]`}>
+      {access.preview && (
+        <div className="bg-[#1a1a1a] px-4 py-2 text-center text-xs text-white">
+          Boutique protégée par mot de passe : vous la voyez car vous êtes connecté à l'admin. <a href="/admin/settings/preferences" className="underline underline-offset-2">Préférences</a>
+        </div>
+      )}
       {theme.announcement && <div className="bg-[var(--c-accent)] px-4 py-2 text-center text-sm font-medium text-[var(--c-accent-text)]">{theme.announcement}</div>}
       <header className="sticky top-0 z-20 border-b border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] bg-[var(--c-bg)]/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-4">
@@ -61,6 +77,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
         </nav>
       </header>
       <main className="flex-1">{children}</main>
+      {(store.gaId || store.metaPixelId) && <Tracking slug={slug} gaId={store.gaId} pixelId={store.metaPixelId} />}
       {store.chatEnabled && <ChatWidget slug={slug} storeName={store.name} greeting={store.chatGreeting} />}
       <footer className="border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)]">
         <div className="mx-auto max-w-6xl px-4 pt-10 text-[var(--c-muted)]"><NewsletterForm slug={slug} /></div>
@@ -71,7 +88,10 @@ export default async function StoreLayout({ children, params }: { children: Reac
               {menus.footer.flatMap((l) => [l, ...l.children]).map((l, i) => <a key={i} href={l.href} {...ext(l)} className="hover:opacity-70">{l.title}</a>)}
             </nav>
           )}
-          <a href="/" className="hover:opacity-70">Boutique propulsée par Parnassa Pay</a>
+          <span className="flex gap-4">
+            {(store.gaId || store.metaPixelId) && <ConsentLink />}
+            <a href="/" className="hover:opacity-70">Boutique propulsée par Parnassa Pay</a>
+          </span>
         </div>
       </footer>
     </div>

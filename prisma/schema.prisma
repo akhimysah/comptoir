@@ -52,6 +52,11 @@ model Store {
   menus                 String                @default("") // JSON { main, footer } : menus de navigation (vide = menus par défaut)
   chatEnabled           Boolean               @default(true) // bulle de discussion sur la boutique
   chatGreeting          String                @default("Bonjour ! Une question sur un produit ou une commande ? Écrivez-nous, nous répondons vite.")
+  passwordEnabled       Boolean               @default(false) // boutique protégée par mot de passe (en préparation)
+  storePassword         String                @default("") // mot de passe partagé, à donner aux visiteurs
+  passwordMessage       String                @default("Notre boutique ouvre très bientôt. Revenez nous voir !")
+  gaId                  String                @default("") // Google Analytics 4 (G-XXXXXXX)
+  metaPixelId           String                @default("") // Meta (Facebook / Instagram) Pixel
   returnsEnabled        Boolean               @default(true) // retours en libre-service depuis « Mon compte »
   returnWindowDays      Int                   @default(30)
   returnInstructions    String                @default("") // adresse de retour, emballage… envoyé à l'acceptation

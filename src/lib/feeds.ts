@@ -11,7 +11,7 @@ export type FeedItem = {
 /** Une ligne par variante, au format attendu par Google Merchant Center et Meta Commerce Manager. */
 export async function feedItems(slug: string) {
   const store = await db.store.findUnique({ where: { slug } });
-  if (!store) return null;
+  if (!store || store.passwordEnabled) return null; // boutique en préparation : pas de catalogue public
   const products = await db.product.findMany({ where: { storeId: store.id, status: "active", isGiftCard: false }, include: { variants: { orderBy: { position: "asc" } } } });
   const base = appUrl();
   const money = (c: number) => `${(c / 100).toFixed(2)} ${store.currency}`;

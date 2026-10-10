@@ -5,13 +5,22 @@ import type { CardCollection, CardProduct } from "@/components/store/types";
 import { db } from "./db";
 import { bundleComponents, bundleStock } from "./bundles";
 import { readTheme } from "./theme";
+import { storeAccess } from "./store-access";
 import { parseJson } from "./utils";
 import { formatMetafield } from "./metafields";
 
-export const getStore = cache(async (slug: string) => {
+/** Boutique sans contrôle d'accès : réservé à la mise en page, qui affiche elle-même la page « mot de passe ». */
+export const getStoreUngated = cache(async (slug: string) => {
   const store = await db.store.findUnique({ where: { slug } });
   if (!store) notFound();
   return { store, theme: readTheme(store.theme, store.name) };
+});
+
+/** Boutique pour les pages : une boutique protégée par mot de passe ne livre aucune donnée sans accès. */
+export const getStore = cache(async (slug: string) => {
+  const res = await getStoreUngated(slug);
+  if (!(await storeAccess(res.store)).allowed) notFound();
+  return res;
 });
 
 export const getCatalog = cache(async (storeId: string) => {
