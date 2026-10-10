@@ -41,6 +41,9 @@ export async function resetPassword(_: { error?: string } | undefined, form: For
     db.passwordReset.updateMany({ where: { userId: r.userId, usedAt: null }, data: { usedAt: new Date() } }), // tous les liens envoyés
     db.session.deleteMany({ where: { userId: r.userId } }), // déconnecte les autres appareils
   ]);
+  // Avec la double authentification, un nouveau mot de passe ne suffit pas : retour à la connexion (mot de passe + code).
+  const u = await db.user.findUnique({ where: { id: r.userId }, select: { totpEnabled: true } });
+  if (u?.totpEnabled) redirect("/login?reset=1");
   await createSession(r.userId);
   redirect("/admin");
 }

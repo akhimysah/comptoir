@@ -9,15 +9,20 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  name         String
-  passwordHash String
-  dailyReport  Boolean       @default(true) // rapport quotidien par e-mail (toutes ses boutiques)
-  createdAt    DateTime      @default(now())
-  sessions     Session[]
-  stores       Store[]
-  memberships  StoreMember[]
+  id            String        @id @default(cuid())
+  email         String        @unique
+  name          String
+  passwordHash  String
+  dailyReport   Boolean       @default(true) // rapport quotidien par e-mail (toutes ses boutiques)
+  totpSecret    String? // double authentification : clé de l'application (base32), active si totpEnabled
+  totpPending   String? // clé en cours d'activation (pas encore confirmée par un code)
+  totpEnabled   Boolean       @default(false)
+  totpLastStep  Int? // dernier pas de 30 s utilisé : un même code ne sert qu'une fois
+  recoveryCodes String        @default("[]") // JSON : empreintes des codes de secours restants
+  createdAt     DateTime      @default(now())
+  sessions      Session[]
+  stores        Store[]
+  memberships   StoreMember[]
 }
 
 model Session {
@@ -720,4 +725,13 @@ model MetafieldDefinition {
   createdAt     DateTime @default(now())
 
   @@unique([storeId, key])
+}
+
+/// Connexion en attente du code de double authentification (mot de passe déjà vérifié).
+model LoginChallenge {
+  id        String   @id // empreinte du jeton gardé en cookie
+  userId    String
+  next      String   @default("/admin")
+  attempts  Int      @default(0)
+  expiresAt DateTime
 }

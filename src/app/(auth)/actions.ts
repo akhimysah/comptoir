@@ -7,6 +7,7 @@ import { createSession, destroySession, getUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { clearLimit, clientIp, hit } from "@/lib/rate-limit";
 import { safeNext } from "@/lib/utils";
+import { clearChallenge, currentChallenge, startChallenge, verifySecondFactor } from "@/lib/two-factor";
 import { defaultTheme } from "@/lib/theme";
 import { slugify } from "@/lib/utils";
 
@@ -74,11 +75,30 @@ export async function login(_: AuthState, form: FormData): Promise<AuthState> {
   const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !ok) return { error: "E-mail ou mot de passe incorrect." };
   await clearLimit(`login:email:${email}`);
+  const next = safeNext(String(form.get("next") ?? ""), "/admin");
+  // Double authentification : le mot de passe ne suffit pas, on demande le code de l'application.
+  if (user.totpEnabled) {
+    await startChallenge(user.id, next);
+    redirect("/login/2fa");
+  }
   await createSession(user.id);
-  redirect(safeNext(String(form.get("next") ?? ""), "/admin"));
+  redirect(next);
 }
 
 export async function logout(form?: FormData) {
   await destroySession();
   redirect(safeNext(String(form?.get("next") ?? ""), "/"));
+}
+
+export async function verifyTwoFactor(_: AuthState, form: FormData): Promise<AuthState> {
+  const c = await currentChallenge();
+  if (!c) redirect("/login?expired=1");
+  // 5 essais par connexion en attente, puis il faut ressaisir le mot de passe.
+  const counted = await db.loginChallenge.updateMany({ where: { id: c.id, attempts: { lt: 5 } }, data: { attempts: { increment: 1 } } });
+  if (!counted.count) { await clearChallenge(c.id); redirect("/login?expired=1"); }
+  const kind = await verifySecondFactor(c.userId, String(form.get("code") ?? ""));
+  if (!kind) return { error: "Code incorrect. Vérifiez l'heure de votre téléphone, ou utilisez un code de secours." };
+  await clearChallenge(c.id);
+  await createSession(c.userId);
+  redirect(kind === "recovery" ? "/admin/account?recovery=1" : c.next);
 }
