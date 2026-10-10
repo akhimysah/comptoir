@@ -1,5 +1,6 @@
 import { displayCurrency, storeCurrencies } from "@/lib/currency";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { CartLink } from "@/components/store/Header";
 import { NewsletterForm } from "@/components/store/NewsletterForm";
 import { ChatWidget } from "@/components/store/ChatWidget";
@@ -35,10 +36,13 @@ export default async function StoreLayout({ children, params }: { children: Reac
     );
   }
   const menus = await resolveMenus(store);
+  // Sur le domaine de la boutique, les liens /s/<boutique>/… sont ouverts directement à leur adresse courte (sans redirection).
+  const onDomain = Boolean(store.domain && store.domainVerifiedAt && (await headers()).get("x-store-domain") === store.domain);
   return (
     <div style={themeVars(theme) as React.CSSProperties} className={`${storeFontVars} flex min-h-screen flex-col bg-[var(--c-bg)] font-[family-name:var(--t-body)] text-[var(--c-text)]`}>
       {/* CSS personnalisé de la boutique : filtré à l'enregistrement et de nouveau ici (aucun « < » possible). */}
       {store.customCss && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(store.customCss) }} />}
+      {onDomain && <script dangerouslySetInnerHTML={{ __html: `(()=>{const p=${JSON.stringify(`/s/${slug}`)};document.addEventListener("click",e=>{const a=e.target instanceof Element&&e.target.closest("a[href]");if(!a||e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||(a.target&&a.target!=="_self"))return;const u=new URL(a.href,location.href);if(u.origin!==location.origin||!(u.pathname===p||u.pathname.startsWith(p+"/")))return;e.preventDefault();location.href=(u.pathname.slice(p.length)||"/")+u.search+u.hash;},true);})();` }} />}
       {access.preview && (
         <div className="bg-[#1a1a1a] px-4 py-2 text-center text-xs text-white">
           Boutique protégée par mot de passe : vous la voyez car vous êtes connecté à l'admin. <a href="/admin/settings/preferences" className="underline underline-offset-2">Préférences</a>

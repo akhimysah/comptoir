@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { appUrl } from "@/lib/stripe";
+import { storeBase } from "@/lib/domains";
 
 export default async function EditPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> }) {
   const [{ id }, { saved }] = await Promise.all([params, searchParams]);
@@ -28,7 +29,7 @@ export default async function EditPage({ params, searchParams }: { params: Promi
       />
       <ContentForm
         key={item?.updatedAt.toISOString() ?? "new"}
-        storeUrl={`${appUrl()}/s/${store.slug}`}
+        storeUrl={`${storeBase(store)}`}
         initial={{
           kind: "page",
           id: item?.id,

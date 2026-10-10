@@ -4,6 +4,7 @@ import { db } from "./db";
 import { chatAlertEmail, chatReplyEmail } from "./emails";
 import { sendMail } from "./mail";
 import { appUrl } from "./stripe";
+import { storeBase } from "./domains";
 
 const MAX = 2000;
 const clean = (s: string) => s.replace(/\r\n/g, "\n").trim().slice(0, MAX);
@@ -57,7 +58,7 @@ export async function replyToConversation(storeId: string, conversationId: strin
     db.chatMessage.create({ data: { conversationId: c.id, fromCustomer: false, authorName, body: text } }),
     db.conversation.update({ where: { id: c.id }, data: { unread: 0, lastMessageAt: new Date() } }),
   ]);
-  const link = `${appUrl()}/s/${c.store.slug}?chat=${c.token}`;
+  const link = `${storeBase(c.store)}?chat=${c.token}`;
   await sendMail({ to: c.email, storeId, ...chatReplyEmail(c.store, c.name, authorName, text, link) });
   return {};
 }

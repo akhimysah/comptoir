@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "./db";
 import { appUrl } from "./stripe";
 import { parseJson } from "./utils";
+import { storeBase } from "./domains";
 
 export type FeedItem = {
   id: string; groupId: string; title: string; description: string; link: string; image: string | null;
@@ -23,7 +24,7 @@ export async function feedItems(slug: string) {
       const onSale = v.compareAtCents && v.compareAtCents > v.priceCents;
       return {
         id: v.id, groupId: p.id, title: `${p.title}${v.title !== "Par défaut" ? ` – ${v.title}` : ""}`.slice(0, 150), description: desc,
-        link: `${base}/s/${slug}/p/${p.handle}`, image: img,
+        link: `${storeBase(store)}/p/${p.handle}`, image: img,
         price: money(onSale ? v.compareAtCents! : v.priceCents), salePrice: onSale ? money(v.priceCents) : null,
         availability: v.stock > 0 ? "in stock" : "out of stock", brand: store.name, sku: v.sku,
       };

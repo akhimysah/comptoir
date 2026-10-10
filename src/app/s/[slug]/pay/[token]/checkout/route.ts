@@ -3,14 +3,16 @@ import { db } from "@/lib/db";
 import { invoicePayable } from "@/lib/invoices";
 import { markOrderPaid } from "@/lib/orders";
 import { appUrl, demoPaymentsAllowed, getStripe, platformFee } from "@/lib/stripe";
+import { storeBaseBySlug } from "@/lib/domains";
 
 /** Paiement d'une facture : carte via Stripe, ou paiement de démonstration en local. */
 export async function POST(_: Request, { params }: { params: Promise<{ slug: string; token: string }> }) {
   const { slug, token } = await params;
-  const page = `${appUrl()}/s/${slug}/pay/${token}`;
+  const base = await storeBaseBySlug(slug);
+  const page = `${base}/pay/${token}`;
   const order = await db.order.findFirst({ where: { payToken: token, store: { slug } }, include: { store: true } });
   if (!order) return NextResponse.redirect(page, 303);
-  const thanks = `${appUrl()}/s/${slug}/order/${order.id}`;
+  const thanks = `${base}/order/${order.id}`;
   if (!invoicePayable(order)) return NextResponse.redirect(order.paymentStatus === "pending" ? page : thanks, 303);
 
   const store = order.store;

@@ -6,6 +6,7 @@ import { sendMail } from "./mail";
 import { priceCart, type CartInput } from "./pricing";
 import { appUrl } from "./stripe";
 import { parseJson } from "./utils";
+import { storeBase } from "./domains";
 
 /** Envoie la relance d'un panier abandonné. Renvoie false s'il n'y a plus rien à relancer. */
 export async function remindCheckout(store: Store, checkoutId: string) {
@@ -13,7 +14,7 @@ export async function remindCheckout(store: Store, checkoutId: string) {
   if (!c) return false;
   const cart = await priceCart(store, parseJson<CartInput>(c.items, []));
   if (!cart.lines.length) return false;
-  const link = `${appUrl()}/s/${store.slug}/cart?recover=${c.token}`;
+  const link = `${storeBase(store)}/cart?recover=${c.token}`;
   const lines = cart.lines.map((l) => ({ title: l.variantTitle === "Par défaut" ? l.productTitle : `${l.productTitle} (${l.variantTitle})`, quantity: l.quantity, priceCents: l.priceCents }));
   await sendMail({ to: c.email, storeId: store.id, ...abandonedCartEmail(store, c.name, lines, link) });
   await db.checkout.update({ where: { id: c.id }, data: { remindedAt: new Date() } });
@@ -40,7 +41,7 @@ export async function runAutomations(storeId?: string) {
         const handles = await db.product.findMany({ where: { storeId: store.id, title: { in: o.items.filter((i) => !i.isGiftCard).map((i) => i.productTitle) } }, select: { title: true, handle: true } });
         await db.order.update({ where: { id: o.id }, data: { reviewRequestedAt: new Date() } });
         if (!handles.length) continue;
-        await sendMail({ to: o.email, storeId: store.id, ...reviewRequestEmail(store, o.name, handles.map((h) => ({ title: h.title, url: `${appUrl()}/s/${store.slug}/p/${h.handle}#avis` }))) });
+        await sendMail({ to: o.email, storeId: store.id, ...reviewRequestEmail(store, o.name, handles.map((h) => ({ title: h.title, url: `${storeBase(store)}/p/${h.handle}#avis` }))) });
         reviews++;
       }
     }

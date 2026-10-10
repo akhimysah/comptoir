@@ -3,11 +3,12 @@ import { db } from "@/lib/db";
 import { clientIp, hit } from "@/lib/rate-limit";
 import { passCookie, passValue, passwordMatches } from "@/lib/store-access";
 import { appUrl } from "@/lib/stripe";
+import { storeBaseBySlug } from "@/lib/domains";
 
 /** Saisie du mot de passe d'une boutique en préparation. */
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const home = `${appUrl()}/s/${slug}`;
+  const home = await storeBaseBySlug(slug);
   const store = await db.store.findUnique({ where: { slug }, select: { id: true, passwordEnabled: true, storePassword: true } });
   if (!store) return NextResponse.redirect(appUrl(), 303);
   if (!store.passwordEnabled) return NextResponse.redirect(home, 303);

@@ -4,6 +4,7 @@ import { backInStockEmail } from "./emails";
 import { sendMail } from "./mail";
 import { appUrl } from "./stripe";
 import { parseJson } from "./utils";
+import { storeBase } from "./domains";
 
 /** Enregistre une demande « Me prévenir » pour une variante épuisée de la boutique. */
 export async function addStockAlert(storeId: string, variantId: string, email: string): Promise<{ error?: string }> {
@@ -34,7 +35,7 @@ export async function notifyBackInStock(opts: { storeId?: string; variantIds?: s
     const claimed = await db.stockAlert.updateMany({ where: { id: a.id, notifiedAt: null }, data: { notifiedAt: new Date() } });
     if (!claimed.count) continue;
     const store = v.product.store;
-    const url = `${appUrl()}/s/${store.slug}/p/${v.product.handle}?variant=${v.id}`;
+    const url = `${storeBase(store)}/p/${v.product.handle}?variant=${v.id}`;
     await sendMail({ to: a.email, storeId: store.id, ...backInStockEmail(store, { title: v.product.title, image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null }, v.title, url, v.priceCents) });
     sent++;
   }

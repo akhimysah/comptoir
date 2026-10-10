@@ -4,6 +4,7 @@ import { requirePerm } from "@/lib/auth";
 import { appUrl } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { bundleChoicesFor } from "@/lib/bundle-choices";
+import { storeBase } from "@/lib/domains";
 
 export default async function NewProductPage() {
   const { store } = await requirePerm("products");
@@ -17,7 +18,7 @@ export default async function NewProductPage() {
       <ProductForm
         currency={store.currency}
         collections={collections}
-        storeUrl={`${appUrl()}/s/${store.slug}`}
+        storeUrl={`${storeBase(store)}`}
         bundleChoices={choices}
         fieldDefs={fieldDefs}
         productChoices={productChoices}

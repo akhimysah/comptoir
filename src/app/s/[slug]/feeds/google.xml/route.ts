@@ -1,5 +1,6 @@
 import { feedItems } from "@/lib/feeds";
 import { appUrl } from "@/lib/stripe";
+import { storeBase } from "@/lib/domains";
 
 const x = (s: string) => s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c]!);
 
@@ -15,7 +16,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
 </item>`).join("\n");
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0"><channel>
-<title>${x(feed.store.name)}</title><link>${appUrl()}/s/${slug}</link><description>${x(feed.store.tagline || feed.store.name)}</description>
+<title>${x(feed.store.name)}</title><link>${storeBase(feed.store)}</link><description>${x(feed.store.tagline || feed.store.name)}</description>
 ${items}
 </channel></rss>`;
   return new Response(xml, { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=900" } });

@@ -37,6 +37,9 @@ model Session {
 model Store {
   id                    String                @id @default(cuid())
   slug                  String                @unique
+  domain                String?               @unique // nom de domaine personnalisé (ex. www.maboutique.fr)
+  domainToken           String? // valeur de l'enregistrement TXT qui prouve que le domaine appartient au marchand
+  domainVerifiedAt      DateTime? // la boutique n'est servie sur ce domaine qu'une fois vérifié
   name                  String
   tagline               String                @default("")
   currency              String                @default("EUR")

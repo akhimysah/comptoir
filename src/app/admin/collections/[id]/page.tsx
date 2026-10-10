@@ -7,6 +7,7 @@ import { requirePerm } from "@/lib/auth";
 import { appUrl } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { parseJson } from "@/lib/utils";
+import { storeBase } from "@/lib/domains";
 
 export default async function CollectionPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> }) {
   const [{ id }, { saved }] = await Promise.all([params, searchParams]);
@@ -28,7 +29,7 @@ export default async function CollectionPage({ params, searchParams }: { params:
       <CollectionForm
         key={collection?.id ?? "new"}
         products={products}
-        storeUrl={`${appUrl()}/s/${store.slug}`}
+        storeUrl={`${storeBase(store)}`}
         initial={{ id: collection?.id, title: collection?.title ?? "", description: collection?.description ?? "", image: collection?.image ?? null, productIds: collection?.products.map((p) => p.productId) ?? [], seoTitle: collection?.seoTitle ?? "", seoDescription: collection?.seoDescription ?? "" }}
       />
     </>

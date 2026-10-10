@@ -3,6 +3,7 @@ import { CopyField } from "@/components/admin/CopyField";
 import { PageHeader, Pill } from "@/components/ui";
 import { requireOwner } from "@/lib/auth";
 import { appUrl } from "@/lib/stripe";
+import { storeBase } from "@/lib/domains";
 
 export default async function PreferencesPage({ searchParams }: { searchParams: Promise<{ ok?: string; err?: string }> }) {
   const { ok, err } = await searchParams;
@@ -35,7 +36,7 @@ export default async function PreferencesPage({ searchParams }: { searchParams: 
         </section>
         <section className="card flex flex-col gap-2 p-4">
           <h2 className="text-sm font-[650]">Adresse de la boutique</h2>
-          <CopyField value={`${appUrl()}/s/${store.slug}`} label="Adresse de la boutique" />
+          <CopyField value={`${storeBase(store)}`} label="Adresse de la boutique" />
         </section>
         <button className="btn btn-primary self-end">Enregistrer</button>
       </form>

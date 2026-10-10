@@ -6,6 +6,7 @@ import { markdownToEmailHtml } from "./email-markdown";
 import { formatMoney } from "./money";
 import { appUrl } from "./stripe";
 import { parseJson } from "./utils";
+import { storeBase } from "./domains";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -50,7 +51,7 @@ ${rows.length ? `<table role="presentation" width="100%" cellpadding="0" cellspa
   return { subject: c.subject, html };
 }
 
-export const unsubscribeUrl = (slug: string, token: string) => `${appUrl()}/s/${slug}/unsubscribe?t=${token}`;
+export const unsubscribeUrl = (store: { slug: string; domain: string | null; domainVerifiedAt: Date | null }, token: string) => `${storeBase(store)}/unsubscribe?t=${token}`;
 
 /**
  * Destinataires d'une campagne : les abonnés à la newsletter, limités au segment choisi.

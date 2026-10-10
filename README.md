@@ -123,7 +123,8 @@ L'offre gratuite de Vercel (Hobby) est réservée aux projets non commerciaux. P
    - `CRON_SECRET` (une longue valeur aléatoire) pour les tâches planifiées de `vercel.json` ;
    - `RESEND_API_KEY` et l'adresse d'envoi pour les e-mails ;
    - `PLATFORM_ADMINS` (vos e-mails) pour la page « Erreurs » et les alertes ;
-   - les informations légales `PLATFORM_*` (voir `.env.example`).
+   - les informations légales `PLATFORM_*` (voir `.env.example`) ;
+   - pour les noms de domaine des boutiques : `VERCEL_TOKEN` et `VERCEL_PROJECT_ID` (ajout automatique du domaine et de son certificat HTTPS), et `DOMAIN_CNAME_TARGET` (`cname.vercel-dns.com` sur Vercel).
 5. Facultatif, la boutique de démonstration : lancez la commande suivante sur votre Mac, avec le mot de passe de votre choix.
 
    ```bash
@@ -141,7 +142,6 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 - Textes légaux de la plateforme : brouillons en place (/legal/cgu, /legal/confidentialite, /legal/mentions-legales), à compléter (variables PLATFORM_* du .env) et à faire valider par un professionnel du droit (puis LEGAL_VALIDATED=1).
 
 **Fonctionnalités Shopify absentes**
-- Noms de domaine personnalisés par boutique (aujourd'hui `/s/<boutique>`).
 - Boutique en plusieurs langues.
 - Paiement dans la devise du client (les autres devises sont affichées, le paiement reste dans la devise de la boutique).
 - Étiquettes d'expédition et tarifs transporteurs en direct (Colissimo, Mondial Relay…).

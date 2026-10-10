@@ -43,7 +43,7 @@ export async function sendTest(form: FormData) {
   const { user, store } = await requirePerm("marketing");
   const c = await db.campaign.findFirst({ where: { id: String(form.get("id")), storeId: store.id } });
   if (!c) return;
-  const mail = await campaignEmail(store, c, unsubscribeUrl(store.slug, "test"));
+  const mail = await campaignEmail(store, c, unsubscribeUrl(store, "test"));
   await sendMail({ to: user.email, storeId: store.id, subject: `[Test] ${mail.subject}`, html: mail.html });
   redirect(`/admin/marketing/${c.id}?test=1`);
 }
@@ -61,7 +61,7 @@ export async function sendCampaign(form: FormData) {
     redirect(`/admin/marketing/${c.id}?err=segment`);
   }
   for (const s of subscribers) {
-    const mail = await campaignEmail(store, c, unsubscribeUrl(store.slug, s.marketingToken!));
+    const mail = await campaignEmail(store, c, unsubscribeUrl(store, s.marketingToken!));
     await sendMail({ to: s.email, storeId: store.id, ...mail });
   }
   await db.campaign.update({ where: { id: c.id }, data: { status: "sent", sentAt: new Date(), recipients: subscribers.length } });

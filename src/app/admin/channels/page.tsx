@@ -4,6 +4,7 @@ import { PageHeader, Pill } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { feedItems } from "@/lib/feeds";
 import { appUrl } from "@/lib/stripe";
+import { storeBase } from "@/lib/domains";
 
 export default async function ChannelsPage() {
   const { store } = await requirePerm("content");
@@ -13,11 +14,11 @@ export default async function ChannelsPage() {
   const local = appUrl().includes("localhost");
   const channels = [
     {
-      name: "Google Shopping", url: `${appUrl()}/s/${store.slug}/feeds/google.xml`, where: "Google Merchant Center → Produits → Sources de données → Ajouter un flux → « Récupération planifiée »",
+      name: "Google Shopping", url: `${storeBase(store)}/feeds/google.xml`, where: "Google Merchant Center → Produits → Sources de données → Ajouter un flux → « Récupération planifiée »",
       help: "https://merchants.google.com",
     },
     {
-      name: "Facebook et Instagram", url: `${appUrl()}/s/${store.slug}/feeds/meta.csv`, where: "Meta Commerce Manager → Catalogue → Sources de données → Flux de données → « Récupération planifiée »",
+      name: "Facebook et Instagram", url: `${storeBase(store)}/feeds/meta.csv`, where: "Meta Commerce Manager → Catalogue → Sources de données → Flux de données → « Récupération planifiée »",
       help: "https://business.facebook.com/commerce",
     },
   ];

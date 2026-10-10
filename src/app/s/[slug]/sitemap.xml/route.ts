@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { appUrl } from "@/lib/stripe";
+import { storeBase } from "@/lib/domains";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ slug: stri
     db.page.findMany({ where: { storeId: store.id, published: true }, select: { handle: true, updatedAt: true } }),
     db.blogPost.findMany({ where: { storeId: store.id, published: true }, select: { handle: true, updatedAt: true } }),
   ]);
-  const base = `${appUrl()}/s/${slug}`;
+  const base = storeBase(store);
   const url = (path: string, d?: Date) => `<url><loc>${base}${path}</loc>${d ? `<lastmod>${d.toISOString().slice(0, 10)}</lastmod>` : ""}</url>`;
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

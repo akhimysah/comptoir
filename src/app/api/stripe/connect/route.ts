@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOwner } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { appUrl, getStripe } from "@/lib/stripe";
+import { storeBase } from "@/lib/domains";
 
 /** Crée (si besoin) le compte Stripe Express du marchand et l'envoie vers l'inscription ou son tableau de bord. */
 export async function GET() {
@@ -16,7 +17,7 @@ export async function GET() {
       const account = await stripe.accounts.create({
         type: "express",
         email: user.email,
-        business_profile: { name: store.name, url: `${appUrl()}/s/${store.slug}` },
+        business_profile: { name: store.name, url: `${storeBase(store)}` },
         capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
         metadata: { storeId: store.id },
       });

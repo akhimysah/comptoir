@@ -7,6 +7,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const { store } = await requirePerm("marketing");
   const c = await db.campaign.findFirst({ where: { id, storeId: store.id } });
   if (!c) return new Response("Introuvable", { status: 404 });
-  const { html } = await campaignEmail(store, c, unsubscribeUrl(store.slug, "apercu"));
+  const { html } = await campaignEmail(store, c, unsubscribeUrl(store, "apercu"));
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": "script-src 'none'" } });
 }

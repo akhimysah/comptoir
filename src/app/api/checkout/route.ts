@@ -7,6 +7,7 @@ import { PICKUP_ID, priceCart } from "@/lib/pricing";
 import { storeAccess } from "@/lib/store-access";
 import { subscribe } from "@/lib/marketing";
 import { appUrl, demoPaymentsAllowed, feePercent, getStripe, platformFee } from "@/lib/stripe";
+import { storeBase } from "@/lib/domains";
 
 const schema = z.object({
   slug: z.string(),
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
     if (pickup) await db.order.update({ where: { id: order.id }, data: { deliveryMethod: "pickup" } });
     if (b.marketing) await subscribe(store.id, b.email, b.name);
     await confirmTermsOrder(order.id, customer!.paymentTermsDays);
-    return NextResponse.json({ url: `${appUrl()}/s/${store.slug}/order/${order.id}` });
+    return NextResponse.json({ url: `${storeBase(store)}/order/${order.id}` });
   }
 
   const stripe = getStripe();
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
   }
   if (pickup) await db.order.update({ where: { id: order.id }, data: { deliveryMethod: "pickup" } });
   if (b.marketing) await subscribe(store.id, b.email, b.name);
-  const thanks = `${appUrl()}/s/${store.slug}/order/${order.id}`;
+  const thanks = `${storeBase(store)}/order/${order.id}`;
 
   if (!useStripe || !stripe) {
     await markOrderPaid(order.id);
@@ -133,7 +134,7 @@ export async function POST(req: Request) {
       : { payment_intent_data: { application_fee_amount: platformFee(cart.totalCents), transfer_data: { destination: store.stripeAccountId! }, metadata: { orderId: order.id, storeId: store.id } } }),
     metadata: { orderId: order.id, storeId: store.id },
     success_url: `${thanks}?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl()}/s/${store.slug}/cart?cancelled=1`,
+    cancel_url: `${storeBase(store)}/cart?cancelled=1`,
   });
   await db.order.update({ where: { id: order.id }, data: { stripeSessionId: session.id } });
   return NextResponse.json({ url: session.url });

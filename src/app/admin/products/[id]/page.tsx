@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { bundleChoicesFor } from "@/lib/bundle-choices";
 import { centsToInput } from "@/lib/money";
 import { parseJson } from "@/lib/utils";
+import { storeBase } from "@/lib/domains";
 
 export default async function EditProductPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> }) {
   const [{ id }, { saved }] = await Promise.all([params, searchParams]);
@@ -49,7 +50,7 @@ export default async function EditProductPage({ params, searchParams }: { params
         key={product.updatedAt.toISOString()}
         currency={store.currency}
         collections={collections}
-        storeUrl={`${appUrl()}/s/${store.slug}`}
+        storeUrl={`${storeBase(store)}`}
         bundleChoices={choices}
         fieldDefs={fieldDefs}
         productChoices={productChoices}

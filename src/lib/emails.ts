@@ -6,6 +6,7 @@ import { parseJson } from "./utils";
 import { carrierLabel, trackingLink } from "./tracking";
 import { fill, templateText, type TemplateKey } from "./email-templates";
 import { readTheme } from "./theme";
+import { storeBase } from "./domains";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -74,7 +75,7 @@ export function orderConfirmationEmail(store: Store, order: Order & { items: Ord
     subject: t.subject,
     html: t.layout(t.title, `${t.intro}${due}
 ${itemsTable(order, store.currency)}${addressBlock(order, store)}
-<p style="margin-top:24px">${t.button(`${appUrl()}/s/${store.slug}`, "Retourner sur la boutique")}</p>`),
+<p style="margin-top:24px">${t.button(`${storeBase(store)}`, "Retourner sur la boutique")}</p>`),
   };
 }
 
@@ -142,7 +143,7 @@ export function giftCardEmail(store: Store, code: string, amountCents: number, n
 ${expiresAt ? `<div style="font-size:12px;color:#616161;margin-top:6px">Valable jusqu'au ${expiresAt.toLocaleDateString("fr-FR")}</div>` : ""}
 </div>
 <p style="font-size:14px;line-height:1.5">Saisissez ce code dans votre panier, champ « Carte cadeau ». Le montant non utilisé reste sur la carte.</p>
-<p>${button(`${appUrl()}/s/${store.slug}`, "Découvrir la boutique")}</p>`),
+<p>${button(`${storeBase(store)}`, "Découvrir la boutique")}</p>`),
   };
 }
 

@@ -4,6 +4,7 @@ import { db } from "./db";
 import { invoiceEmail } from "./emails";
 import { sendMail } from "./mail";
 import { appUrl } from "./stripe";
+import { storeBaseBySlug } from "./domains";
 
 /** Une facture se paie en ligne tant que la commande est en attente de paiement et non annulée. */
 export const invoicePayable = (o: { paymentStatus: string; cancelledAt: Date | null; totalCents: number }) => o.paymentStatus === "pending" && !o.cancelledAt && o.totalCents > 0;
@@ -16,7 +17,7 @@ export async function payLink(order: { id: string; payToken: string | null }, sl
     const r = await db.order.updateMany({ where: { id: order.id, payToken: null }, data: { payToken: token } });
     if (!r.count) token = (await db.order.findUniqueOrThrow({ where: { id: order.id } })).payToken!;
   }
-  return `${appUrl()}/s/${slug}/pay/${token}`;
+  return `${await storeBaseBySlug(slug)}/pay/${token}`;
 }
 
 /** Envoie la facture par e-mail avec le lien de paiement. */
