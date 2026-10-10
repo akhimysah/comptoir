@@ -53,6 +53,7 @@ Ensuite, ouvrez http://localhost:3000.
 | Produits complémentaires et « Souvent achetés ensemble » (choisis ou appris des commandes) | « Complétez votre commande » dans le panier, ajout en un clic |
 | Modification des commandes non payées (quantités, ajouts, retraits, livraison) | Commande payée : remboursement ou commande complémentaire préremplie |
 | Favoris (liste d'envies) : cœur sur chaque produit, page « Mes favoris » | Gardés sur l'appareil ou synchronisés avec le compte client |
+| Recherche prédictive (produits, collections, pages pendant la saisie) | Navigation au clavier, sans accents ni majuscules |
 | Navigation : menus avec sous-menus déroulants | Redirections d'URL automatiques quand une adresse change |
 | Référencement : titre et description Google, aperçu du résultat | Sitemap par boutique (`/s/<boutique>/sitemap.xml`), robots.txt |
 | Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau ; achat de cartes cadeaux dans la boutique |

@@ -1,29 +1,20 @@
 import { displayCurrency } from "@/lib/currency";
 import { FilteredProducts } from "@/components/store/Listing";
 import { getCatalog, getStore } from "@/lib/storefront";
-import { db } from "@/lib/db";
+import { searchProducts, searchTerms } from "@/lib/search";
 
 export const metadata = { title: "Recherche" };
 
-/** Sans accents ni majuscules : « ceramique » trouve « Céramique ». */
-const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 export default async function SearchPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [{ slug }, sp] = await Promise.all([params, searchParams]);
   const q = typeof sp.q === "string" ? sp.q : "";
   const { store } = await getStore(slug);
-  const { products, collections } = await getCatalog(store.id);
+  const { collections } = await getCatalog(store.id);
   const cur = await displayCurrency(store);
   const view = { ...store, currency: cur.code, rate: cur.rate };
-  const terms = norm(q).split(/\s+/).filter(Boolean);
-  let results = products;
-  if (terms.length) {
-    const texts = new Map((await db.product.findMany({ where: { storeId: store.id, status: "active" }, select: { id: true, title: true, description: true } })).map((p) => [p.id, norm(`${p.title} ${p.description}`)]));
-    const titleHit = (id: string, title: string) => terms.every((t) => norm(title).includes(t));
-    results = products
-      .filter((p) => terms.every((t) => (texts.get(p.id) ?? norm(p.title)).includes(t)))
-      .sort((a, b) => Number(titleHit(b.id, b.title)) - Number(titleHit(a.id, a.title)));
-  } else results = [];
+  const terms = searchTerms(q);
+  const results = await searchProducts(store.id, q);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">

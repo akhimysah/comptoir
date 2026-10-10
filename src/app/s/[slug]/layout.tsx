@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { CartLink } from "@/components/store/Header";
 import { NewsletterForm } from "@/components/store/NewsletterForm";
 import { ChatWidget } from "@/components/store/ChatWidget";
+import { PredictiveSearch } from "@/components/store/PredictiveSearch";
 import { PasswordGate } from "@/components/store/PasswordGate";
 import { ConsentLink, Tracking } from "@/components/store/Tracking";
 import { storeAccess } from "@/lib/store-access";
@@ -64,9 +65,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
             )}
           </nav>
           {currencies.length > 1 && <CurrencySelect slug={slug} codes={currencies.map((c) => c.code)} current={current.code} />}
-          <a href={`/s/${slug}/search`} aria-label="Rechercher" className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
-          </a>
+          <PredictiveSearch slug={slug} currency={current.code} rate={current.rate} />
           <a href={`/s/${slug}/favorites`} aria-label="Mes favoris" className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" aria-hidden><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg>
           </a>
