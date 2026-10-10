@@ -91,7 +91,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <PageHeader title="Statistiques" />
+      <PageHeader title="Statistiques" actions={<Link href="/admin/analytics/reports" className="btn">Rapports détaillés</Link>} />
       <div className="flex flex-wrap gap-1.5">
         {(Object.keys(PERIODS) as Period[]).map((k) => (
           <Link key={k} href={`/admin/analytics?p=${k}`} className={cx("btn", period === k && "bg-[#e3e3e3]")}>{PERIODS[k]}</Link>

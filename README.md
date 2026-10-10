@@ -48,6 +48,7 @@ Ensuite, ouvrez http://localhost:3000.
 | Données personnalisées (métachamps) : matière, dimensions, entretien… | Tableau « Caractéristiques » sur la fiche produit, champs utilisables comme filtres |
 | Préférences : boutique protégée par mot de passe pendant la préparation, Google Analytics 4 et Pixel Meta | Bandeau cookies (RGPD), achats mesurés |
 | Retrait en boutique (gratuit, sans adresse) | « Prête pour le retrait » avec e-mail au client, puis « Récupérée » |
+| Rapports : ventes par jour, par produit, par canal, TVA collectée, meilleurs clients | Export CSV pour Excel et la comptabilité |
 | Navigation : menus avec sous-menus déroulants | Redirections d'URL automatiques quand une adresse change |
 | Référencement : titre et description Google, aperçu du résultat | Sitemap par boutique (`/s/<boutique>/sitemap.xml`), robots.txt |
 | Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau ; achat de cartes cadeaux dans la boutique |

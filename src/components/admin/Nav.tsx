@@ -81,7 +81,7 @@ export function AdminNav({ toShip, returnsToHandle = 0, unreadMessages = 0, stor
     { href: "/admin/products", label: "Produits", icon: "products", match: ["/admin/products", "/admin/collections", "/admin/inventory", "/admin/reviews", "/admin/gift-cards"], children: [{ href: "/admin/collections", label: "Collections" }, { href: "/admin/inventory", label: "Stock" }, { href: "/admin/products/purchase-orders", label: "Bons de commande" }, { href: "/admin/gift-cards", label: "Cartes cadeaux" }, { href: "/admin/reviews", label: "Avis" }] },
     { href: "/admin/customers", label: "Clients", icon: "customers", children: [{ href: "/admin/customers/segments", label: "Segments" }] },
     { href: "/admin/inbox", label: "Messagerie", icon: "chat", badge: unreadMessages },
-    { href: "/admin/analytics", label: "Statistiques", icon: "chart" },
+    { href: "/admin/analytics", label: "Statistiques", icon: "chart", children: [{ href: "/admin/analytics/reports", label: "Rapports" }] },
     { href: "/admin/marketing", label: "Marketing", icon: "marketing" },
     { href: "/admin/discounts", label: "Remises", icon: "discounts" },
   ];
