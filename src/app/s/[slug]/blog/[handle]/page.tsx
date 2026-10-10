@@ -3,6 +3,7 @@ import { RichText } from "@/components/store/RichText";
 import { db } from "@/lib/db";
 import { notFoundOrRedirect } from "@/lib/navigation";
 import { getStore } from "@/lib/storefront";
+import { intlLocale } from "@/lib/i18n";
 
 async function load(slug: string, handle: string) {
   const { store } = await getStore(slug);
@@ -20,12 +21,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string; handle: string }> }) {
   const { slug, handle } = await params;
-  const post = await load(slug, handle);
+  const [post, { locale }] = await Promise.all([load(slug, handle), getStore(slug)]);
   return (
     <article className="mx-auto max-w-2xl px-4 py-14">
       <a href={`/s/${slug}/blog`} className="text-sm text-[var(--c-muted)] hover:underline">← Blog</a>
       <h1 className="mb-2 mt-4 font-[family-name:var(--t-display)] text-3xl font-semibold leading-tight md:text-5xl">{post.title}</h1>
-      <p className="mb-8 text-sm text-[var(--c-muted)]">{post.publishedAt?.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}{post.author ? ` · ${post.author}` : ""}</p>
+      <p className="mb-8 text-sm text-[var(--c-muted)]">{post.publishedAt?.toLocaleDateString(intlLocale(locale), { day: "numeric", month: "long", year: "numeric" })}{post.author ? ` · ${post.author}` : ""}</p>
       {post.image && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={post.image} alt="" className="mb-8 w-full rounded-[var(--t-radius)] object-cover" />

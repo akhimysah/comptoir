@@ -6,6 +6,59 @@ import { includedTax, vatRateFor } from "./tax";
 import { splitCartId, subPrice } from "./subscriptions";
 import { bundleComponents, bundleStock } from "./bundles";
 import { loadProPricing, proPrice } from "./b2b";
+import { dict, translate, type Locale } from "./i18n";
+
+/** Messages montrés au client (panier, paiement), dans sa langue. */
+const MSG = dict(
+  {
+    noCode: "Ce code promo n'existe pas.",
+    notYet: "Ce code promo n'est pas encore actif.",
+    expired: "Ce code promo a expiré.",
+    maxUses: "Ce code promo a déjà été utilisé le nombre maximum de fois.",
+    tooLow: "Le montant du panier est trop bas pour ce code.",
+    noItems: "Ce code ne s'applique à aucun article de votre panier.",
+    bxgy: (n: number) => `Ajoutez ${n} articles concernés au panier pour profiter de l'offre.`,
+    removed: "Un article de votre panier n'est plus disponible et a été retiré.",
+    soldOut: (t: string) => `${t} est épuisé et a été retiré du panier.`,
+    onlyLeft: (n: number, t: string) => `Il ne reste que ${n} × ${t}.`,
+    onlyLeftLine: (n: number, t: string) => `Il ne reste que ${n} × ${t} pour cette ligne.`,
+    notEnough: (t: string) => `${t} n'est plus disponible en quantité suffisante et a été retiré.`,
+    autoDiscount: "Remise automatique",
+    giftNone: "Cette carte cadeau n'existe pas.",
+    giftExpired: "Cette carte cadeau a expiré.",
+    giftEmpty: "Cette carte cadeau est épuisée.",
+    byEmail: "Envoi par e-mail",
+    pickup: "Retrait en boutique",
+    standard: "Livraison standard",
+    noRate: (kg: number) => `Aucun mode de livraison ne correspond à ce panier (${kg.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} kg). Contactez-nous pour l'envoyer.`,
+    noCountry: "Nous ne livrons pas encore dans ce pays.",
+    chooseCountry: "Choisissez votre pays de livraison.",
+  },
+  {
+    noCode: "This discount code doesn't exist.",
+    notYet: "This discount code isn't active yet.",
+    expired: "This discount code has expired.",
+    maxUses: "This discount code has reached its usage limit.",
+    tooLow: "Your cart total is too low for this code.",
+    noItems: "This code doesn't apply to any item in your cart.",
+    bxgy: (n: number) => `Add ${n} eligible items to your cart to get this offer.`,
+    removed: "An item in your cart is no longer available and has been removed.",
+    soldOut: (t: string) => `${t} is sold out and has been removed from your cart.`,
+    onlyLeft: (n: number, t: string) => `Only ${n} × ${t} left.`,
+    onlyLeftLine: (n: number, t: string) => `Only ${n} × ${t} left for this line.`,
+    notEnough: (t: string) => `${t} is no longer available in sufficient quantity and has been removed.`,
+    autoDiscount: "Automatic discount",
+    giftNone: "This gift card doesn't exist.",
+    giftExpired: "This gift card has expired.",
+    giftEmpty: "This gift card has no balance left.",
+    byEmail: "Delivered by email",
+    pickup: "In-store pickup",
+    standard: "Standard shipping",
+    noRate: (kg: number) => `No shipping method is available for this cart (${kg.toLocaleString("en-GB", { maximumFractionDigits: 2 })} kg). Contact us to arrange delivery.`,
+    noCountry: "We don't ship to this country yet.",
+    chooseCountry: "Choose your shipping country.",
+  },
+);
 
 export type CartInput = { variantId: string; quantity: number }[];
 
@@ -94,14 +147,15 @@ export function discountAmount(d: Discount, lines: DiscountLine[]) {
   return 0;
 }
 
-export function discountProblem(d: Discount | null, subtotalCents: number, eligible?: DiscountLine[]): string | null {
-  if (!d || !d.active) return "Ce code promo n'existe pas.";
-  if (d.startsAt && d.startsAt > new Date()) return "Ce code promo n'est pas encore actif.";
-  if (d.endsAt && d.endsAt < new Date()) return "Ce code promo a expiré.";
-  if (d.usageLimit !== null && d.usageCount >= d.usageLimit) return "Ce code promo a déjà été utilisé le nombre maximum de fois.";
-  if (subtotalCents < d.minSubtotalCents) return "Le montant du panier est trop bas pour ce code.";
-  if (eligible && !eligible.length && d.type !== "free_shipping") return "Ce code ne s'applique à aucun article de votre panier.";
-  if (eligible && d.type === "bxgy" && eligible.reduce((s, l) => s + l.quantity, 0) < d.buyQty + d.getQty) return `Ajoutez ${d.buyQty + d.getQty} articles concernés au panier pour profiter de l'offre.`;
+export function discountProblem(d: Discount | null, subtotalCents: number, eligible?: DiscountLine[], locale: Locale = "fr"): string | null {
+  const t = MSG[locale];
+  if (!d || !d.active) return t.noCode;
+  if (d.startsAt && d.startsAt > new Date()) return t.notYet;
+  if (d.endsAt && d.endsAt < new Date()) return t.expired;
+  if (d.usageLimit !== null && d.usageCount >= d.usageLimit) return t.maxUses;
+  if (subtotalCents < d.minSubtotalCents) return t.tooLow;
+  if (eligible && !eligible.length && d.type !== "free_shipping") return t.noItems;
+  if (eligible && d.type === "bxgy" && eligible.reduce((s, l) => s + l.quantity, 0) < d.buyQty + d.getQty) return t.bxgy(d.buyQty + d.getQty);
   return null;
 }
 
@@ -109,7 +163,11 @@ export function discountProblem(d: Discount | null, subtotalCents: number, eligi
  * Recalcule toujours le panier côté serveur à partir de la base :
  * les prix envoyés par le navigateur ne sont jamais utilisés.
  */
-export async function priceCart(store: Store, items: CartInput, code?: string | null, ship: ShippingChoice = {}, giftCode?: string | null, opts: { priceListId?: string | null } = {}): Promise<PricedCart> {
+export async function priceCart(store: Store, items: CartInput, code?: string | null, ship: ShippingChoice = {}, giftCode?: string | null, opts: { priceListId?: string | null; locale?: Locale } = {}): Promise<PricedCart> {
+  const locale = opts.locale ?? "fr";
+  const t = MSG[locale];
+  // Titre du produit dans la langue du client (messages seulement : les lignes gardent le titre d'origine).
+  const titleOf = (p: { title: string; translations?: string }) => translate(p, locale, ["title"]).title;
   const qty = new Map<string, number>();
   for (const it of items) {
     if (!it || typeof it.variantId !== "string") continue;
@@ -135,16 +193,16 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     const ref = splitCartId(variantId);
     const v = variants.find((x) => x.id === ref.variantId);
     if (!v) {
-      notices.push("Un article de votre panier n'est plus disponible et a été retiré.");
+      notices.push(t.removed);
       continue;
     }
     // Une carte cadeau n'a pas de stock.
     const quantity = v.product.isGiftCard || v.product.continueSelling ? wanted : Math.min(wanted, stockOf(v));
     if (quantity <= 0) {
-      notices.push(`${v.product.title} est épuisé et a été retiré du panier.`);
+      notices.push(t.soldOut(titleOf(v.product)));
       continue;
     }
-    if (quantity < wanted) notices.push(`Il ne reste que ${stockOf(v)} × ${v.product.title}.`);
+    if (quantity < wanted) notices.push(t.onlyLeft(stockOf(v), titleOf(v.product)));
     const sub = ref.subscribe && v.product.subscriptionInterval ? v.product.subscriptionInterval : null;
     const base = v.product.isGiftCard ? v.priceCents : proPrice(v.priceCents, v.id, pro);
     lines.push({
@@ -177,7 +235,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     const needs = bundles.has(v.productId) ? bundles.get(v.productId)!.map((p) => ({ id: p.variantId, per: Math.max(1, p.quantity) })) : [{ id: v.id, per: 1 }];
     const allowed = Math.min(l.quantity, ...needs.map((n) => Math.floor(Math.max(0, stockLeft.get(n.id) ?? 0) / n.per)));
     if (allowed < l.quantity) {
-      notices.push(allowed > 0 ? `Il ne reste que ${allowed} × ${l.productTitle} pour cette ligne.` : `${l.productTitle} n'est plus disponible en quantité suffisante et a été retiré.`);
+      notices.push(allowed > 0 ? t.onlyLeftLine(allowed, titleOf(v.product)) : t.notEnough(titleOf(v.product)));
       l.quantity = allowed;
     }
     for (const n of needs) stockLeft.set(n.id, (stockLeft.get(n.id) ?? 0) - allowed * n.per);
@@ -216,12 +274,12 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
   };
   const evaluate = async (d: Discount) => {
     const eligible = eligibleLines(d, lines, d.appliesTo === "collections" ? await membership() : new Map());
-    return { eligible, problem: discountProblem(d, discountable, eligible), amount: discountAmount(d, eligible) };
+    return { eligible, problem: discountProblem(d, discountable, eligible, locale), amount: discountAmount(d, eligible) };
   };
   const normalized = code?.trim().toUpperCase();
   if (normalized) {
     const d = await db.discount.findUnique({ where: { storeId_code: { storeId: store.id, code: normalized } } });
-    if (!d || d.automatic) discountError = "Ce code promo n'existe pas.";
+    if (!d || d.automatic) discountError = t.noCode;
     else {
       const r = await evaluate(d);
       discountError = r.problem;
@@ -245,7 +303,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       if (!best || amount > best.amount || (amount === best.amount && d.type === "free_shipping")) best = { d, amount };
     }
     if (best) {
-      discountCode = best.d.title || "Remise automatique";
+      discountCode = best.d.title || t.autoDiscount;
       discountId = best.d.id;
       if (best.d.type === "free_shipping") freeShipping = true;
       else discountCents = best.amount;
@@ -255,8 +313,8 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
   const afterDiscount = subtotalCents - discountCents;
   const needsShipping = lines.some((l) => !l.isGiftCard);
   const shipping = needsShipping
-    ? await computeShipping(store, afterDiscount - giftItemsCents, true, ship, weightGrams)
-    : { countries: null, shippingOptions: [], shippingRateId: null, shippingMethod: lines.length ? "Envoi par e-mail" : "", shippingCents: 0, shippingError: null };
+    ? await computeShipping(store, afterDiscount - giftItemsCents, true, ship, weightGrams, locale)
+    : { countries: null, shippingOptions: [], shippingRateId: null, shippingMethod: lines.length ? t.byEmail : "", shippingCents: 0, shippingError: null };
   if (freeShipping && !shipping.shippingError) {
     shipping.shippingCents = 0;
     shipping.shippingOptions = shipping.shippingOptions.map((o) => ({ ...o, priceCents: 0 }));
@@ -270,9 +328,9 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
   const g = giftCode ? normalizeGiftCode(giftCode) : "";
   if (g) {
     const card = await db.giftCard.findUnique({ where: { storeId_code: { storeId: store.id, code: g } } });
-    if (!card || card.disabled) giftCardError = "Cette carte cadeau n'existe pas.";
-    else if (card.expiresAt && card.expiresAt < new Date()) giftCardError = "Cette carte cadeau a expiré.";
-    else if (card.balanceCents <= 0) giftCardError = "Cette carte cadeau est épuisée.";
+    if (!card || card.disabled) giftCardError = t.giftNone;
+    else if (card.expiresAt && card.expiresAt < new Date()) giftCardError = t.giftExpired;
+    else if (card.balanceCents <= 0) giftCardError = t.giftEmpty;
     else { giftCardCode = card.code; giftCardBalanceCents = card.balanceCents; giftCardCents = Math.min(card.balanceCents, due); }
   }
 
@@ -304,10 +362,10 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
 export const PICKUP_ID = "pickup";
 
 /** Livraison, plus le retrait en boutique (gratuit, sans adresse ni pays) quand la boutique le propose. */
-async function computeShipping(store: Store, amount: number, hasItems: boolean, ship: ShippingChoice, weightGrams = 0) {
-  const base = await computeDelivery(store, amount, hasItems, ship, weightGrams);
+async function computeShipping(store: Store, amount: number, hasItems: boolean, ship: ShippingChoice, weightGrams = 0, locale: Locale = "fr") {
+  const base = await computeDelivery(store, amount, hasItems, ship, weightGrams, locale);
   if (!store.pickupEnabled || !store.pickupAddress.trim()) return base;
-  const pickup = { id: PICKUP_ID, name: "Retrait en boutique", priceCents: 0 };
+  const pickup = { id: PICKUP_ID, name: MSG[locale].pickup, priceCents: 0 };
   if (ship.rateId === PICKUP_ID) return { ...base, shippingOptions: [...base.shippingOptions, pickup], shippingRateId: PICKUP_ID, shippingMethod: pickup.name, shippingCents: 0, shippingError: null };
   return { ...base, shippingOptions: [...base.shippingOptions, pickup] };
 }
@@ -318,23 +376,24 @@ export function rateMatches(r: { minWeightGrams: number | null; maxWeightGrams: 
     && (r.minSubtotalCents === null || amount >= r.minSubtotalCents) && (r.maxSubtotalCents === null || amount <= r.maxSubtotalCents);
 }
 
-async function computeDelivery(store: Store, amount: number, hasItems: boolean, ship: ShippingChoice, weightGrams = 0) {
+async function computeDelivery(store: Store, amount: number, hasItems: boolean, ship: ShippingChoice, weightGrams = 0, locale: Locale = "fr") {
+  const t = MSG[locale];
   const zones = await db.shippingZone.findMany({ where: { storeId: store.id }, include: { rates: { orderBy: { position: "asc" } } } });
   if (!zones.length) {
     const free = !hasItems || store.freeShippingFromCents === 0 || amount >= store.freeShippingFromCents;
     const priceCents = free ? 0 : store.shippingCents;
-    return { countries: null, shippingOptions: [{ id: "default", name: "Livraison standard", priceCents }], shippingRateId: "default", shippingMethod: "Livraison standard", shippingCents: priceCents, shippingError: null };
+    return { countries: null, shippingOptions: [{ id: "default", name: t.standard, priceCents }], shippingRateId: "default", shippingMethod: t.standard, shippingCents: priceCents, shippingError: null };
   }
   const countries = [...new Set(zones.flatMap((z) => parseJson<string[]>(z.countries, [])))].sort((a, b) => a.localeCompare(b, "fr"));
   const zone = ship.country ? zones.find((z) => parseJson<string[]>(z.countries, []).includes(ship.country!)) : null;
   if (zone && zone.rates.length) {
     // Seuls les tarifs dont les conditions (poids, montant) correspondent au panier sont proposés.
     const rates = zone.rates.filter((r) => rateMatches(r, weightGrams, amount));
-    if (!rates.length) return { countries, shippingOptions: [], shippingRateId: null, shippingMethod: "", shippingCents: 0, shippingError: `Aucun mode de livraison ne correspond à ce panier (${(weightGrams / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} kg). Contactez-nous pour l'envoyer.` };
+    if (!rates.length) return { countries, shippingOptions: [], shippingRateId: null, shippingMethod: "", shippingCents: 0, shippingError: t.noRate(weightGrams / 1000) };
     zone.rates = rates;
   }
   if (!zone || !zone.rates.length) {
-    return { countries, shippingOptions: [], shippingRateId: null, shippingMethod: "", shippingCents: 0, shippingError: ship.country ? "Nous ne livrons pas encore dans ce pays." : "Choisissez votre pays de livraison." };
+    return { countries, shippingOptions: [], shippingRateId: null, shippingMethod: "", shippingCents: 0, shippingError: ship.country ? t.noCountry : t.chooseCountry };
   }
   const options = zone.rates.map((r) => ({ id: r.id, name: r.name, priceCents: !hasItems || (r.freeAboveCents !== null && amount >= r.freeAboveCents) ? 0 : r.priceCents }));
   const chosen = options.find((o) => o.id === ship.rateId) ?? options.reduce((a, b) => (b.priceCents < a.priceCents ? b : a));

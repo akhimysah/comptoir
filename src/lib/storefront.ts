@@ -4,16 +4,22 @@ import { cache } from "react";
 import type { CardCollection, CardProduct } from "@/components/store/types";
 import { db } from "./db";
 import { bundleComponents, bundleStock } from "./bundles";
-import { readTheme } from "./theme";
+import { readTheme, translateTheme } from "./theme";
+import { readTranslations, translate, type Locale } from "./i18n";
+import { getLocale } from "./locale";
 import { storeAccess } from "./store-access";
 import { parseJson } from "./utils";
 import { formatMetafield } from "./metafields";
 
 /** Boutique sans contrôle d'accès : réservé à la mise en page, qui affiche elle-même la page « mot de passe ». */
 export const getStoreUngated = cache(async (slug: string) => {
-  const store = await db.store.findUnique({ where: { slug } });
-  if (!store) notFound();
-  return { store, theme: readTheme(store.theme, store.name) };
+  const raw = await db.store.findUnique({ where: { slug } });
+  if (!raw) notFound();
+  // Langue du visiteur : textes de la boutique et du thème traduits par le marchand.
+  const locale = await getLocale(raw);
+  const store = translate(raw, locale, ["tagline", "passwordMessage"]);
+  const theme = readTheme(store.theme, store.name);
+  return { store, theme: locale === "fr" ? theme : translateTheme(theme, readTranslations(raw.translations)[locale]), locale };
 });
 
 /** Boutique pour les pages : une boutique protégée par mot de passe ne livre aucune donnée sans accès. */
@@ -23,7 +29,7 @@ export const getStore = cache(async (slug: string) => {
   return res;
 });
 
-export const getCatalog = cache(async (storeId: string) => {
+export const getCatalog = cache(async (storeId: string, locale: Locale = "fr") => {
   const [products, collections, ratings] = await Promise.all([
     db.product.findMany({
       where: { storeId, status: "active" },
@@ -44,7 +50,7 @@ export const getCatalog = cache(async (storeId: string) => {
       return {
         id: p.id,
         handle: p.handle,
-        title: p.title,
+        title: translate(p, locale, ["title"]).title,
         priceCents: cheapest.priceCents,
         maxPriceCents: Math.max(...p.variants.map((v) => v.priceCents)),
         compareAtCents: cheapest.compareAtCents,
@@ -59,12 +65,12 @@ export const getCatalog = cache(async (storeId: string) => {
           values: [...new Set(p.variants.map((v) => parseJson<string[]>(v.optionValues, [])[idx]).filter((x): x is string => !!x).map((x) => x.trim()))],
         })).filter((o) => o.name && o.values.length).concat(filterDefs.flatMap((d) => {
           const raw = parseJson<Record<string, string>>(p.metafields, {})[d.key];
-          if (d.type === "boolean") return raw === "true" ? [{ name: d.name, values: ["Oui"] }] : [];
-          const shown = formatMetafield(d, raw);
+          if (d.type === "boolean") return raw === "true" ? [{ name: d.name, values: [locale === "en" ? "Yes" : "Oui"] }] : [];
+          const shown = formatMetafield(d, raw, locale);
           return shown ? [{ name: d.name, values: [shown] }] : [];
         })),
       };
     });
-  const cols: CardCollection[] = collections.map((c) => ({ handle: c.handle, title: c.title, image: c.image, count: c.products.length }));
+  const cols: CardCollection[] = collections.map((c) => ({ handle: c.handle, title: translate(c, locale, ["title"]).title, image: c.image, count: c.products.length }));
   return { products: cards, collections: cols };
 });

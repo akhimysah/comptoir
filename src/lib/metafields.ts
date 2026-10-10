@@ -15,10 +15,10 @@ export const choicesOf = (d: { choices: string }) => {
 };
 
 /** Valeur lisible : « Oui », « 12 cm », texte… ; null si vide. */
-export function formatMetafield(d: MetafieldDef, raw: string | undefined) {
+export function formatMetafield(d: MetafieldDef, raw: string | undefined, locale: "fr" | "en" = "fr") {
   if (raw === undefined || raw === "") return null;
-  if (d.type === "boolean") return raw === "true" ? "Oui" : raw === "false" ? "Non" : null;
-  if (d.type === "number") return `${Number(raw).toLocaleString("fr-FR")}${d.unit ? ` ${d.unit}` : ""}`;
+  if (d.type === "boolean") return raw === "true" ? (locale === "en" ? "Yes" : "Oui") : raw === "false" ? (locale === "en" ? "No" : "Non") : null;
+  if (d.type === "number") return `${Number(raw).toLocaleString(locale === "en" ? "en-GB" : "fr-FR")}${d.unit ? ` ${d.unit}` : ""}`;
   return `${raw}${d.unit && d.type === "text" ? ` ${d.unit}` : ""}`;
 }
 

@@ -1,7 +1,7 @@
 import "server-only";
 import type { Order, OrderItem, ReturnRequest, Store } from "@prisma/client";
 import { db } from "./db";
-import { returnApprovedEmail, returnDeclinedEmail, returnRequestedAlertEmail, returnRequestedEmail } from "./emails";
+import { orderLocale, returnApprovedEmail, returnDeclinedEmail, returnRequestedAlertEmail, returnRequestedEmail } from "./emails";
 import { sendMail } from "./mail";
 import { parseJson } from "./utils";
 
@@ -78,7 +78,7 @@ export async function requestReturn(storeId: string, orderId: string, customer: 
   await db.orderEvent.create({ data: { orderId: order.id, type: "return_requested", author: order.name, message: `${count} article(s)` } });
   const items = chosen.map((l) => ({ title: order.items.find((i) => i.id === l.orderItemId)!.productTitle, quantity: l.quantity, reason: l.reason }));
   await Promise.all([
-    sendMail({ to: order.email, storeId, ...returnRequestedEmail(order.store, order.number, items) }),
+    sendMail({ to: order.email, storeId, ...returnRequestedEmail(order.store, order.number, items, orderLocale(order)) }),
     sendMail({ to: order.store.owner.email, storeId, ...returnRequestedAlertEmail(order.store, order, items, note) }),
   ]);
   return { id: r.id };
@@ -104,7 +104,7 @@ export async function decideReturn(storeId: string, id: string, author: string, 
   const type = { approve: "return_approved", decline: "return_declined", receive: "return_received", reopen: "return_reopened" }[d.action];
   await db.orderEvent.create({ data: { orderId: r.orderId, type, author, message: d.action === "decline" && d.reason ? d.reason : "" } });
   const items = returnLines(r).map((l) => ({ title: r.order.items.find((i) => i.id === l.orderItemId)?.productTitle ?? "Article", quantity: l.quantity, reason: l.reason }));
-  if (d.action === "approve") await sendMail({ to: r.order.email, storeId, ...returnApprovedEmail(r.store, r.order.number, items) });
-  if (d.action === "decline") await sendMail({ to: r.order.email, storeId, ...returnDeclinedEmail(r.store, r.order.number, d.reason) });
+  if (d.action === "approve") await sendMail({ to: r.order.email, storeId, ...returnApprovedEmail(r.store, r.order.number, items, orderLocale(r.order)) });
+  if (d.action === "decline") await sendMail({ to: r.order.email, storeId, ...returnDeclinedEmail(r.store, r.order.number, d.reason, orderLocale(r.order)) });
   return {};
 }

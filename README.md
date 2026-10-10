@@ -124,6 +124,7 @@ L'offre gratuite de Vercel (Hobby) est réservée aux projets non commerciaux. P
    - `RESEND_API_KEY` et l'adresse d'envoi pour les e-mails ;
    - `PLATFORM_ADMINS` (vos e-mails) pour la page « Erreurs » et les alertes ;
    - les informations légales `PLATFORM_*` (voir `.env.example`) ;
+   - `BILLING_ENABLED=1` pour faire payer les forfaits aux marchands (14 jours d'essai, puis Essentiel, Pro ou Avancé ; la commission dépend du forfait) ;
    - pour les noms de domaine des boutiques : `VERCEL_TOKEN` et `VERCEL_PROJECT_ID` (ajout automatique du domaine et de son certificat HTTPS), et `DOMAIN_CNAME_TARGET` (`cname.vercel-dns.com` sur Vercel).
 5. Facultatif, la boutique de démonstration : lancez la commande suivante sur votre Mac, avec le mot de passe de votre choix.
 
@@ -131,32 +132,31 @@ L'offre gratuite de Vercel (Hobby) est réservée aux projets non commerciaux. P
    npx vercel env pull .env && SEED_DEMO_PASSWORD="un-mot-de-passe-solide" npm run db:seed
    ```
 
-Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dans les variables Vercel. Créez le webhook dans Stripe vers `https://votre-site/api/stripe/webhook`, avec les événements `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `invoice.paid`, `customer.subscription.deleted` et `account.updated`, en cochant les comptes connectés.
+Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dans les variables Vercel. Créez le webhook dans Stripe vers `https://votre-site/api/stripe/webhook`, avec les événements `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `invoice.paid`, `customer.subscription.updated`, `customer.subscription.deleted` et `account.updated`, en cochant les comptes connectés. Activez aussi le portail client Stripe (Paramètres → Billing → Customer portal) pour que les marchands gèrent leur carte et leurs factures.
 
 ## Pas encore fait
 
 **Pour la mise en ligne (bloquant)**
 - Hébergement (Vercel ou autre) et base de données PostgreSQL : le code est prêt et testé sur PostgreSQL à chaque envoi ; il reste à créer les comptes, et à activer les sauvegardes de la base.
-- Clés Stripe (compte plateforme Connect) : le paiement par carte, les remboursements Stripe et les abonnements prélevés n'ont jamais été testés avec de vraies clés.
+- Clés Stripe (compte plateforme Connect) : le paiement par carte, les remboursements Stripe, les abonnements prélevés et les forfaits des marchands (Stripe Billing) n'ont jamais été testés avec de vraies clés.
 - Clé Resend et domaine d'envoi vérifié : aujourd'hui les e-mails sont seulement enregistrés.
 - Textes légaux de la plateforme : brouillons en place (/legal/cgu, /legal/confidentialite, /legal/mentions-legales), à compléter (variables PLATFORM_* du .env) et à faire valider par un professionnel du droit (puis LEGAL_VALIDATED=1).
 
 **Fonctionnalités Shopify absentes**
-- Boutique en plusieurs langues.
+- Langues autres que le français et l'anglais ; traduction automatique (aujourd'hui le marchand saisit l'anglais dans Paramètres → Langues). Les e-mails de panier abandonné et de retour en stock partent en français.
 - Paiement dans la devise du client (les autres devises sont affichées, le paiement reste dans la devise de la boutique).
 - Étiquettes d'expédition et tarifs transporteurs en direct (Colissimo, Mondial Relay…).
 - B2B : autoliquidation de la TVA pour les professionnels d'un autre pays de l'UE (vente hors taxes avec numéro de TVA). Les listes de prix pro et le paiement à échéance sont en place.
 - Boutique d'applications (des logiciels tiers se branchent déjà via l'API et les webhooks : Paramètres → API et webhooks).
 - Éditeur de code du thème : les sections, les réglages et un CSS personnalisé sont modifiables, pas le gabarit des pages.
-- Abonnement payant des marchands à la plateforme (elle se rémunère par la commission).
 
-## Tests## Tests
+## Tests
 
 ```bash
 npm test
 ```
 
-Les calculs sensibles (remises, « Achetez X obtenez Y », TVA, remboursements, double authentification, redirections, exports CSV, filtres, import Shopify, e-mails) et le parcours d'achat complet sur une base de test dédiée (commande, paiement, stock, carte cadeau et code promo utilisés en même temps, remboursements simultanés) sont vérifiés par des tests automatiques (`tests/`). À chaque envoi sur GitHub, le typage et les tests tournent tout seuls (onglet **Actions**) : une croix rouge signale qu'un changement a cassé quelque chose.
+Les calculs sensibles (remises, « Achetez X obtenez Y », TVA, remboursements, double authentification, redirections, exports CSV, filtres, import Shopify, e-mails, traductions, forfaits), l'API publique et ses webhooks signés, les noms de domaine des boutiques, les prix professionnels et le parcours d'achat complet sur une base de test dédiée (commande, paiement, stock, carte cadeau et code promo utilisés en même temps, remboursements simultanés) sont vérifiés par des tests automatiques (`tests/`). À chaque envoi sur GitHub, le typage et les tests tournent tout seuls (onglet **Actions**) : une croix rouge signale qu'un changement a cassé quelque chose.
 
 ## Organisation du code
 

@@ -3,7 +3,7 @@ import { db } from "./db";
 import { formatMoney } from "./money";
 import { sendMail } from "./mail";
 import { getStripe } from "./stripe";
-import { refundEmail } from "./emails";
+import { orderLocale, refundEmail } from "./emails";
 import { revokePoints } from "./loyalty";
 
 export const PAID_STATUSES = ["paid", "partially_refunded"];
@@ -104,7 +104,7 @@ export async function refundOrder(args: {
   }
   if (amount > 0 && args.notify !== false) {
     const items = lines.map((l) => { const i = order.items.find((x) => x.id === l.orderItemId)!; return { title: i.productTitle, quantity: l.quantity }; });
-    await sendMail({ to: order.email, storeId: order.storeId, ...refundEmail(order.store, order.number, amount, items, args.reason) });
+    await sendMail({ to: order.email, storeId: order.storeId, ...refundEmail(order.store, order.number, amount, items, args.reason, orderLocale(order)) });
   }
   return {};
 }

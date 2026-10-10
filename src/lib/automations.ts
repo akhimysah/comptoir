@@ -1,7 +1,8 @@
 import "server-only";
 import type { Store } from "@prisma/client";
 import { db } from "./db";
-import { abandonedCartEmail, reviewRequestEmail } from "./emails";
+import { abandonedCartEmail, orderLocale, reviewRequestEmail } from "./emails";
+import { translate } from "./i18n";
 import { sendMail } from "./mail";
 import { priceCart, type CartInput } from "./pricing";
 import { appUrl } from "./stripe";
@@ -38,10 +39,10 @@ export async function runAutomations(storeId?: string) {
         include: { items: true },
       });
       for (const o of orders) {
-        const handles = await db.product.findMany({ where: { storeId: store.id, title: { in: o.items.filter((i) => !i.isGiftCard).map((i) => i.productTitle) } }, select: { title: true, handle: true } });
+        const handles = await db.product.findMany({ where: { storeId: store.id, title: { in: o.items.filter((i) => !i.isGiftCard).map((i) => i.productTitle) } }, select: { title: true, handle: true, translations: true } });
         await db.order.update({ where: { id: o.id }, data: { reviewRequestedAt: new Date() } });
         if (!handles.length) continue;
-        await sendMail({ to: o.email, storeId: store.id, ...reviewRequestEmail(store, o.name, handles.map((h) => ({ title: h.title, url: `${storeBase(store)}/p/${h.handle}#avis` }))) });
+        await sendMail({ to: o.email, storeId: store.id, ...reviewRequestEmail(store, o.name, handles.map((h) => ({ title: translate(h, orderLocale(o), ["title"]).title, url: `${storeBase(store)}/p/${h.handle}#avis` })), orderLocale(o)) });
         reviews++;
       }
     }

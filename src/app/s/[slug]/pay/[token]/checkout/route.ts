@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { invoicePayable } from "@/lib/invoices";
 import { markOrderPaid } from "@/lib/orders";
-import { appUrl, demoPaymentsAllowed, getStripe, platformFee } from "@/lib/stripe";
+import { appUrl, demoPaymentsAllowed, getStripe } from "@/lib/stripe";
+import { storePlatformFee } from "@/lib/billing";
 import { storeBaseBySlug } from "@/lib/domains";
 
 /** Paiement d'une facture : carte via Stripe, ou paiement de démonstration en local. */
@@ -28,9 +29,9 @@ export async function POST(_: Request, { params }: { params: Promise<{ slug: str
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer_email: order.email,
-      locale: "fr",
-      line_items: [{ quantity: 1, price_data: { currency: store.currency.toLowerCase(), unit_amount: order.totalCents, product_data: { name: `Commande #${order.number} · ${store.name}` } } }],
-      payment_intent_data: { application_fee_amount: platformFee(order.totalCents), transfer_data: { destination: store.stripeAccountId }, metadata: { orderId: order.id, storeId: store.id } },
+      locale: order.locale === "en" ? "en" : "fr",
+      line_items: [{ quantity: 1, price_data: { currency: store.currency.toLowerCase(), unit_amount: order.totalCents, product_data: { name: `${order.locale === "en" ? "Order" : "Commande"} #${order.number} · ${store.name}` } } }],
+      payment_intent_data: { application_fee_amount: storePlatformFee(store, order.totalCents), transfer_data: { destination: store.stripeAccountId }, metadata: { orderId: order.id, storeId: store.id } },
       // « invoice » : une facture abandonnée sur Stripe n'est pas annulée, le client peut réessayer.
       metadata: { orderId: order.id, storeId: store.id, invoice: "1" },
       success_url: `${thanks}?session_id={CHECKOUT_SESSION_ID}`,

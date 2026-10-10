@@ -4,6 +4,7 @@ import { cache } from "react";
 import { z } from "zod";
 import { db } from "./db";
 import { parseJson } from "./utils";
+import { readTranslations, type Locale } from "./i18n";
 
 export const LINK_TYPES = ["home", "all", "collection", "product", "page", "blog", "post", "search", "url"] as const;
 export type LinkType = (typeof LINK_TYPES)[number];
@@ -50,8 +51,11 @@ export async function storeMenus(store: { id: string; menus: string }): Promise<
 }
 
 /** Transforme les menus en liens. Un lien vers un élément supprimé ou masqué disparaît. */
-export const resolveMenus = cache(async (store: { id: string; slug: string; menus: string }) => {
+export const resolveMenus = cache(async (store: { id: string; slug: string; menus: string; translations?: string }, locale: Locale = "fr") => {
   const menus = await storeMenus(store);
+  // Libellés traduits par le marchand (clé « menu.<libellé d'origine> »).
+  const tr = locale === "fr" ? {} : readTranslations(store.translations)[locale] ?? {};
+  const label = (title: string) => tr[`menu.${title}`]?.trim() || title;
   const all = [...menus.main, ...menus.footer].flatMap((i) => [i, ...i.children]);
   const ids = (t: LinkType) => all.filter((i) => i.type === t && i.ref).map((i) => i.ref);
   const [collections, products, pages, posts] = await Promise.all([
@@ -78,8 +82,8 @@ export const resolveMenus = cache(async (store: { id: string; slug: string; menu
   const resolve = (items: MenuItem[]): ResolvedLink[] =>
     items.flatMap((i) => {
       const h = href(i);
-      const children = (i.children ?? []).flatMap((c) => { const ch = href(c); return ch ? [{ title: c.title, href: ch, external: !ch.startsWith("/"), children: [] }] : []; });
-      return h ? [{ title: i.title, href: h, external: !h.startsWith("/"), children }] : [];
+      const children = (i.children ?? []).flatMap((c) => { const ch = href(c); return ch ? [{ title: label(c.title), href: ch, external: !ch.startsWith("/"), children: [] }] : []; });
+      return h ? [{ title: label(i.title), href: h, external: !h.startsWith("/"), children }] : [];
     });
   return { main: resolve(menus.main), footer: resolve(menus.footer) };
 });

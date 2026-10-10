@@ -3,6 +3,8 @@
  * Le reste (articles, montants, boutons) est toujours généré automatiquement.
  * Variables : {{prenom}}, {{numero}}, {{boutique}}, {{montant}}.
  */
+import type { Locale } from "./i18n";
+
 export type TemplateKey = "order_confirmation" | "shipping" | "pickup_ready" | "refund" | "invoice" | "abandoned_cart" | "review_request" | "return_approved";
 export type TemplateText = { subject: string; title: string; intro: string };
 
@@ -43,6 +45,18 @@ export const TEMPLATES: Record<TemplateKey, { label: string; when: string; vars:
 
 export const TEMPLATE_KEYS = Object.keys(TEMPLATES) as TemplateKey[];
 
+/** Textes d'origine en anglais (clients qui ont commandé en anglais ; la personnalisation du marchand est en français). */
+export const TEMPLATE_DEFAULTS_EN: Record<TemplateKey, TemplateText> = {
+  order_confirmation: { subject: "Order #{{numero}} confirmed", title: "Thank you for your order, {{prenom}}!", intro: "We're getting your order #{{numero}} ready. We'll send you another email as soon as it ships." },
+  shipping: { subject: "Your order #{{numero}} is on its way", title: "Your order has shipped", intro: "Good news: your order #{{numero}} has left our hands and will be with you soon." },
+  pickup_ready: { subject: "Your order #{{numero}} is ready for pickup", title: "Your order is ready!", intro: "Good news: your order #{{numero}} is ready. Show this order number when you pick it up." },
+  refund: { subject: "Refund of {{montant}} for your order #{{numero}}", title: "Your refund is on its way", intro: "We've refunded {{montant}} on your order #{{numero}}. Depending on your bank, it should appear within 5 to 10 days." },
+  invoice: { subject: "{{boutique}} invoice: order #{{numero}} ({{montant}})", title: "Your order #{{numero}}", intro: "Here's a summary of your order. You can pay for it securely online." },
+  abandoned_cart: { subject: "You left something at {{boutique}}", title: "{{prenom}}, your cart is waiting", intro: "You left some items in your cart. We've saved them for you." },
+  review_request: { subject: "How was your {{boutique}} order?", title: "{{prenom}}, we'd love your feedback", intro: "Your order arrived a few days ago. A few words about your items help other customers choose, and help us improve." },
+  return_approved: { subject: "Your return for order #{{numero}} has been approved", title: "Your return has been approved", intro: "You can send back the items below. We'll refund you as soon as we receive them." },
+};
+
 /**
  * Remplace {{variable}}. Une variable vide disparaît avec la virgule qui l'accompagne
  * (« {{prenom}}, votre panier » → « Votre panier »), sans toucher au reste de la ponctuation.
@@ -55,8 +69,9 @@ export function fill(text: string, vars: Record<string, string>) {
   return out.charAt(0).toUpperCase() + out.slice(1);
 }
 
-/** Textes à utiliser : ceux de la boutique s'ils existent, sinon ceux d'origine. */
-export function templateText(raw: string, key: TemplateKey): TemplateText {
+/** Textes à utiliser : ceux de la boutique s'ils existent, sinon ceux d'origine. En anglais : toujours ceux d'origine. */
+export function templateText(raw: string, key: TemplateKey, locale: Locale = "fr"): TemplateText {
+  if (locale === "en") return TEMPLATE_DEFAULTS_EN[key];
   let custom: Partial<TemplateText> = {};
   try { custom = (JSON.parse(raw || "{}") as Record<string, Partial<TemplateText>>)[key] ?? {}; } catch {}
   const d = TEMPLATES[key].defaults;

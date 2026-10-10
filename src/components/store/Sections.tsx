@@ -1,31 +1,39 @@
 import type { Section } from "@/lib/theme";
 import { ProductGrid } from "./ProductCard";
 import { storeHref, type CardCollection, type CardProduct, type StoreInfo } from "./types";
+import { dict, type Locale } from "@/lib/i18n";
+
+const T = dict(
+  { none: "Aucune section. Ajoutez-en depuis l'éditeur de thème.", all: "Tout voir", empty: "Aucun produit en ligne pour le moment." },
+  { none: "No sections yet. Add some from the theme editor.", all: "View all", empty: "No products available yet." },
+);
 
 const display = "font-[family-name:var(--t-display)]";
 const btn = "inline-flex items-center justify-center rounded-[var(--t-radius)] bg-[var(--c-accent)] px-6 py-3 font-semibold text-[var(--c-accent-text)] transition hover:opacity-90";
 
-export function Sections({ sections, products, collections, store, selectedId }: {
+export function Sections({ sections, products, collections, store, selectedId, locale = "fr" }: {
   sections: Section[];
   products: CardProduct[];
   collections: CardCollection[];
   store: StoreInfo;
   /** Section mise en évidence dans l'éditeur de thème. */
   selectedId?: string | null;
+  locale?: Locale;
 }) {
   return (
     <>
       {sections.map((s) => (
         <div key={s.id} data-section={s.id} className={selectedId === s.id ? "outline outline-2 -outline-offset-2 outline-[#3B82F6]" : undefined}>
-          <SectionView s={s} products={products} collections={collections} store={store} />
+          <SectionView s={s} products={products} collections={collections} store={store} locale={locale} />
         </div>
       ))}
-      {!sections.length && <p className="px-4 py-24 text-center text-[var(--c-muted)]">Aucune section. Ajoutez-en depuis l'éditeur de thème.</p>}
+      {!sections.length && <p className="px-4 py-24 text-center text-[var(--c-muted)]">{T[locale].none}</p>}
     </>
   );
 }
 
-function SectionView({ s, products, collections, store }: { s: Section; products: CardProduct[]; collections: CardCollection[]; store: StoreInfo }) {
+function SectionView({ s, products, collections, store, locale }: { s: Section; products: CardProduct[]; collections: CardCollection[]; store: StoreInfo; locale: Locale }) {
+  const t = T[locale];
   switch (s.type) {
     case "hero":
       return (
@@ -48,9 +56,9 @@ function SectionView({ s, products, collections, store }: { s: Section; products
         <section className="mx-auto max-w-6xl px-4 py-14">
           <div className="mb-7 flex items-end justify-between gap-4">
             <h2 className={`${display} text-2xl font-semibold md:text-3xl`}>{s.title}</h2>
-            <a href={storeHref(store.slug, s.collectionHandle ? `/c/${s.collectionHandle}` : "/products")} className="text-sm font-semibold underline underline-offset-4">Tout voir</a>
+            <a href={storeHref(store.slug, s.collectionHandle ? `/c/${s.collectionHandle}` : "/products")} className="text-sm font-semibold underline underline-offset-4">{t.all}</a>
           </div>
-          {list.length ? <ProductGrid products={list} store={store} /> : <p className="text-[var(--c-muted)]">Aucun produit en ligne pour le moment.</p>}
+          {list.length ? <ProductGrid products={list} store={store} locale={locale} /> : <p className="text-[var(--c-muted)]">{t.empty}</p>}
         </section>
       );
     }

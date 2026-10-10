@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { cancelUnpaidOrder, markOrderPaid } from "@/lib/orders";
 import { renewSubscription } from "@/lib/renewals";
 import { getStripe } from "@/lib/stripe";
+import { isPlanKey } from "@/lib/billing";
 
 /**
  * Événements Stripe. En local : stripe listen --forward-to localhost:3000/api/stripe/webhook
@@ -19,6 +20,16 @@ export async function POST(req: Request) {
     event = stripe.webhooks.constructEvent(await req.text(), req.headers.get("stripe-signature") ?? "", secret);
   } catch {
     return NextResponse.json({ error: "Signature invalide" }, { status: 400 });
+  }
+
+  // Forfaits des marchands (abonnements à la plateforme, marqués « kind: plan »).
+  if (event.type === "checkout.session.completed" && event.data.object.metadata?.kind === "plan") {
+    await planCheckoutCompleted(stripe, event.data.object);
+    return NextResponse.json({ received: true });
+  }
+  if ((event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") && event.data.object.metadata?.kind === "plan") {
+    await planSubscriptionChanged(event.data.object, event.type === "customer.subscription.deleted");
+    return NextResponse.json({ received: true });
   }
 
   switch (event.type) {
@@ -72,4 +83,32 @@ export async function POST(req: Request) {
     }
   }
   return NextResponse.json({ received: true });
+}
+
+/** Statut Stripe → statut du forfait. */
+function planStatusOf(sub: Stripe.Subscription) {
+  if (sub.status === "active" || sub.status === "trialing") return sub.cancel_at_period_end ? "canceled" : "active";
+  if (sub.status === "past_due" || sub.status === "unpaid" || sub.status === "incomplete") return "past_due";
+  return "canceled";
+}
+
+/** Forfait payé : la boutique passe sur ce forfait ; l'abonnement précédent (changement de forfait) est arrêté. */
+async function planCheckoutCompleted(stripe: Stripe, session: Stripe.Checkout.Session) {
+  const storeId = session.metadata?.storeId;
+  const plan = session.metadata?.plan;
+  const subId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+  if (!storeId || !isPlanKey(plan) || !subId) return;
+  const store = await db.store.findUnique({ where: { id: storeId } });
+  if (!store) return;
+  const sub = await stripe.subscriptions.retrieve(subId);
+  await db.store.update({ where: { id: store.id }, data: { plan, planStatus: planStatusOf(sub), planSubscriptionId: sub.id, planRenewsAt: new Date(sub.current_period_end * 1000), billingCustomerId: typeof session.customer === "string" ? session.customer : session.customer?.id ?? store.billingCustomerId } });
+  if (store.planSubscriptionId && store.planSubscriptionId !== sub.id) await stripe.subscriptions.cancel(store.planSubscriptionId).catch(() => null);
+}
+
+/** Renouvellement, impayé, résiliation : seul l'abonnement en cours de la boutique compte. */
+async function planSubscriptionChanged(sub: Stripe.Subscription, deleted: boolean) {
+  await db.store.updateMany({
+    where: { planSubscriptionId: sub.id },
+    data: deleted ? { planStatus: "canceled", planRenewsAt: new Date() } : { planStatus: planStatusOf(sub), planRenewsAt: new Date(sub.current_period_end * 1000) },
+  });
 }

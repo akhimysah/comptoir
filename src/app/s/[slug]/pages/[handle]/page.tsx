@@ -3,12 +3,13 @@ import { RichText } from "@/components/store/RichText";
 import { db } from "@/lib/db";
 import { notFoundOrRedirect } from "@/lib/navigation";
 import { getStore } from "@/lib/storefront";
+import { translate } from "@/lib/i18n";
 
 async function load(slug: string, handle: string) {
-  const { store } = await getStore(slug);
+  const { store, locale } = await getStore(slug);
   const page = await db.page.findUnique({ where: { storeId_handle: { storeId: store.id, handle } } });
   if (!page || !page.published) return notFoundOrRedirect(store, `/pages/${handle}`);
-  return page;
+  return translate(page, locale, ["title", "body"]);
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string; handle: string }> }): Promise<Metadata> {

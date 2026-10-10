@@ -1,6 +1,7 @@
-export function formatMoney(cents: number, currency = "EUR") {
+/** Montant affiché ; `locale` = "en-GB" pour la vitrine en anglais (12,50 € → €12.50). */
+export function formatMoney(cents: number, currency = "EUR", locale = "fr-FR") {
   try {
-    return new Intl.NumberFormat("fr-FR", { style: "currency", currency }).format(cents / 100);
+    return new Intl.NumberFormat(locale, { style: "currency", currency }).format(cents / 100);
   } catch {
     return `${(cents / 100).toFixed(2)} ${currency}`;
   }

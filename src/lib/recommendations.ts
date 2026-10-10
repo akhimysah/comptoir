@@ -3,6 +3,7 @@ import type { CardProduct } from "@/components/store/types";
 import { db } from "./db";
 import { getCatalog } from "./storefront";
 import { parseJson } from "./utils";
+import type { Locale } from "./i18n";
 
 export type Suggestion = CardProduct & { quickVariantId: string | null };
 
@@ -11,7 +12,7 @@ export type Suggestion = CardProduct & { quickVariantId: string | null };
  * puis ceux le plus souvent achetés dans les mêmes commandes (12 derniers mois).
  * Jamais un produit déjà présent, épuisé ou une carte cadeau.
  */
-export async function complementaryProducts(storeId: string, productIds: string[], limit = 4): Promise<Suggestion[]> {
+export async function complementaryProducts(storeId: string, productIds: string[], limit = 4, locale: Locale = "fr"): Promise<Suggestion[]> {
   if (!productIds.length) return [];
   const exclude = new Set(productIds);
   const score = new Map<string, number>();
@@ -37,7 +38,7 @@ export async function complementaryProducts(storeId: string, productIds: string[
   }
   if (!score.size) return [];
 
-  const { products } = await getCatalog(storeId);
+  const { products } = await getCatalog(storeId, locale);
   const giftCards = new Set((await db.product.findMany({ where: { storeId, isGiftCard: true }, select: { id: true } })).map((p) => p.id));
   const ranked = products
     .filter((p) => score.has(p.id) && !exclude.has(p.id) && !p.soldOut && !giftCards.has(p.id))

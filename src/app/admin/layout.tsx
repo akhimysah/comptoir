@@ -5,6 +5,7 @@ import { AdminNav, Icon } from "@/components/admin/Nav";
 import { isPlatformAdmin } from "@/lib/errors";
 import { MobileNavToggle } from "@/components/admin/MobileNav";
 import { requireStore } from "@/lib/auth";
+import { billingEnabled, planState } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { initials } from "@/lib/utils";
 
@@ -12,6 +13,7 @@ export const metadata = { title: "Admin" };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, store, stores, isOwner, perms } = await requireStore();
+  const billing = billingEnabled() ? planState(store) : null;
   const unread = await db.conversation.aggregate({ where: { storeId: store.id, status: "open" }, _sum: { unread: true } });
   const returnsToHandle = await db.returnRequest.count({ where: { storeId: store.id, status: { in: ["requested", "received"] } } });
   const toShip = await db.order.count({ where: { storeId: store.id, paymentStatus: { in: ["paid", "partially_refunded"] }, fulfillmentStatus: "unfulfilled", cancelledAt: null } });
@@ -66,7 +68,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminNav toShip={toShip} returnsToHandle={returnsToHandle} unreadMessages={perms.includes("customers") ? unread._sum.unread ?? 0 : 0} storeSlug={store.slug} isOwner={isOwner} storeCount={stores.length} perms={perms} />
         </aside>
         <main className="min-w-0 flex-1 px-4 pb-16 pt-5 md:px-8">
-          <div className="mx-auto flex max-w-[1000px] flex-col gap-4">{children}</div>
+          <div className="mx-auto flex max-w-[1000px] flex-col gap-4">
+            {billing && (!billing.canSell || (billing.trial && billing.daysLeft <= 3)) && (
+              <div role="status" className={`flex flex-wrap items-center gap-3 rounded-xl px-4 py-3 text-[13px] ${billing.canSell ? "bg-[#fff1e3] text-[#5e4200]" : "bg-[#fedad9] text-[#8e0b21]"}`}>
+                <span className="flex-1">{!billing.canSell ? "Les ventes de votre boutique sont suspendues : choisissez un forfait (ou réglez le paiement en retard) pour les rouvrir." : `Votre essai gratuit se termine dans ${billing.daysLeft} jour${billing.daysLeft > 1 ? "s" : ""}.`}</span>
+                {isOwner && <a href="/admin/settings/plan" className="btn h-8">Choisir un forfait</a>}
+              </div>
+            )}
+            {children}
+          </div>
         </main>
       </div>
     </div>

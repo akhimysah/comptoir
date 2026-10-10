@@ -16,6 +16,15 @@ import { resolveMenus, type ResolvedLink } from "@/lib/navigation";
 
 const ext = (l: ResolvedLink) => (l.external ? { target: "_blank", rel: "noopener noreferrer" } : {});
 import { themeVars } from "@/lib/theme";
+import { dict } from "@/lib/i18n";
+import { storeLocales } from "@/lib/locale";
+import { LocaleProvider } from "@/components/store/locale";
+import { LanguageSelect } from "@/components/store/LanguageSelect";
+
+const T = dict(
+  { preview: "Boutique protégée par mot de passe : vous la voyez car vous êtes connecté à l'admin.", prefs: "Préférences", menu: "Menu principal", favorites: "Mes favoris", account: "Mon compte", footer: "Pied de page", poweredBy: "Boutique propulsée par Parnassa Pay" },
+  { preview: "Password-protected store: you can see it because you are signed in to the admin.", prefs: "Preferences", menu: "Main menu", favorites: "My favourites", account: "My account", footer: "Footer", poweredBy: "Store powered by Parnassa Pay" },
+);
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { store } = await getStoreUngated((await params).slug);
@@ -24,35 +33,38 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function StoreLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { store, theme } = await getStoreUngated(slug);
+  const { store, theme, locale } = await getStoreUngated(slug);
+  const t = T[locale];
+  const locales = storeLocales(store);
   const currencies = storeCurrencies(store);
   const current = await displayCurrency(store);
   const access = await storeAccess(store);
   if (!access.allowed) {
     return (
       <div style={themeVars(theme) as React.CSSProperties} className={`${storeFontVars} min-h-screen bg-[var(--c-bg)] font-[family-name:var(--t-body)] text-[var(--c-text)]`}>
-        <PasswordGate slug={slug} name={store.name} message={store.passwordMessage} />
+        <LocaleProvider locale={locale}><PasswordGate slug={slug} name={store.name} message={store.passwordMessage} locale={locale} /></LocaleProvider>
       </div>
     );
   }
-  const menus = await resolveMenus(store);
+  const menus = await resolveMenus(store, locale);
   // Sur le domaine de la boutique, les liens /s/<boutique>/… sont ouverts directement à leur adresse courte (sans redirection).
   const onDomain = Boolean(store.domain && store.domainVerifiedAt && (await headers()).get("x-store-domain") === store.domain);
   return (
-    <div style={themeVars(theme) as React.CSSProperties} className={`${storeFontVars} flex min-h-screen flex-col bg-[var(--c-bg)] font-[family-name:var(--t-body)] text-[var(--c-text)]`}>
+    <LocaleProvider locale={locale}>
+    <div lang={locale} style={themeVars(theme) as React.CSSProperties} className={`${storeFontVars} flex min-h-screen flex-col bg-[var(--c-bg)] font-[family-name:var(--t-body)] text-[var(--c-text)]`}>
       {/* CSS personnalisé de la boutique : filtré à l'enregistrement et de nouveau ici (aucun « < » possible). */}
       {store.customCss && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(store.customCss) }} />}
       {onDomain && <script dangerouslySetInnerHTML={{ __html: `(()=>{const p=${JSON.stringify(`/s/${slug}`)};document.addEventListener("click",e=>{const a=e.target instanceof Element&&e.target.closest("a[href]");if(!a||e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||(a.target&&a.target!=="_self"))return;const u=new URL(a.href,location.href);if(u.origin!==location.origin||!(u.pathname===p||u.pathname.startsWith(p+"/")))return;e.preventDefault();location.href=(u.pathname.slice(p.length)||"/")+u.search+u.hash;},true);})();` }} />}
       {access.preview && (
         <div className="bg-[#1a1a1a] px-4 py-2 text-center text-xs text-white">
-          Boutique protégée par mot de passe : vous la voyez car vous êtes connecté à l'admin. <a href="/admin/settings/preferences" className="underline underline-offset-2">Préférences</a>
+          {t.preview} <a href="/admin/settings/preferences" className="underline underline-offset-2">{t.prefs}</a>
         </div>
       )}
       {theme.announcement && <div className="bg-[var(--c-accent)] px-4 py-2 text-center text-sm font-medium text-[var(--c-accent-text)]">{theme.announcement}</div>}
       <header className="sticky top-0 z-20 border-b border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] bg-[var(--c-bg)]/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-4">
           <a href={`/s/${slug}`} className="mr-auto font-[family-name:var(--t-display)] text-xl font-semibold md:text-2xl">{store.name}</a>
-          <nav className="hidden items-center gap-5 text-sm md:flex" aria-label="Menu principal">
+          <nav className="hidden items-center gap-5 text-sm md:flex" aria-label={t.menu}>
             {menus.main.map((l, i) =>
               l.children.length ? (
                 <div key={i} className="group relative">
@@ -71,12 +83,13 @@ export default async function StoreLayout({ children, params }: { children: Reac
               ),
             )}
           </nav>
+          {locales.length > 1 && <LanguageSelect slug={slug} locales={locales} current={locale} />}
           {currencies.length > 1 && <CurrencySelect slug={slug} codes={currencies.map((c) => c.code)} current={current.code} />}
           <PredictiveSearch slug={slug} currency={current.code} rate={current.rate} />
-          <a href={`/s/${slug}/favorites`} aria-label="Mes favoris" className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
+          <a href={`/s/${slug}/favorites`} aria-label={t.favorites} className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" aria-hidden><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg>
           </a>
-          <a href={`/s/${slug}/account`} aria-label="Mon compte" className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
+          <a href={`/s/${slug}/account`} aria-label={t.account} className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden><circle cx="12" cy="8.5" r="3.5" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>
           </a>
           <CartLink slug={slug} />
@@ -93,16 +106,17 @@ export default async function StoreLayout({ children, params }: { children: Reac
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-8 text-sm text-[var(--c-muted)]">
           <span>© {new Date().getFullYear()} {store.name}{store.tagline ? ` · ${store.tagline}` : ""}</span>
           {menus.footer.length > 0 && (
-            <nav className="flex flex-wrap gap-x-5 gap-y-1" aria-label="Pied de page">
+            <nav className="flex flex-wrap gap-x-5 gap-y-1" aria-label={t.footer}>
               {menus.footer.flatMap((l) => [l, ...l.children]).map((l, i) => <a key={i} href={l.href} {...ext(l)} className="hover:opacity-70">{l.title}</a>)}
             </nav>
           )}
           <span className="flex gap-4">
             {(store.gaId || store.metaPixelId) && <ConsentLink />}
-            <a href="/" className="hover:opacity-70">Boutique propulsée par Parnassa Pay</a>
+            <a href="/" className="hover:opacity-70">{t.poweredBy}</a>
           </span>
         </div>
       </footer>
     </div>
+    </LocaleProvider>
   );
 }

@@ -2,13 +2,48 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Thumb } from "@/components/ui";
+import { dict, intlLocale } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
+import { useLocale } from "./locale";
 import type { CardProduct } from "./types";
+
+const T = dict(
+  {
+    search: "Rechercher",
+    placeholder: "Rechercher un produit…",
+    searchProduct: "Rechercher un produit",
+    searching: "Recherche…",
+    noResults: (q: string) => `Aucun résultat pour « ${q} ».`,
+    products: "Produits",
+    soldOut: "Épuisé",
+    from: "Dès ",
+    collections: "Collections",
+    count: (n: number) => `${n} produit${n > 1 ? "s" : ""}`,
+    pages: "Pages",
+    all: (q: string) => `Voir tous les résultats pour « ${q} » →`,
+  },
+  {
+    search: "Search",
+    placeholder: "Search products…",
+    searchProduct: "Search products",
+    searching: "Searching…",
+    noResults: (q: string) => `No results for “${q}”.`,
+    products: "Products",
+    soldOut: "Sold out",
+    from: "From ",
+    collections: "Collections",
+    count: (n: number) => `${n} product${n > 1 ? "s" : ""}`,
+    pages: "Pages",
+    all: (q: string) => `View all results for “${q}” →`,
+  },
+);
 
 type Result = { products: CardProduct[]; collections: { handle: string; title: string; count: number }[]; pages: { title: string; path: string }[] };
 
 /** Recherche prédictive : résultats pendant la saisie, navigation au clavier, Entrée pour la page complète. */
 export function PredictiveSearch({ slug, currency, rate = 1 }: { slug: string; currency: string; rate?: number }) {
+  const locale = useLocale();
+  const t = T[locale];
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [res, setRes] = useState<Result | null>(null);
@@ -59,14 +94,14 @@ export function PredictiveSearch({ slug, currency, rate = 1 }: { slug: string; c
     if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(-1, a - 1)); }
     if (e.key === "Enter") { e.preventDefault(); if (q.trim()) location.href = active >= 0 ? links[active] : all; }
   };
-  const m = (c: number) => formatMoney(Math.round(c * rate), currency);
+  const m = (c: number) => formatMoney(Math.round(c * rate), currency, intlLocale(locale));
   const item = (i: number) => `flex items-center gap-3 rounded-[var(--t-radius)] px-2 py-2 ${active === i ? "bg-[color-mix(in_srgb,var(--c-text)_8%,transparent)]" : "hover:bg-[color-mix(in_srgb,var(--c-text)_5%,transparent)]"}`;
   const empty = res && !res.products.length && !res.collections.length && !res.pages.length;
   let n = -1;
 
   return (
     <div ref={box} className="relative">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Rechercher" aria-expanded={open} className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-label={t.search} aria-expanded={open} className="rounded-[var(--t-radius)] p-1.5 hover:opacity-70">
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
       </button>
       {open && (
@@ -74,29 +109,29 @@ export function PredictiveSearch({ slug, currency, rate = 1 }: { slug: string; c
           <div className="overflow-hidden rounded-[calc(var(--t-radius)+4px)] border border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] bg-[var(--c-bg)] shadow-[0_18px_50px_-12px_rgba(0,0,0,.35)]">
             <div role="search" className="flex items-center gap-2 border-b border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] px-4">
               <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[var(--c-muted)]" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
-              <input ref={input} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKeyDown} maxLength={80} placeholder="Rechercher un produit…" aria-label="Rechercher un produit" role="combobox" aria-expanded={Boolean(res)} aria-controls="search-results" className="w-full bg-transparent py-3.5 outline-none" />
+              <input ref={input} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKeyDown} maxLength={80} placeholder={t.placeholder} aria-label={t.searchProduct} role="combobox" aria-expanded={Boolean(res)} aria-controls="search-results" className="w-full bg-transparent py-3.5 outline-none" />
             </div>
             {q.trim().length >= 2 && (
               <div id="search-results" className="max-h-[min(70vh,520px)] overflow-y-auto p-2">
-                {res === null ? <p className="px-2 py-3 text-sm text-[var(--c-muted)]">Recherche…</p> : empty ? (
-                  <p className="px-2 py-3 text-sm text-[var(--c-muted)]">Aucun résultat pour « {q.trim()} ».</p>
+                {res === null ? <p className="px-2 py-3 text-sm text-[var(--c-muted)]">{t.searching}</p> : empty ? (
+                  <p className="px-2 py-3 text-sm text-[var(--c-muted)]">{t.noResults(q.trim())}</p>
                 ) : (
                   <>
-                    {res.products.length > 0 && <p className="px-2 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">Produits</p>}
+                    {res.products.length > 0 && <p className="px-2 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">{t.products}</p>}
                     {res.products.map((p) => { n++; const i = n; return (
                       <a key={p.id} href={links[i]} className={item(i)}>
                         <Thumb image={p.image} hue={p.hue} title={p.title} rounded="rounded-[calc(var(--t-radius)/2)]" className="h-12 w-10 shrink-0 text-xs" />
-                        <span className="min-w-0 flex-1"><span className="block truncate font-medium">{p.title}</span>{p.soldOut && <span className="text-xs text-[var(--c-muted)]">Épuisé</span>}</span>
-                        <span className="text-sm tabular-nums">{p.maxPriceCents > p.priceCents ? "Dès " : ""}{m(p.priceCents)}</span>
+                        <span className="min-w-0 flex-1"><span className="block truncate font-medium">{p.title}</span>{p.soldOut && <span className="text-xs text-[var(--c-muted)]">{t.soldOut}</span>}</span>
+                        <span className="text-sm tabular-nums">{p.maxPriceCents > p.priceCents ? t.from : ""}{m(p.priceCents)}</span>
                       </a>
                     ); })}
-                    {res.collections.length > 0 && <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">Collections</p>}
-                    {res.collections.map((c) => { n++; const i = n; return <a key={c.handle} href={links[i]} className={item(i)}><span className="flex-1">{c.title}</span><span className="text-xs text-[var(--c-muted)]">{c.count} produit{c.count > 1 ? "s" : ""}</span></a>; })}
-                    {res.pages.length > 0 && <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">Pages</p>}
+                    {res.collections.length > 0 && <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">{t.collections}</p>}
+                    {res.collections.map((c) => { n++; const i = n; return <a key={c.handle} href={links[i]} className={item(i)}><span className="flex-1">{c.title}</span><span className="text-xs text-[var(--c-muted)]">{t.count(c.count)}</span></a>; })}
+                    {res.pages.length > 0 && <p className="px-2 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-[var(--c-muted)]">{t.pages}</p>}
                     {res.pages.map((p) => { n++; const i = n; return <a key={p.path} href={links[i]} className={item(i)}>{p.title}</a>; })}
                   </>
                 )}
-                <a href={all} className="mt-1 block rounded-[var(--t-radius)] px-2 py-2.5 text-sm font-semibold hover:bg-[color-mix(in_srgb,var(--c-text)_5%,transparent)]">Voir tous les résultats pour « {q.trim()} » →</a>
+                <a href={all} className="mt-1 block rounded-[var(--t-radius)] px-2 py-2.5 text-sm font-semibold hover:bg-[color-mix(in_srgb,var(--c-text)_5%,transparent)]">{t.all(q.trim())}</a>
               </div>
             )}
           </div>

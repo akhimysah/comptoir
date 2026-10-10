@@ -40,8 +40,17 @@ model Store {
   domain                String?               @unique // nom de domaine personnalisé (ex. www.maboutique.fr)
   domainToken           String? // valeur de l'enregistrement TXT qui prouve que le domaine appartient au marchand
   domainVerifiedAt      DateTime? // la boutique n'est servie sur ce domaine qu'une fois vérifié
+  // Forfait du marchand (facturation de la plateforme)
+  plan                  String                @default("trial") // trial | essentiel | pro | avance
+  planStatus            String                @default("trialing") // trialing | active | past_due | canceled
+  trialEndsAt           DateTime? // fin de l'essai gratuit (null : 14 jours après la création)
+  billingCustomerId     String? // client Stripe de la plateforme (le marchand)
+  planSubscriptionId    String?               @unique // abonnement Stripe du forfait
+  planRenewsAt          DateTime? // prochaine échéance, ou fin d'accès après résiliation
   name                  String
   tagline               String                @default("")
+  languages             String                @default("[\"fr\"]") // JSON : langues de la boutique, la première est la langue principale
+  translations          String                @default("{}") // JSON { en: { tagline, passwordMessage } }
   currency              String                @default("EUR")
   shippingCents         Int                   @default(490)
   freeShippingFromCents Int                   @default(6000)
@@ -162,6 +171,7 @@ model Page {
   title          String
   handle         String
   body           String   @default("")
+  translations   String   @default("{}") // JSON { en: { title, body } }
   published      Boolean  @default(true)
   showInFooter   Boolean  @default(true)
   seoTitle       String   @default("")
@@ -303,6 +313,7 @@ model Product {
   title                   String
   handle                  String
   description             String              @default("")
+  translations            String              @default("{}") // JSON { en: { title, description, seoTitle, seoDescription } }
   status                  String              @default("draft") // draft | active
   images                  String              @default("[]") // JSON: string[]
   options                 String              @default("[]") // JSON: { name, values[] }[]
@@ -348,6 +359,7 @@ model Collection {
   title          String
   handle         String
   description    String              @default("")
+  translations   String              @default("{}") // JSON { en: { title, description } }
   image          String?
   seoTitle       String              @default("")
   seoDescription String              @default("")
@@ -465,6 +477,7 @@ model Order {
   shippingCents         Int
   totalCents            Int
   paymentMethod         String          @default("demo") // demo | stripe | manual
+  locale                String          @default("fr") // langue du client au moment de la commande (e-mails)
   shippingMethod        String          @default("")
   stripeSessionId       String?         @unique
   paidAt                DateTime?

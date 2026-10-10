@@ -2,13 +2,14 @@ import "server-only";
 import { Prisma, type Order, type Store } from "@prisma/client";
 import { db } from "./db";
 import { randomInt } from "crypto";
-import { giftCardEmail, lowStockEmail, newOrderAlertEmail, orderConfirmationEmail, shippingEmail } from "./emails";
+import { giftCardEmail, lowStockEmail, newOrderAlertEmail, orderConfirmationEmail, orderLocale, shippingEmail } from "./emails";
 import { sendMail } from "./mail";
 import { earnPoints } from "./loyalty";
 import { nextDate } from "./subscriptions";
 import type { PricedCart } from "./pricing";
 import { payLink } from "./invoices";
 import { emitOrder } from "./webhooks";
+import { localizeItems } from "./locale";
 
 export type Address = { line1: string; zip: string; city: string; country: string };
 
@@ -242,7 +243,7 @@ async function issuePurchasedGiftCards(orderId: string) {
       let code = newGiftCode();
       while (await db.giftCard.findUnique({ where: { storeId_code: { storeId: order.storeId, code } } })) code = newGiftCode();
       await db.giftCard.create({ data: { storeId: order.storeId, code, initialCents: item.priceCents, balanceCents: item.priceCents, email: order.email, orderId: order.id, note: `Achetée avec la commande #${order.number}` } });
-      if (!order.email.endsWith(".local")) await sendMail({ to: order.email, storeId: order.storeId, ...giftCardEmail(order.store, code, item.priceCents, "", null) });
+      if (!order.email.endsWith(".local")) await sendMail({ to: order.email, storeId: order.storeId, ...giftCardEmail(order.store, code, item.priceCents, "", null, orderLocale(order)) });
     }
   }
   if (giftItems.length === order.items.length) {
@@ -262,7 +263,7 @@ async function notifyOrderPaid(orderId: string) {
   if (!order) return;
   const anonymous = order.email.endsWith(".local"); // vente en caisse sans e-mail client
   const pay = order.dueAt && order.paymentStatus === "pending" ? await payLink(order, order.store.slug) : null;
-  const confirm = orderConfirmationEmail(order.store, order, pay);
+  const confirm = orderConfirmationEmail(order.store, { ...order, items: await localizeItems(order.items, orderLocale(order)) }, pay);
   const alert = newOrderAlertEmail(order.store, order);
   await Promise.all([
     anonymous ? Promise.resolve() : sendMail({ to: order.email, storeId: order.storeId, ...confirm }),
@@ -287,7 +288,7 @@ export async function fulfillOrder(orderId: string, tracking: { trackingCarrier:
 /** E-mail d'expédition au client. */
 export async function notifyOrderShipped(orderId: string, update = false) {
   const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true, store: true } });
-  if (order) await sendMail({ to: order.email, storeId: order.storeId, ...shippingEmail(order.store, order, update) });
+  if (order) await sendMail({ to: order.email, storeId: order.storeId, ...shippingEmail(order.store, { ...order, items: await localizeItems(order.items, orderLocale(order)) }, update) });
 }
 
 type Tone = "warn" | "ok" | "neutral" | "bad" | "attention";

@@ -5,8 +5,14 @@ import { parseJson } from "@/lib/utils";
 import { CartView } from "@/components/store/CartView";
 import { getStore } from "@/lib/storefront";
 import { stripeConfigured } from "@/lib/stripe";
+import { dict } from "@/lib/i18n";
 
-export const metadata = { title: "Panier" };
+const T = dict({ title: "Panier" }, { title: "Cart" });
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { locale } = await getStore((await params).slug);
+  return { title: T[locale].title };
+}
 
 export default async function CartPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ cancelled?: string; recover?: string }> }) {
   const [{ slug }, { cancelled, recover }] = await Promise.all([params, searchParams]);

@@ -141,6 +141,24 @@ export function defaultTheme(storeName: string, tagline = ""): Theme {
   };
 }
 
+/** Textes des sections que le marchand peut traduire (clé de traduction : « s.<id de section>.<champ> »). */
+export const SECTION_TEXT_FIELDS = ["title", "subtitle", "body", "buttonLabel"] as const;
+
+/** Thème avec ses textes traduits (bandeau d'annonce et sections), d'après les traductions de la boutique. */
+export function translateTheme(theme: Theme, t: Record<string, string> | undefined): Theme {
+  if (!t) return theme;
+  const pick = (key: string, fallback: string) => (t[key]?.trim() ? t[key] : fallback);
+  return {
+    ...theme,
+    announcement: pick("announcement", theme.announcement),
+    sections: theme.sections.map((sec) => {
+      const out: Record<string, unknown> = { ...sec };
+      for (const f of SECTION_TEXT_FIELDS) if (typeof out[f] === "string") out[f] = pick(`s.${sec.id}.${f}`, out[f] as string);
+      return out as Section;
+    }),
+  };
+}
+
 export function readTheme(raw: string, storeName: string): Theme {
   try {
     const parsed = themeSchema.safeParse(JSON.parse(raw));
