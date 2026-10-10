@@ -2,7 +2,7 @@ import "server-only";
 import type { Discount, Store } from "@prisma/client";
 import { db } from "./db";
 import { parseJson } from "./utils";
-import { includedTax } from "./tax";
+import { includedTax, vatRateFor } from "./tax";
 import { splitCartId, subPrice } from "./subscriptions";
 import { bundleComponents, bundleStock } from "./bundles";
 
@@ -255,6 +255,8 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     shipping.shippingOptions = shipping.shippingOptions.map((o) => ({ ...o, priceCents: 0 }));
   }
   const due = afterDiscount + shipping.shippingCents;
+  // TVA : celle du pays de livraison si la boutique l'a choisi (retrait en boutique : pays de la boutique).
+  const vatBps = !needsShipping || shipping.shippingRateId === PICKUP_ID ? store.taxRateBps : vatRateFor(store, ship.country);
 
   // Carte cadeau : elle paie tout ou partie du total, livraison comprise.
   let giftCardCode: string | null = null, giftCardCents = 0, giftCardBalanceCents = 0, giftCardError: string | null = null;
@@ -279,9 +281,9 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     giftCardCents,
     giftCardBalanceCents,
     giftCardError,
-    taxRateBps: store.taxRateBps,
+    taxRateBps: vatBps,
     // La vente d'une carte cadeau n'est pas soumise à la TVA : elle l'est quand la carte est utilisée.
-    taxCents: includedTax(due - giftItemsCents, store.taxRateBps),
+    taxCents: includedTax(due - giftItemsCents, vatBps),
     totalCents: due - giftCardCents,
     freeShippingFromCents: store.freeShippingFromCents,
     weightGrams,

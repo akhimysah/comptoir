@@ -42,7 +42,7 @@ export async function saveTaxes(_: { error?: string; ok?: boolean } | undefined,
   const str = (k: string, max: number) => String(form.get(k) ?? "").trim().slice(0, max);
   await db.store.update({
     where: { id: store.id },
-    data: { taxRateBps: bps, legalName: str("legalName", 120), legalAddress: str("legalAddress", 300), siret: str("siret", 20), vatNumber: str("vatNumber", 20) },
+    data: { taxRateBps: bps, vatByCountry: form.get("vatByCountry") === "on", legalName: str("legalName", 120), legalAddress: str("legalAddress", 300), siret: str("siret", 20), vatNumber: str("vatNumber", 20) },
   });
   await logActivity("Taxes et mentions légales modifiées", "/admin/settings");
   revalidatePath("/admin/settings");

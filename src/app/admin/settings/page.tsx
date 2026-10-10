@@ -29,7 +29,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <LoyaltyForm enabled={store.loyaltyEnabled} perUnit={store.loyaltyPointsPerUnit} rewardPoints={store.loyaltyRewardPoints} rewardValue={centsToInput(store.loyaltyRewardCents)} currency={store.currency} />
           <ReturnsForm enabled={store.returnsEnabled} days={store.returnWindowDays} instructions={store.returnInstructions} />
           <CurrenciesForm base={store.currency} current={parseJson(store.displayCurrencies, [])} />
-          <TaxForm taxRateBps={store.taxRateBps} legalName={store.legalName} legalAddress={store.legalAddress} siret={store.siret} vatNumber={store.vatNumber} />
+          <TaxForm taxRateBps={store.taxRateBps} vatByCountry={store.vatByCountry} legalName={store.legalName} legalAddress={store.legalAddress} siret={store.siret} vatNumber={store.vatNumber} />
         </div>
 
         <section id="paiements" className="card flex flex-col gap-4 self-start p-5">

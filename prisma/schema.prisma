@@ -72,6 +72,7 @@ model Store {
   returnInstructions    String                @default("") // adresse de retour, emballage… envoyé à l'acceptation
   lowStockThreshold     Int                   @default(3) // alerte e-mail quand une variante passe sous ce seuil
   taxRateBps            Int                   @default(2000) // TVA incluse dans les prix, en points de base (2000 = 20 %) ; 0 = franchise
+  vatByCountry          Boolean               @default(false) // TVA du pays de livraison (ventes à distance UE, guichet OSS) et 0 % à l'export
   legalName             String                @default("") // pour les factures
   legalAddress          String                @default("")
   siret                 String                @default("")

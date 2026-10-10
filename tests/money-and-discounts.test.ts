@@ -89,3 +89,20 @@ describe("tarifs d'expédition", () => {
     expect(rateMatches(r({}), 99999, 0)).toBe(true);
   });
 });
+
+describe("TVA selon le pays de livraison", () => {
+  it("applique le taux du pays dans l'UE, 0 % à l'export, et rien ne change sans l'option", async () => {
+    const { vatRateFor } = await import("@/lib/tax");
+    const oss = { taxRateBps: 2000, vatByCountry: true };
+    expect(vatRateFor(oss, "France")).toBe(2000);
+    expect(vatRateFor(oss, "Belgique")).toBe(2100);
+    expect(vatRateFor(oss, "Allemagne")).toBe(1900);
+    expect(vatRateFor(oss, "Luxembourg")).toBe(1700);
+    expect(vatRateFor(oss, "Suisse")).toBe(0); // export
+    expect(vatRateFor(oss, "États-Unis")).toBe(0);
+    expect(vatRateFor(oss, "Monaco")).toBe(2000);
+    expect(vatRateFor(oss, "Martinique")).toBe(850);
+    expect(vatRateFor({ taxRateBps: 2000, vatByCountry: false }, "Belgique")).toBe(2000);
+    expect(vatRateFor({ taxRateBps: 550, vatByCountry: true }, "Belgique")).toBe(550); // taux réduit : option inactive
+  });
+});

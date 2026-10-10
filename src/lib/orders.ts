@@ -101,7 +101,7 @@ async function insertOrder(
           giftCardCode: cart.giftCardCode,
           giftCardCents: cart.giftCardCents,
           discountId: cart.discountId,
-          taxRateBps: store.taxRateBps,
+          taxRateBps: cart.taxRateBps,
           taxCents: cart.taxCents,
           shippingCents: cart.shippingCents,
           shippingMethod: cart.shippingMethod,

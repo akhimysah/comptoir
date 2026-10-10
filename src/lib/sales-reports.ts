@@ -7,7 +7,7 @@ export const REPORTS = {
   daily: { title: "Ventes par jour", text: "Ventes brutes, remises, retours, ventes nettes, livraison et TVA, jour par jour." },
   products: { title: "Ventes par produit", text: "Quantités vendues, ventes nettes, coût et marge de chaque produit." },
   channels: { title: "Ventes par canal", text: "Boutique en ligne, point de vente, commandes manuelles." },
-  taxes: { title: "TVA collectée", text: "Base hors taxes, TVA et montant TTC par mois et par taux, pour votre comptabilité." },
+  taxes: { title: "TVA collectée", text: "Base hors taxes, TVA et TTC par mois, pays de livraison et taux : pour votre comptabilité et la déclaration OSS." },
   customers: { title: "Meilleurs clients", text: "Les clients qui ont le plus acheté sur la période." },
 } as const;
 export type ReportType = keyof typeof REPORTS;
@@ -75,13 +75,14 @@ export async function buildReport(store: Store, type: ReportType, from: Date, to
     for (const o of orders) {
       const giftSold = o.items.filter((i) => i.isGiftCard).reduce((s, i) => s + i.priceCents * (i.quantity - i.refundedQuantity), 0);
       const ttc = Math.max(0, o.totalCents + o.giftCardCents - o.refundedCents - giftSold);
-      const k = `${month(o.createdAt)}|${o.taxRateBps}`;
+      const country = o.deliveryMethod === "pickup" ? "France (retrait)" : (() => { try { return (JSON.parse(o.address) as { country?: string }).country?.trim() || "—"; } catch { return "—"; } })();
+      const k = `${month(o.createdAt)}|${country}|${o.taxRateBps}`;
       const c = map.get(k) ?? { ttc: 0, tax: 0 };
       c.ttc += ttc; c.tax += includedTax(ttc, o.taxRateBps);
       map.set(k, c);
     }
-    const rows = [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, c]) => { const [m, bps] = k.split("|"); const [y, mo] = m.split("-"); return [`${mo}/${y}`, Number(bps) ? rateLabel(Number(bps)) : "Sans TVA", c.ttc - c.tax, c.tax, c.ttc]; });
-    return { columns: [{ label: "Mois" }, { label: "Taux" }, { label: "Base HT", money: true }, { label: "TVA", money: true }, { label: "TTC", money: true }], rows, totals: ["Total", "", sum(rows, 2), sum(rows, 3), sum(rows, 4)] };
+    const rows = [...map.entries()].sort(([a], [b]) => a.localeCompare(b, "fr")).map(([k, c]) => { const [m, country, bps] = k.split("|"); const [y, mo] = m.split("-"); return [`${mo}/${y}`, country, Number(bps) ? rateLabel(Number(bps)) : "Sans TVA", c.ttc - c.tax, c.tax, c.ttc]; });
+    return { columns: [{ label: "Mois" }, { label: "Pays de livraison" }, { label: "Taux" }, { label: "Base HT", money: true }, { label: "TVA", money: true }, { label: "TTC", money: true }], rows, totals: ["Total", "", "", sum(rows, 3), sum(rows, 4), sum(rows, 5)] };
   }
 
   // Meilleurs clients

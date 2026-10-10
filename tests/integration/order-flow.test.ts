@@ -112,3 +112,19 @@ describe("remboursements", () => {
     expect((await db.order.findUniqueOrThrow({ where: { id: order.id } })).paymentStatus).toBe("partially_refunded");
   });
 });
+
+describe("TVA selon le pays de livraison", () => {
+  it("enregistre la TVA belge sur une commande livrée en Belgique, prix TTC inchangé", async () => {
+    await db.store.update({ where: { id: store.id }, data: { vatByCountry: true, taxRateBps: 2000 } });
+    const s = await db.store.findUniqueOrThrow({ where: { id: store.id } });
+    const fr = await priceCart(s, [{ variantId: bol.id, quantity: 3 }], null, { country: "France" });
+    const be = await priceCart(s, [{ variantId: bol.id, quantity: 3 }], null, { country: "Belgique" });
+    expect(be.totalCents).toBe(fr.totalCents); // le client paie le même prix
+    expect(fr.taxRateBps).toBe(2000);
+    expect(be.taxRateBps).toBe(2100);
+    expect(be.taxCents).toBeGreaterThan(fr.taxCents);
+    const order = await createOrder(s, be, { ...buyer("be@test.local"), address: { line1: "1 rue Test", zip: "1000", city: "Bruxelles", country: "Belgique" } }, "demo");
+    expect(order.taxRateBps).toBe(2100);
+    expect(order.taxCents).toBe(be.taxCents);
+  });
+});

@@ -59,6 +59,7 @@ Ensuite, ouvrez http://localhost:3000.
 | Import d'un export Shopify (produits, variantes, stock, photos) | Migration depuis Shopify en un fichier |
 | Import et export des clients (format Shopify ou CSV) | Consentement newsletter respecté, pas de doublon |
 | Tarifs d'expédition au poids et au montant | Poids par variante, repris de l'import Shopify |
+| TVA selon le pays de livraison (UE, guichet OSS) et export à 0 % | Rapport de TVA par pays |
 | Navigation : menus avec sous-menus déroulants | Redirections d'URL automatiques quand une adresse change |
 | Référencement : titre et description Google, aperçu du résultat | Sitemap par boutique (`/s/<boutique>/sitemap.xml`), robots.txt |
 | Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau ; achat de cartes cadeaux dans la boutique |
@@ -142,7 +143,7 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 **Fonctionnalités Shopify absentes**
 - Noms de domaine personnalisés par boutique (aujourd'hui `/s/<boutique>`).
 - Boutique en plusieurs langues.
-- Paiement dans la devise du client (les autres devises sont affichées, le paiement reste dans la devise de la boutique) et TVA par pays de l'acheteur (OSS).
+- Paiement dans la devise du client (les autres devises sont affichées, le paiement reste dans la devise de la boutique).
 - Étiquettes d'expédition et tarifs transporteurs en direct (Colissimo, Mondial Relay…).
 - B2B : tarifs professionnels, paiement à 30 jours.
 - API publique et applications tierces.
