@@ -10,13 +10,13 @@ const SUB = ":abonnement";
 
 type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number };
 
-export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null }: {
-  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null;
+export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null, initialVariant }: {
+  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null; initialVariant?: string;
   options: { name: string; values: string[] }[]; variants: V[];
 }) {
   const { add, items } = useCart(slug);
   const firstAvailable = variants.find((v) => v.stock > 0) ?? variants[0];
-  const [picked, setPicked] = useState<string[]>(firstAvailable.optionValues);
+  const [picked, setPicked] = useState<string[]>((variants.find((v) => v.id === initialVariant) ?? firstAvailable).optionValues);
   const [qty, setQty] = useState(1);
   const [image, setImage] = useState(0);
   const [added, setAdded] = useState(false);
@@ -115,6 +115,7 @@ export function ProductBuy({ slug, currency, rate = 1, title, description, image
             {!variant ? "Indisponible" : isPreorder ? "Précommander" : variant.stock <= 0 ? "Épuisé" : left <= 0 ? "Tout le stock est dans votre panier" : "Ajouter au panier"}
           </button>
         </div>
+        {variant && variant.stock <= 0 && !preorder && !isGiftCard && contents.length === 0 && <StockAlertForm key={variant.id} slug={slug} variantId={variant.id} />}
         {added && (
           <p role="status" className="text-sm">Ajouté au panier. <a href={`/s/${slug}/cart`} className="font-semibold underline underline-offset-4">Voir le panier</a></p>
         )}
@@ -131,5 +132,28 @@ export function ProductBuy({ slug, currency, rate = 1, title, description, image
         {description && <div className="whitespace-pre-line border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-6 leading-relaxed text-[var(--c-muted)]">{description}</div>}
       </div>
     </div>
+  );
+}
+
+/** « Me prévenir » : le client laisse son e-mail pour être averti du retour en stock de la variante choisie. */
+function StockAlertForm({ slug, variantId }: { slug: string; variantId: string }) {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<{ ok?: boolean; error?: string; pending?: boolean }>({});
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setState({ pending: true });
+    const res = await fetch(`/s/${slug}/stock-alert`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ variantId, email }) }).then((r) => r.json()).catch(() => ({ error: "Connexion impossible. Réessayez." }));
+    setState(res.ok ? { ok: true } : { error: res.error ?? "Une erreur est survenue." });
+  };
+  if (state.ok) return <p role="status" className="rounded-[var(--t-radius)] bg-[var(--c-surface)] p-4 text-sm">C'est noté : nous vous écrirons à <b>{email}</b> dès que l'article sera de retour.</p>;
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-2 rounded-[var(--t-radius)] bg-[var(--c-surface)] p-4">
+      <label htmlFor="stock-alert-email" className="text-sm font-semibold">Prévenez-moi du retour en stock</label>
+      <div className="flex gap-2">
+        <input id="stock-alert-email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Votre e-mail" className="min-w-0 flex-1 rounded-[var(--t-radius)] border border-[color-mix(in_srgb,var(--c-text)_22%,transparent)] bg-[var(--c-bg)] px-3 py-2.5 outline-none focus:border-[var(--c-text)]" />
+        <button disabled={state.pending} className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-4 font-semibold disabled:opacity-50">{state.pending ? "…" : "Me prévenir"}</button>
+      </div>
+      {state.error && <p role="alert" className="text-sm text-red-700">{state.error}</p>}
+    </form>
   );
 }

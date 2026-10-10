@@ -9,6 +9,7 @@ import { isImageUrl } from "@/lib/images";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { addAutoRedirect } from "@/lib/navigation";
+import { notifyBackInStock } from "@/lib/stock-alerts";
 import { parseMoney } from "@/lib/money";
 import { slugify } from "@/lib/utils";
 
@@ -154,6 +155,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
     ...p.bundle.filter((b) => ok.some((o) => o.id === b.variantId)).map((b) => db.bundleItem.create({ data: { bundleId: p.id!, variantId: b.variantId, quantity: b.quantity } })),
   ]);
   await logActivity(`Produit « ${p.title} » enregistré`, `/admin/products/${p.id}`);
+  await notifyBackInStock({ storeId: store.id });
   revalidatePath("/admin/products");
   revalidatePath(`/s/${store.slug}`, "layout");
   redirect(`/admin/products/${p.id}?saved=1`);

@@ -97,6 +97,10 @@ export async function refundOrder(args: {
   ]);
 
   if (amount > 0) await revokePoints(order.id, amount);
+  if (args.restock && lines.length) {
+    const { notifyBackInStock } = await import("./stock-alerts");
+    await notifyBackInStock({ storeId: order.storeId });
+  }
   if (amount > 0 && args.notify !== false) {
     const items = lines.map((l) => { const i = order.items.find((x) => x.id === l.orderItemId)!; return { title: i.productTitle, quantity: l.quantity }; });
     await sendMail({ to: order.email, storeId: order.storeId, ...refundEmail(order.store, order.number, amount, items, args.reason) });

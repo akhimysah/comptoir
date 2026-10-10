@@ -42,6 +42,7 @@ Ensuite, ouvrez http://localhost:3000.
 | Factures avec lien de paiement (commande créée dans l'admin, remise manuelle) | Page de paiement publique, carte via Stripe |
 | Coût par article, profit et marge ; marge brute dans les statistiques ; valeur du stock | Bons de commande fournisseurs : réception partielle ou totale qui met à jour le stock, envoi au fournisseur, impression |
 | Filtres de la boutique : disponibilité, prix, promotions, catégorie, tailles, couleurs et autres options, avis | Filtres instantanés, partageables par lien, sur mobile aussi |
+| Alertes de retour en stock (« Prévenez-moi ») | E-mail automatique au réassort (stock, bon de commande, retour) |
 | Navigation : menus avec sous-menus déroulants | Redirections d'URL automatiques quand une adresse change |
 | Référencement : titre et description Google, aperçu du résultat | Sitemap par boutique (`/s/<boutique>/sitemap.xml`), robots.txt |
 | Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau ; achat de cartes cadeaux dans la boutique |

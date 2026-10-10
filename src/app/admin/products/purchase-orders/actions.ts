@@ -10,6 +10,7 @@ import { purchaseOrderEmail } from "@/lib/emails";
 import { sendMail } from "@/lib/mail";
 import { parseMoney } from "@/lib/money";
 import { receiveItems, setDraftLines } from "@/lib/purchasing";
+import { notifyBackInStock } from "@/lib/stock-alerts";
 
 const schema = z.object({
   id: z.string().optional(),
@@ -87,6 +88,7 @@ export async function receivePurchaseOrder(form: FormData) {
   const lines = po.items.map((i) => ({ itemId: i.id, quantity: Number(form.get(`rec_${i.id}`) ?? 0) }));
   const res = await receiveItems(store.id, po.id, lines, form.get("updateCosts") === "on");
   if (res.error) redirect(`/admin/products/purchase-orders/${po.id}?err=${encodeURIComponent(res.error)}`);
+  await notifyBackInStock({ storeId: store.id, variantIds: po.items.map((i) => i.variantId).filter((v): v is string => !!v) });
   await logActivity(`${res.count} article(s) reçu(s) sur le bon n° ${po.number}`, `/admin/products/purchase-orders/${po.id}`);
   revalidatePath("/admin", "layout");
   redirect(`/admin/products/purchase-orders/${po.id}?received=${res.count}`);

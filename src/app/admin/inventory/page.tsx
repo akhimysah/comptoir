@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { cx, parseJson } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 import { incomingByVariant } from "@/lib/purchasing";
+import { pendingAlertsByVariant } from "@/lib/stock-alerts";
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ q?: string; filter?: string }> }) {
   const { q = "", filter = "all" } = await searchParams;
@@ -26,6 +27,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   });
   const committedBy = new Map(committed.map((c) => [c.variantId, c._sum.quantity ?? 0]));
   const incoming = await incomingByVariant(store.id);
+  const waiting = await pendingAlertsByVariant(store.id);
   // Valeur du stock au prix d'achat (articles dont le coût est renseigné).
   const all = await db.variant.findMany({ where: { product: { storeId: store.id, isGiftCard: false, bundleItems: { none: {} } }, stock: { gt: 0 } }, select: { stock: true, costCents: true } });
   const value = all.reduce((s, v) => s + (v.costCents ?? 0) * v.stock, 0);
@@ -44,8 +46,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </div>
         {variants.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px]">
-              <thead><tr><th className="th">Produit</th><th className="th">SKU</th><th className="th text-right">Engagé</th><th className="th text-right">À recevoir</th><th className="th text-right">Disponible</th></tr></thead>
+            <table className="w-full min-w-[780px]">
+              <thead><tr><th className="th">Produit</th><th className="th">SKU</th><th className="th text-right">Engagé</th><th className="th text-right">À recevoir</th><th className="th text-right" title="Clients qui ont demandé à être prévenus du retour en stock">En attente</th><th className="th text-right">Disponible</th></tr></thead>
               <tbody>
                 {variants.map((v) => (
                   <tr key={v.id} className="hover:bg-[#f7f7f7]">
@@ -53,7 +55,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                       <Link href={`/admin/products/${v.productId}`} className="flex items-center gap-3">
                         <Thumb image={parseJson<string[]>(v.product.images, [])[0]} hue={v.product.hue} title={v.product.title} className="h-9 w-9 text-[10px]" />
                         <span>
-                          <span className="block font-[550] hover:underline">{v.product.title}</span>
+                          <span className="block whitespace-nowrap font-[550] hover:underline">{v.product.title}</span>
                           {v.title !== "Par défaut" && <span className="mt-0.5 inline-block rounded-md bg-[#ebebeb] px-1.5 text-xs">{v.title}</span>}
                         </span>
                       </Link>
@@ -61,6 +63,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     <td className="td text-muted">{v.sku || "Aucun SKU"}</td>
                     <td className="td num text-right">{committedBy.get(v.id) ?? 0}</td>
                     <td className="td num text-right">{incoming.get(v.id) ? <Link href="/admin/products/purchase-orders" className="text-pine hover:underline">{incoming.get(v.id)}</Link> : <span className="text-muted">0</span>}</td>
+                    <td className="td num text-right">{waiting.get(v.id) ? <span className="rounded-md bg-[#ffeb78] px-1.5 text-xs font-[550] text-[#4f4700]">{waiting.get(v.id)}</span> : <span className="text-muted">0</span>}</td>
                     <td className="td"><StockInput variantId={v.id} initial={v.stock} label={`${v.product.title} ${v.title}`} /></td>
                   </tr>
                 ))}

@@ -45,5 +45,8 @@ export async function runAutomations(storeId?: string) {
       }
     }
   }
-  return { reminders, reviews };
+  // Filet de sécurité : alertes de retour en stock pas encore envoyées (réassort fait ailleurs, import…).
+  const { notifyBackInStock } = await import("./stock-alerts");
+  const backInStock = await notifyBackInStock(storeId ? { storeId } : {});
+  return { reminders, reviews, backInStock };
 }

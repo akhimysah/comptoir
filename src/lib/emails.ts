@@ -221,3 +221,15 @@ ${po.note ? `<p style="font-size:14px;line-height:1.5;white-space:pre-line;color
 <p style="font-size:13px;color:#616161">Merci de confirmer la commande en répondant à cet e-mail.</p>`),
   };
 }
+
+export function backInStockEmail(store: Store, product: { title: string; image: string | null }, variantTitle: string, url: string, priceCents: number) {
+  const name = `${product.title}${variantTitle !== "Par défaut" ? ` (${variantTitle})` : ""}`;
+  return {
+    subject: `${name} est de retour chez ${store.name}`,
+    html: layout(store.name, "C'est de nouveau disponible !",
+      `${product.image && /^https?:\/\//.test(product.image) ? `<img src="${esc(product.image)}" alt="" width="240" style="display:block;border-radius:8px;margin:0 0 16px">` : ""}
+<p style="font-size:14px;line-height:1.5">Bonne nouvelle : <b>${esc(name)}</b> est de retour en stock, à ${formatMoney(priceCents, store.currency)}. Les quantités sont limitées, ne tardez pas.</p>
+<p>${button(url, "Je le veux")}</p>
+<p style="font-size:12px;color:#8a8a8a">Vous recevez cet e-mail car vous avez demandé à être prévenu. Nous ne vous écrirons pas à nouveau pour cet article.</p>`),
+  };
+}

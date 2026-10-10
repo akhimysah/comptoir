@@ -82,6 +82,7 @@ model Store {
   segments              Segment[]
   suppliers             Supplier[]
   purchaseOrders        PurchaseOrder[]
+  stockAlerts           StockAlert[]
 }
 
 /// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
@@ -636,4 +637,18 @@ model PurchaseOrderItem {
   quantity        Int
   received        Int           @default(0)
   costCents       Int           @default(0)
+}
+
+/// « Me prévenir du retour en stock » : un client attend qu'une variante épuisée revienne.
+model StockAlert {
+  id         String    @id @default(cuid())
+  storeId    String
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  variantId  String
+  email      String
+  createdAt  DateTime  @default(now())
+  notifiedAt DateTime?
+
+  @@unique([variantId, email])
+  @@index([storeId, notifiedAt])
 }

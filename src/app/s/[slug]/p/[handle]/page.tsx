@@ -26,7 +26,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: product.seoTitle || product.title, description, openGraph: { title: product.seoTitle || product.title, description, ...(image ? { images: [image] } : {}) } };
 }
 
-export default async function ProductPage({ params }: { params: Promise<{ slug: string; handle: string }> }) {
+export default async function ProductPage({ params, searchParams }: { params: Promise<{ slug: string; handle: string }>; searchParams: Promise<{ variant?: string }> }) {
+  const { variant: initialVariant } = await searchParams;
   const { slug, handle } = await params;
   const { store, product } = await load(slug, handle);
   const parts = await db.bundleItem.findMany({ where: { bundleId: product.id } });
@@ -38,6 +39,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   return (
     <>
     <ProductBuy
+      initialVariant={initialVariant}
       slug={slug}
       currency={cur.code}
       rate={cur.rate}

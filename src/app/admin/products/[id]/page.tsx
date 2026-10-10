@@ -19,6 +19,7 @@ export default async function EditProductPage({ params, searchParams }: { params
   const bundleParts = await db.bundleItem.findMany({ where: { bundleId: product.id } });
   const choices = await bundleChoicesFor(store.id, product.id);
   const collections = await db.collection.findMany({ where: { storeId: store.id }, orderBy: { title: "asc" }, select: { id: true, title: true } });
+  const waiting = await db.stockAlert.count({ where: { storeId: store.id, notifiedAt: null, variantId: { in: product.variants.map((v) => v.id) } } });
 
   return (
     <>
@@ -36,6 +37,12 @@ export default async function EditProductPage({ params, searchParams }: { params
           </>
         }
       />
+      {waiting > 0 && (
+        <p className="card mb-4 flex flex-wrap items-center gap-2 px-4 py-3 text-[13px]">
+          <span className="rounded-md bg-[#ffeb78] px-1.5 font-[650] text-[#4f4700]">{waiting}</span>
+          client{waiting > 1 ? "s attendent" : " attend"} le retour en stock de ce produit. Ils seront prévenus par e-mail dès que vous remettrez du stock.
+        </p>
+      )}
       <ProductForm
         key={product.updatedAt.toISOString()}
         currency={store.currency}
