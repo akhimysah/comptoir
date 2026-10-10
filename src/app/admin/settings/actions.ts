@@ -3,6 +3,7 @@
 import { logActivity } from "@/lib/activity";
 
 import { revalidatePath } from "next/cache";
+import { fetchRates } from "@/lib/currency";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -56,21 +57,15 @@ export async function saveCurrencies(_: { error?: string; ok?: string } | undefi
   let list = codes.map((code) => ({ code, rate: Number(String(form.get(`rate_${code}`) ?? "").replace(",", ".")) }));
   let note = "";
   if (form.get("auto") === "1" && codes.length) {
-    // Taux du jour de la Banque centrale européenne (via frankfurter.app) ; les devises non couvertes gardent le taux saisi.
-    try {
-      const res = await fetch(`https://api.frankfurter.app/latest?from=${store.currency}&to=${codes.join(",")}`, { cache: "no-store" });
-      const json = res.ok ? ((await res.json()) as { rates?: Record<string, number> }) : {};
-      const rates = json.rates ?? {};
-      list = list.map((c) => (rates[c.code] ? { ...c, rate: rates[c.code] } : c));
-      const missing = codes.filter((c) => !rates[c]);
-      note = missing.length ? `Taux mis à jour, sauf ${missing.join(", ")} (non publiés par la BCE : saisissez-les à la main).` : "Taux du jour appliqués.";
-    } catch {
-      return { error: "Impossible de récupérer les taux du jour. Saisissez-les à la main." };
-    }
+    const rates = await fetchRates(store.currency, codes);
+    if (!rates) return { error: "Impossible de récupérer les taux du jour. Saisissez-les à la main." };
+    list = list.map((c) => (rates[c.code] ? { ...c, rate: rates[c.code] } : c));
+    const missing = codes.filter((c) => !rates[c]);
+    note = missing.length ? `Taux mis à jour, sauf ${missing.join(", ")} (non publiés par la BCE : saisissez-les à la main).` : "Taux du jour appliqués.";
   }
   const bad = list.find((c) => !(c.rate > 0));
   if (bad) return { error: `Indiquez un taux pour ${bad.code}.` };
-  await db.store.update({ where: { id: store.id }, data: { displayCurrencies: JSON.stringify(list.map((c) => ({ code: c.code, rate: Math.round(c.rate * 10000) / 10000 }))), chargeInCustomerCurrency: form.get("charge") === "on" } });
+  await db.store.update({ where: { id: store.id }, data: { displayCurrencies: JSON.stringify(list.map((c) => ({ code: c.code, rate: Math.round(c.rate * 10000) / 10000 }))), chargeInCustomerCurrency: form.get("charge") === "on", autoRates: form.get("autoRates") === "on", ...(form.get("auto") === "1" ? { ratesUpdatedAt: new Date() } : {}) } });
   await logActivity(`Devises affichées : ${list.map((c) => c.code).join(", ") || "aucune"}`, "/admin/settings");
   revalidatePath("/admin/settings");
   revalidatePath(`/s/${store.slug}`, "layout");

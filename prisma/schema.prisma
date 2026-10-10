@@ -61,6 +61,8 @@ model Store {
   stripeChargesEnabled     Boolean               @default(false)
   displayCurrencies        String                @default("[]") // JSON : { code, rate }[] — devises d'affichage et leur taux par rapport à la devise de la boutique
   chargeInCustomerCurrency Boolean               @default(false) // encaisser dans la devise choisie par le client (sinon affichage seulement)
+  autoRates                Boolean               @default(false) // taux de change mis à jour chaque jour (BCE)
+  ratesUpdatedAt           DateTime?
   loyaltyEnabled           Boolean               @default(false) // programme de fidélité
   loyaltyPointsPerUnit     Int                   @default(1) // points gagnés par unité de devise dépensée (1 € = 1 point)
   loyaltyRewardPoints      Int                   @default(100) // points nécessaires pour un bon

@@ -3,7 +3,7 @@ import { TaxForm } from "@/components/admin/TaxForm";
 import { LoyaltyForm } from "@/components/admin/LoyaltyForm";
 import { CurrenciesForm } from "@/components/admin/CurrenciesForm";
 import { ReturnsForm } from "@/components/admin/ReturnsForm";
-import { parseJson } from "@/lib/utils";
+import { formatDateTime, parseJson } from "@/lib/utils";
 import { PageHeader, Pill } from "@/components/ui";
 import { requireOwner } from "@/lib/auth";
 import Link from "next/link";
@@ -28,7 +28,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <SettingsForm name={store.name} tagline={store.tagline} currency={store.currency} shipping={centsToInput(store.shippingCents)} freeFrom={centsToInput(store.freeShippingFromCents)} lowStockThreshold={store.lowStockThreshold} />
           <LoyaltyForm enabled={store.loyaltyEnabled} perUnit={store.loyaltyPointsPerUnit} rewardPoints={store.loyaltyRewardPoints} rewardValue={centsToInput(store.loyaltyRewardCents)} currency={store.currency} />
           <ReturnsForm enabled={store.returnsEnabled} days={store.returnWindowDays} instructions={store.returnInstructions} />
-          <CurrenciesForm base={store.currency} current={parseJson(store.displayCurrencies, [])} charge={store.chargeInCustomerCurrency} />
+          <CurrenciesForm base={store.currency} current={parseJson(store.displayCurrencies, [])} charge={store.chargeInCustomerCurrency} autoRates={store.autoRates} updatedAt={store.ratesUpdatedAt ? formatDateTime(store.ratesUpdatedAt) : null} />
           <TaxForm taxRateBps={store.taxRateBps} vatByCountry={store.vatByCountry} legalName={store.legalName} legalAddress={store.legalAddress} siret={store.siret} vatNumber={store.vatNumber} />
         </div>
 

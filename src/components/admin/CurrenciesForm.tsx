@@ -6,7 +6,7 @@ import { keepOnSubmit } from "@/lib/keep-form";
 
 const CHOICES = ["USD", "GBP", "CHF", "CAD", "JPY", "MAD", "XOF", "DZD", "TND", "AED", "SAR", "EUR"];
 
-export function CurrenciesForm({ base, current, charge }: { base: string; current: { code: string; rate: number }[]; charge: boolean }) {
+export function CurrenciesForm({ base, current, charge, autoRates, updatedAt }: { base: string; current: { code: string; rate: number }[]; charge: boolean; autoRates: boolean; updatedAt: string | null }) {
   const [state, action, pending] = useActionState(saveCurrencies, undefined);
   const [on, setOn] = useState<string[]>(current.map((c) => c.code));
   return (
@@ -26,6 +26,10 @@ export function CurrenciesForm({ base, current, charge }: { base: string; curren
         })}
       </div>
       <label className="flex items-start gap-2 border-t border-line pt-3 text-[13px]">
+        <input type="checkbox" name="autoRates" defaultChecked={autoRates} className="mt-0.5 h-4 w-4 accent-[#7c3aed]" />
+        <span>Mettre à jour les taux chaque jour<span className="block text-xs text-muted">Taux de la Banque centrale européenne (USD, GBP, CHF, CAD, JPY…). Les autres devises gardent le taux saisi.{updatedAt ? ` Dernière mise à jour : ${updatedAt}.` : ""}</span></span>
+      </label>
+      <label className="flex items-start gap-2 text-[13px]">
         <input type="checkbox" name="charge" defaultChecked={charge} className="mt-0.5 h-4 w-4 accent-[#7c3aed]" />
         <span>Encaisser dans la devise du client<span className="block text-xs text-muted">Paiement par carte dans la devise choisie, au taux ci-dessus (USD, GBP, CHF, CAD, MAD, DZD, AED, SAR). Sinon, les prix sont indicatifs et le paiement se fait en {base}. Vos rapports restent en {base}.</span></span>
       </label>
