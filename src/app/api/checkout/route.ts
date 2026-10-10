@@ -98,7 +98,7 @@ export async function POST(req: Request) {
   if (!canSell(store)) return NextResponse.json({ error: SALES_PAUSED[locale] }, { status: 403 });
 
   const customer = await getCustomer(store.id);
-  const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode, { priceListId: customer?.priceListId, locale });
+  const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode, { priceListId: customer?.priceListId, vatNumber: customer?.vatNumber, locale });
   // Paiement à échéance : réservé au client professionnel connecté, et la commande est à son nom.
   const terms = b.terms && cart.totalCents > 0;
   if (terms && !customer?.paymentTermsDays) return NextResponse.json({ error: t.termsOff }, { status: 400 });

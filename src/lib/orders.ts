@@ -111,6 +111,7 @@ async function insertOrder(
           discountId: cart.discountId,
           taxRateBps: cart.taxRateBps,
           taxCents: cart.taxCents,
+          reverseCharge: Boolean(cart.reverseCharge),
           shippingCents: cart.shippingCents,
           shippingMethod: cart.shippingMethod,
           totalCents: cart.totalCents,

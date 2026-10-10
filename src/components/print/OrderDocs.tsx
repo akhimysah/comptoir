@@ -1,7 +1,7 @@
 import type { Order, OrderItem, Store } from "@prisma/client";
 import { formatMoney } from "@/lib/money";
 import type { Address } from "@/lib/orders";
-import { FRANCHISE_MENTION, includedTax, rateLabel } from "@/lib/tax";
+import { FRANCHISE_MENTION, includedTax, rateLabel, REVERSE_CHARGE_MENTION } from "@/lib/tax";
 import { parseJson } from "@/lib/utils";
 
 type FullOrder = Order & { items: OrderItem[]; customer?: { company: string; vatNumber: string } | null };
@@ -27,7 +27,9 @@ function ShipTo({ order }: { order: FullOrder }) {
 
 export function Invoice({ store, order }: { store: Store; order: FullOrder }) {
   const m = (c: number) => formatMoney(c, store.currency);
-  const rate = order.taxRateBps || store.taxRateBps;
+  // Autoliquidation : facture hors taxes, sans TVA (et sans la mention de franchise).
+  const rate = order.reverseCharge ? 0 : order.taxRateBps || store.taxRateBps;
+  const unit = order.reverseCharge ? "HT" : "TTC";
   const gross = order.totalCents + order.giftCardCents; // valeur TTC des articles et de la livraison
   const tax = order.taxCents || includedTax(gross, rate);
   return (
@@ -47,7 +49,7 @@ export function Invoice({ store, order }: { store: Store; order: FullOrder }) {
         <div><div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#777]">Livré à</div><ShipTo order={order} /></div>
       </div>
       <table className="w-full border-collapse">
-        <thead><tr className="border-b-2 border-[#111] text-left"><th className="py-2">Désignation</th><th className="py-2 text-right">Qté</th><th className="py-2 text-right">Prix unitaire TTC</th><th className="py-2 text-right">Total TTC</th></tr></thead>
+        <thead><tr className="border-b-2 border-[#111] text-left"><th className="py-2">Désignation</th><th className="py-2 text-right">Qté</th><th className="py-2 text-right">Prix unitaire {unit}</th><th className="py-2 text-right">Total {unit}</th></tr></thead>
         <tbody>
           {order.items.map((i) => (
             <tr key={i.id} className="border-b border-[#ddd]">
@@ -64,15 +66,16 @@ export function Invoice({ store, order }: { store: Store; order: FullOrder }) {
         <dl className="grid grid-cols-[1fr_auto] gap-y-1">
           {order.discountCents > 0 && <><dt>Remise {order.discountCode}</dt><dd className="text-right tabular-nums">−{m(order.discountCents)}</dd></>}
           {rate > 0 && <><dt>Total HT</dt><dd className="text-right tabular-nums">{m(gross - tax)}</dd><dt>TVA {rateLabel(rate)}</dt><dd className="text-right tabular-nums">{m(tax)}</dd></>}
-          <dt className="border-t-2 border-[#111] pt-1 font-bold">Total TTC</dt><dd className="border-t-2 border-[#111] pt-1 text-right font-bold tabular-nums">{m(gross)}</dd>
+          {order.reverseCharge && <><dt>TVA</dt><dd className="text-right tabular-nums">{m(0)}</dd></>}
+          <dt className="border-t-2 border-[#111] pt-1 font-bold">Total {unit}</dt><dd className="border-t-2 border-[#111] pt-1 text-right font-bold tabular-nums">{m(gross)}</dd>
           {order.giftCardCents > 0 && <><dt className="text-[#555]">Payé par carte cadeau</dt><dd className="text-right tabular-nums text-[#555]">−{m(order.giftCardCents)}</dd></>}
           <dt className="text-[#555]">{order.paymentStatus === "pending" ? "Reste à payer" : "Payé"}</dt><dd className="text-right tabular-nums text-[#555]">{m(order.totalCents)}</dd>
           {order.refundedCents > 0 && <><dt className="text-[#555]">Remboursé</dt><dd className="text-right tabular-nums text-[#555]">−{m(order.refundedCents)}</dd></>}
         </dl>
       </div>
       <footer className="mt-12 border-t border-[#ddd] pt-3 text-[10px] text-[#777]">
-        {rate === 0 && <div className="font-semibold text-[#111]">{FRANCHISE_MENTION}</div>}
-        <div>Facture émise par {store.legalName || store.name}. Les prix s'entendent toutes taxes comprises.</div>
+        {order.reverseCharge ? <div className="font-semibold text-[#111]">{REVERSE_CHARGE_MENTION}</div> : rate === 0 && <div className="font-semibold text-[#111]">{FRANCHISE_MENTION}</div>}
+        <div>Facture émise par {store.legalName || store.name}. {order.reverseCharge ? "Les prix s'entendent hors taxes." : "Les prix s'entendent toutes taxes comprises."}</div>
       </footer>
     </section>
   );

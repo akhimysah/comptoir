@@ -2,7 +2,7 @@ import "server-only";
 import type { Discount, Store } from "@prisma/client";
 import { db } from "./db";
 import { parseJson } from "./utils";
-import { includedTax, vatRateFor } from "./tax";
+import { exclVat, includedTax, reverseChargeApplies, vatRateFor } from "./tax";
 import { splitCartId, subPrice } from "./subscriptions";
 import { bundleComponents, bundleStock } from "./bundles";
 import { loadProPricing, proPrice } from "./b2b";
@@ -111,6 +111,8 @@ export type PricedCart = {
   taxCents: number;
   /** Liste de prix professionnels appliquée (client B2B connecté), ou null. */
   priceListName?: string | null;
+  /** Vente hors taxes à un professionnel de l'UE (autoliquidation). */
+  reverseCharge?: boolean;
 };
 
 export type ShippingChoice = { country?: string | null; rateId?: string | null };
@@ -163,9 +165,12 @@ export function discountProblem(d: Discount | null, subtotalCents: number, eligi
  * Recalcule toujours le panier côté serveur à partir de la base :
  * les prix envoyés par le navigateur ne sont jamais utilisés.
  */
-export async function priceCart(store: Store, items: CartInput, code?: string | null, ship: ShippingChoice = {}, giftCode?: string | null, opts: { priceListId?: string | null; locale?: Locale } = {}): Promise<PricedCart> {
+export async function priceCart(store: Store, items: CartInput, code?: string | null, ship: ShippingChoice = {}, giftCode?: string | null, opts: { priceListId?: string | null; locale?: Locale; vatNumber?: string | null } = {}): Promise<PricedCart> {
   const locale = opts.locale ?? "fr";
   const t = MSG[locale];
+  // Professionnel d'un autre pays de l'UE avec numéro de TVA : vente hors taxes (autoliquidation), jamais en retrait.
+  const reverseCharge = ship.rateId !== PICKUP_ID && reverseChargeApplies(store, opts.vatNumber, ship.country);
+  const ex = (c: number) => (reverseCharge ? exclVat(c, store.taxRateBps) : c);
   // Titre du produit dans la langue du client (messages seulement : les lignes gardent le titre d'origine).
   const titleOf = (p: { title: string; translations?: string }) => translate(p, locale, ["title"]).title;
   const qty = new Map<string, number>();
@@ -204,7 +209,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     }
     if (quantity < wanted) notices.push(t.onlyLeft(stockOf(v), titleOf(v.product)));
     const sub = ref.subscribe && v.product.subscriptionInterval ? v.product.subscriptionInterval : null;
-    const base = v.product.isGiftCard ? v.priceCents : proPrice(v.priceCents, v.id, pro);
+    const base = v.product.isGiftCard ? v.priceCents : ex(proPrice(v.priceCents, v.id, pro));
     lines.push({
       variantId,
       baseVariantId: v.id,
@@ -214,7 +219,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       productHandle: v.product.handle,
       variantTitle: v.title,
       priceCents: sub ? subPrice(base, v.product.subscriptionDiscountBps) : base,
-      compareAtCents: (sub && v.product.subscriptionDiscountBps) || base < v.priceCents ? v.priceCents : v.compareAtCents,
+      compareAtCents: v.product.isGiftCard ? v.compareAtCents : (sub && v.product.subscriptionDiscountBps) || base < ex(v.priceCents) ? ex(v.priceCents) : v.compareAtCents && ex(v.compareAtCents),
       quantity,
       available: v.product.isGiftCard || v.product.continueSelling ? 99 : stockOf(v),
       image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null,
@@ -319,9 +324,13 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     shipping.shippingCents = 0;
     shipping.shippingOptions = shipping.shippingOptions.map((o) => ({ ...o, priceCents: 0 }));
   }
+  if (reverseCharge) {
+    shipping.shippingCents = ex(shipping.shippingCents);
+    shipping.shippingOptions = shipping.shippingOptions.filter((o) => o.id !== PICKUP_ID).map((o) => ({ ...o, priceCents: ex(o.priceCents) }));
+  }
   const due = afterDiscount + shipping.shippingCents;
-  // TVA : celle du pays de livraison si la boutique l'a choisi (retrait en boutique : pays de la boutique).
-  const vatBps = !needsShipping || shipping.shippingRateId === PICKUP_ID ? store.taxRateBps : vatRateFor(store, ship.country);
+  // TVA : celle du pays de livraison si la boutique l'a choisi (retrait en boutique : pays de la boutique) ; aucune en autoliquidation.
+  const vatBps = reverseCharge ? 0 : !needsShipping || shipping.shippingRateId === PICKUP_ID ? store.taxRateBps : vatRateFor(store, ship.country);
 
   // Carte cadeau : elle paie tout ou partie du total, livraison comprise.
   let giftCardCode: string | null = null, giftCardCents = 0, giftCardBalanceCents = 0, giftCardError: string | null = null;
@@ -354,6 +363,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     weightGrams,
     notices,
     priceListName: pro?.name ?? null,
+    reverseCharge,
     pickup: store.pickupEnabled && store.pickupAddress.trim() && needsShipping ? { address: store.pickupAddress, instructions: store.pickupInstructions } : null,
   };
 }

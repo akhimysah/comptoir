@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   if (!(await storeAccess(store)).allowed) return NextResponse.json({ error: MSG.closed[locale] }, { status: 403 });
   const str = (v: unknown) => (typeof v === "string" ? v : null);
   const customer = await getCustomer(store.id);
-  const cart = await priceCart(store, body.items.slice(0, 100), str(body.code), { country: str(body.country), rateId: str(body.rateId) }, str(body.giftCode), { priceListId: customer?.priceListId, locale });
+  const cart = await priceCart(store, body.items.slice(0, 100), str(body.code), { country: str(body.country), rateId: str(body.rateId) }, str(body.giftCode), { priceListId: customer?.priceListId, vatNumber: customer?.vatNumber, locale });
   // Titres des produits dans la langue du visiteur (affichage seulement).
   if (locale !== "fr" && cart.lines.length) {
     const products = await db.product.findMany({ where: { id: { in: [...new Set(cart.lines.map((l) => l.productId))] } }, select: { id: true, title: true, translations: true } });

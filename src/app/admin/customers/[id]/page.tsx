@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { adjustPoints, saveCustomerNote, saveCustomerTags } from "../actions";
 import { saveCustomerB2B } from "../price-lists/actions";
 import { PAYMENT_TERMS, termsLabel } from "@/lib/b2b";
+import { isEuVatNumber } from "@/lib/tax";
 import { splitTags } from "@/lib/segments";
 import { PageHeader, Pill, Thumb } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
@@ -90,6 +91,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
             <h2 className="text-sm font-[650]">Client professionnel</h2>
             <label className="label">Société<input name="company" defaultValue={c.company} maxLength={100} className="input" placeholder="Café des Arts SARL" /></label>
             <label className="label">N° de TVA intracommunautaire<input name="vatNumber" defaultValue={c.vatNumber} maxLength={20} className="input uppercase" placeholder="FR12345678901" /></label>
+            {c.vatNumber && !isEuVatNumber(c.vatNumber) && <p className="text-xs text-[#8e0b21]">Ce numéro ne ressemble pas à un numéro de TVA de l'UE (préfixe du pays, puis chiffres).</p>}
+            {c.vatNumber && isEuVatNumber(c.vatNumber) && !c.vatNumber.startsWith("FR") && store.taxRateBps > 0 && <p className="text-xs text-muted">Livré dans son pays ({c.vatNumber.slice(0, 2)}), ce client paie hors taxes (autoliquidation). Vérifiez son numéro sur le site VIES de la Commission européenne.</p>}
             <label className="label">Liste de prix
               <select name="priceListId" defaultValue={c.priceListId ?? ""} className="input">
                 <option value="">Prix publics</option>

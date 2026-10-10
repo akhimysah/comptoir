@@ -146,7 +146,7 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 - Langues autres que le français et l'anglais ; traduction automatique (aujourd'hui le marchand saisit l'anglais dans Paramètres → Langues). Les e-mails de panier abandonné et de retour en stock partent en français.
 - Paiement dans la devise du client (les autres devises sont affichées, le paiement reste dans la devise de la boutique).
 - Étiquettes d'expédition et tarifs transporteurs en direct (Colissimo, Mondial Relay…).
-- B2B : autoliquidation de la TVA pour les professionnels d'un autre pays de l'UE (vente hors taxes avec numéro de TVA). Les listes de prix pro et le paiement à échéance sont en place.
+- B2B : vérification automatique des numéros de TVA sur VIES (aujourd'hui seul le format est contrôlé ; le marchand vérifie sur le site de la Commission).
 - Boutique d'applications (des logiciels tiers se branchent déjà via l'API et les webhooks : Paramètres → API et webhooks).
 - Éditeur de code du thème : les sections, les réglages et un CSS personnalisé sont modifiables, pas le gabarit des pages.
 

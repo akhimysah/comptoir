@@ -7,6 +7,7 @@ import { requirePerm } from "@/lib/auth";
 import { PAYMENT_TERMS } from "@/lib/b2b";
 import { db } from "@/lib/db";
 import { parseMoney } from "@/lib/money";
+import { normalizeVatNumber } from "@/lib/tax";
 
 const percent = (v: FormDataEntryValue | null) => Math.max(0, Math.min(90, Math.round(Number(String(v ?? "0").replace(",", ".")) || 0)));
 
@@ -66,7 +67,7 @@ export async function saveCustomerB2B(form: FormData) {
     where: { id, storeId: store.id },
     data: {
       company: String(form.get("company") ?? "").trim().slice(0, 100),
-      vatNumber: String(form.get("vatNumber") ?? "").replace(/\s/g, "").toUpperCase().slice(0, 20),
+      vatNumber: normalizeVatNumber(String(form.get("vatNumber") ?? "")).slice(0, 20),
       priceListId: list?.id ?? null,
       paymentTermsDays: (PAYMENT_TERMS as readonly number[]).includes(days) ? days : 0,
     },

@@ -224,6 +224,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
               {o.discountCents > 0 && <><dt>Remise</dt><dd className="text-muted">{o.discountCode ?? "Remise manuelle"}</dd><dd className="num text-right">−{m(o.discountCents)}</dd></>}
               <dt>Expédition</dt><dd className="text-muted">{o.shippingMethod || "Livraison standard"}</dd><dd className="num text-right">{o.shippingCents ? m(o.shippingCents) : "Offerte"}</dd>
               {o.giftCardCents > 0 && <><dt>Carte cadeau</dt><dd className="text-muted">····{o.giftCardCode?.slice(-4)}</dd><dd className="num text-right">−{m(o.giftCardCents)}</dd></>}
+              {o.reverseCharge && <><dt className="text-xs text-muted">TVA</dt><dd className="text-xs text-muted">Autoliquidation (client UE)</dd><dd className="num text-right text-xs text-muted">{m(0)}</dd></>}
               {o.taxCents > 0 && <><dt className="text-xs text-muted">dont TVA</dt><dd className="text-xs text-muted">{(o.taxRateBps / 100).toLocaleString("fr-FR")} %</dd><dd className="num text-right text-xs text-muted">{m(o.taxCents)}</dd></>}
               <dt className="font-[650]">{o.giftCardCents > 0 ? "Reste à payer" : "Total"}</dt><dd /><dd className="num text-right font-[650]">{m(o.totalCents)}</dd>
               <dt className="col-span-3 my-1 border-t border-line" />

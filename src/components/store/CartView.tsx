@@ -32,6 +32,7 @@ const T = dict(
     giftCard: "Carte cadeau",
     useGift: "Utiliser",
     priceList: (name: string) => `Vos prix professionnels sont appliqués (${name}).`,
+    reverseCharge: "Prix hors taxes : livraison intracommunautaire à un professionnel, TVA autoliquidée par vos soins.",
     subtotal: "Sous-total",
     code: (c: string) => `Code ${c}`,
     removeLower: "retirer",
@@ -94,6 +95,7 @@ const T = dict(
     giftCard: "Gift card",
     useGift: "Apply",
     priceList: (name: string) => `Your trade prices have been applied (${name}).`,
+    reverseCharge: "Prices exclude VAT: intra-EU supply to a business, VAT is reverse-charged to you.",
     subtotal: "Subtotal",
     code: (c: string) => `Code ${c}`,
     removeLower: "remove",
@@ -284,6 +286,7 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
             </form>
             {gift && cart?.giftCardError && <p className="text-sm text-red-600">{cart.giftCardError}</p>}
             {cart?.priceListName && <p className="text-sm font-medium">{t.priceList(cart.priceListName)}</p>}
+            {cart?.reverseCharge && <p className="text-sm font-medium">{t.reverseCharge}</p>}
             {cart && (
               <dl className="grid grid-cols-[1fr_auto] gap-y-1.5 text-sm tabular-nums">
                 <dt className="text-[var(--c-muted)]">{t.subtotal}</dt><dd className="text-right">{m(cart.subtotalCents)}</dd>

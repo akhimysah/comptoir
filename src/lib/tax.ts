@@ -37,3 +37,36 @@ export function vatRateFor(store: { taxRateBps: number; vatByCountry: boolean },
   if (special !== undefined) return special === "store" ? store.taxRateBps : special;
   return EU_VAT_BPS[c] ?? 0;
 }
+
+/** Préfixe du numéro de TVA intracommunautaire de chaque pays de l'UE (la Grèce utilise « EL »). */
+export const EU_VAT_PREFIX: Record<string, string> = {
+  Allemagne: "DE", Autriche: "AT", Belgique: "BE", Bulgarie: "BG", Chypre: "CY", Croatie: "HR", Danemark: "DK", Espagne: "ES",
+  Estonie: "EE", Finlande: "FI", France: "FR", Grèce: "EL", Hongrie: "HU", Irlande: "IE", Italie: "IT", Lettonie: "LV",
+  Lituanie: "LT", Luxembourg: "LU", Malte: "MT", "Pays-Bas": "NL", Pologne: "PL", Portugal: "PT", "République tchèque": "CZ",
+  Roumanie: "RO", Slovaquie: "SK", Slovénie: "SI", Suède: "SE",
+};
+
+export const normalizeVatNumber = (v: string) => v.replace(/[\s.-]/g, "").toUpperCase();
+
+/** Numéro de TVA intracommunautaire bien formé : préfixe d'un pays de l'UE suivi de 8 à 12 chiffres ou lettres. */
+export function isEuVatNumber(v: string) {
+  const n = normalizeVatNumber(v);
+  return /^[A-Z]{2}[0-9A-Z]{8,12}$/.test(n) && Object.values(EU_VAT_PREFIX).includes(n.slice(0, 2));
+}
+
+export const REVERSE_CHARGE_MENTION = "Autoliquidation : TVA due par le preneur (article 196 de la directive 2006/112/CE). Livraison intracommunautaire exonérée (article 262 ter I du CGI).";
+
+/**
+ * Vente intracommunautaire entre professionnels (autoliquidation) : la boutique facture hors taxes quand
+ * le client a un numéro de TVA d'un autre pays de l'UE et que la livraison va dans ce pays.
+ * Ne s'applique pas à une boutique sans TVA (franchise en base).
+ */
+export function reverseChargeApplies(store: { taxRateBps: number }, vatNumber: string | null | undefined, country: string | null | undefined) {
+  const c = (country ?? "").trim();
+  if (!store.taxRateBps || !vatNumber || !c || c === "France" || !(c in EU_VAT_PREFIX)) return false;
+  const n = normalizeVatNumber(vatNumber);
+  return isEuVatNumber(n) && n.slice(0, 2) === EU_VAT_PREFIX[c];
+}
+
+/** Prix TTC (au taux de la boutique) → prix hors taxes. */
+export const exclVat = (ttcCents: number, rateBps: number) => Math.round((ttcCents * 10000) / (10000 + rateBps));

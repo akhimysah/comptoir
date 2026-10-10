@@ -161,3 +161,25 @@ describe("clients professionnels (B2B)", () => {
     expect(await stockOf(bol.id)).toBe(3);
   });
 });
+
+describe("autoliquidation (professionnel de l'UE)", () => {
+  it("facture hors taxes un professionnel belge livré en Belgique, et seulement lui", async () => {
+    const be = { country: "Belgique" };
+    const pro = await priceCart(store, [{ variantId: bol.id, quantity: 3 }], null, be, null, { vatNumber: "BE 0123.456.789" });
+    expect(pro.reverseCharge).toBe(true);
+    expect(pro.lines[0].priceCents).toBe(1667); // 20,00 € TTC → 16,67 € HT
+    expect(pro.taxCents).toBe(0);
+    expect(pro.taxRateBps).toBe(0);
+    expect(pro.shippingCents).toBe(408); // 4,90 € TTC → 4,08 € HT
+    expect(pro.totalCents).toBe(1667 * 3 + 408);
+    const order = await createOrder(store, pro, buyer("pro-be@exemple.fr"), "demo");
+    expect((await db.order.findUniqueOrThrow({ where: { id: order.id } })).reverseCharge).toBe(true);
+
+    // Livraison en France, numéro français, numéro mal formé ou retrait : TVA normale.
+    for (const [ship, vat] of [[{ country: "France" }, "BE0123456789"], [be, "FR12345678901"], [be, "BE12"], [{ country: "Belgique", rateId: "pickup" }, "BE0123456789"]] as const) {
+      const c = await priceCart(store, [{ variantId: bol.id, quantity: 1 }], null, ship, null, { vatNumber: vat });
+      expect(c.reverseCharge).toBe(false);
+      expect(c.lines[0].priceCents).toBe(2000);
+    }
+  });
+});
