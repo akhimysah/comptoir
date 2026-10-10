@@ -757,3 +757,19 @@ model Favorite {
   @@unique([customerId, productId])
   @@index([storeId, productId])
 }
+
+/// Erreur serveur (page, action ou API) : regroupée par signature, compteur d'occurrences, alerte e-mail limitée.
+model ErrorLog {
+  id         String    @id @default(cuid())
+  signature  String    @unique
+  message    String
+  path       String
+  method     String    @default("")
+  kind       String    @default("") // render | route | action | middleware
+  stack      String    @default("")
+  count      Int       @default(1)
+  resolved   Boolean   @default(false)
+  firstAt    DateTime  @default(now())
+  lastAt     DateTime  @default(now())
+  notifiedAt DateTime?
+}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { logout } from "../(auth)/actions";
 import { AdminNav, Icon } from "@/components/admin/Nav";
+import { isPlatformAdmin } from "@/lib/errors";
 import { MobileNavToggle } from "@/components/admin/MobileNav";
 import { requireStore } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -53,6 +54,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <div className="truncate text-xs text-muted">{user.email}{!isOwner && " · collaborateur"}</div>
             </div>
             <Link href="/admin/account" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Sécurité du compte</Link>
+            {isPlatformAdmin(user.email) && <Link href="/admin/platform/errors" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Erreurs de la plateforme</Link>}
             {isOwner && <Link href="/admin/settings" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Paramètres</Link>}
             <a href={`/s/${store.slug}`} target="_blank" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Voir la boutique</a>
             <form action={logout}><button className="w-full rounded-lg px-2.5 py-1.5 text-left hover:bg-[#f1f1f1]">Se déconnecter</button></form>

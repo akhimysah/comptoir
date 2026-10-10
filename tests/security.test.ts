@@ -50,3 +50,11 @@ describe("exports CSV", () => {
     expect(csv).toContain(";-3");
   });
 });
+
+describe("suivi des erreurs", () => {
+  it("regroupe les erreurs d'une même page quel que soit l'identifiant", async () => {
+    const { normalizeErrorPath } = await import("@/lib/errors");
+    expect(normalizeErrorPath("/admin/orders/cmv2a6gqp0003soecj8ek507g?x=1")).toBe("/admin/orders/:id");
+    expect(normalizeErrorPath("/s/atelier-argile/p/bol-celadon")).toBe("/s/atelier-argile/p/bol-celadon");
+  });
+});
