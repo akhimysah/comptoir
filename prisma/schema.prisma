@@ -87,6 +87,8 @@ model Store {
   customers             Customer[]
   discounts             Discount[]
   priceLists            PriceList[]
+  apiKeys               ApiKey[]
+  webhooks              Webhook[]
   members               StoreMember[]
   invites               StoreInvite[]
   shippingZones         ShippingZone[]
@@ -806,4 +808,31 @@ model ErrorLog {
   firstAt    DateTime  @default(now())
   lastAt     DateTime  @default(now())
   notifiedAt DateTime?
+}
+
+/// Clé d'API d'une boutique (applications tierces). Seule son empreinte est gardée : la clé n'est montrée qu'une fois.
+model ApiKey {
+  id         String    @id @default(cuid())
+  storeId    String
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name       String
+  prefix     String // début de la clé, pour la reconnaître dans la liste
+  keyHash    String    @unique
+  scopes     String    @default("[]") // JSON : droits accordés (read_products, write_orders…)
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+}
+
+/// Notification envoyée à une adresse externe quand un événement a lieu (commande payée, expédiée…).
+model Webhook {
+  id         String    @id @default(cuid())
+  storeId    String
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  url        String
+  topics     String    @default("[]") // JSON : événements suivis
+  secret     String // clé de signature HMAC des envois
+  createdAt  DateTime  @default(now())
+  lastAt     DateTime?
+  lastStatus Int? // code HTTP du dernier envoi (0 = pas de réponse)
+  failures   Int       @default(0) // échecs consécutifs ; désactivé au-delà de 50
 }

@@ -97,6 +97,7 @@ export async function refundOrder(args: {
   ]);
 
   if (amount > 0) await revokePoints(order.id, amount);
+  if (args.cancel) await (await import("./webhooks")).emitOrder(order.id, "orders/cancelled");
   if (args.restock && lines.length) {
     const { notifyBackInStock } = await import("./stock-alerts");
     await notifyBackInStock({ storeId: order.storeId });

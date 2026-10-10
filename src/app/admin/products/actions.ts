@@ -10,9 +10,9 @@ import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { addAutoRedirect } from "@/lib/navigation";
 import { notifyBackInStock } from "@/lib/stock-alerts";
+import { uniqueHandle } from "@/lib/handles";
 import { cleanMetafields } from "@/lib/metafields";
 import { parseMoney } from "@/lib/money";
-import { slugify } from "@/lib/utils";
 
 const payloadSchema = z.object({
   id: z.string().optional(),
@@ -53,16 +53,6 @@ const payloadSchema = z.object({
 });
 export type ProductPayload = z.infer<typeof payloadSchema>;
 export type SaveState = { error?: string } | undefined;
-
-async function uniqueHandle(storeId: string, title: string, exceptId?: string) {
-  const base = slugify(title);
-  let handle = base;
-  for (let i = 2; ; i++) {
-    const hit = await db.product.findUnique({ where: { storeId_handle: { storeId, handle } } });
-    if (!hit || hit.id === exceptId) return handle;
-    handle = `${base}-${i}`;
-  }
-}
 
 export async function saveProduct(_: SaveState, form: FormData): Promise<SaveState> {
   const { store } = await requirePerm("products");

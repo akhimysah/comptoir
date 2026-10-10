@@ -8,6 +8,7 @@ import { earnPoints } from "./loyalty";
 import { nextDate } from "./subscriptions";
 import type { PricedCart } from "./pricing";
 import { payLink } from "./invoices";
+import { emitOrder } from "./webhooks";
 
 export type Address = { line1: string; zip: string; city: string; country: string };
 
@@ -74,6 +75,7 @@ export async function cancelUnpaidOrder(orderId: string, author = "") {
     for (const m of await stockMoves(tx, o.id)) await tx.variant.updateMany({ where: { id: m.variantId }, data: { stock: { increment: m.quantity } } });
   });
   await db.orderEvent.create({ data: { orderId: o.id, type: "cancelled", author } });
+  await emitOrder(o.id, "orders/cancelled");
   return true;
 }
 
@@ -207,6 +209,8 @@ export async function markOrderPaid(orderId: string) {
     const o = await db.order.findUnique({ where: { id: orderId }, select: { dueAt: true } });
     if (!o?.dueAt) await notifyOrderPaid(orderId);
     await reportStock(orderId, report);
+    if (!o?.dueAt) await emitOrder(orderId, "orders/create");
+    await emitOrder(orderId, "orders/paid");
   }
   return paid;
 }
@@ -224,6 +228,7 @@ export async function confirmTermsOrder(orderId: string, days: number) {
   });
   await notifyOrderPaid(orderId);
   await reportStock(orderId, report);
+  await emitOrder(orderId, "orders/create");
 }
 
 /** Cartes cadeaux achetées dans la boutique : création, envoi du code par e-mail, commande traitée si elle ne contient que des cartes. */
@@ -263,6 +268,20 @@ async function notifyOrderPaid(orderId: string) {
     anonymous ? Promise.resolve() : sendMail({ to: order.email, storeId: order.storeId, ...confirm }),
     order.paymentMethod.startsWith("pos") ? Promise.resolve() : sendMail({ to: order.store.owner.email, storeId: order.storeId, ...alert }),
   ]);
+}
+
+/**
+ * Marque la commande comme traitée (une seule fois, même en cas de double clic), avec le suivi éventuel.
+ * Renvoie false si elle l'était déjà.
+ */
+export async function fulfillOrder(orderId: string, tracking: { trackingCarrier: string; trackingNumber: string; trackingUrl: string }, author: string, message: string, notify: boolean) {
+  const done = await db.order.updateMany({ where: { id: orderId, fulfillmentStatus: "unfulfilled", cancelledAt: null }, data: { fulfillmentStatus: "fulfilled", fulfilledAt: new Date(), ...tracking } });
+  if (!done.count) return false;
+  await db.orderEvent.create({ data: { orderId, type: "fulfilled", author, message } });
+  const o = await db.order.findUnique({ where: { id: orderId }, select: { deliveryMethod: true } });
+  if (notify && o?.deliveryMethod !== "pickup") await notifyOrderShipped(orderId);
+  await emitOrder(orderId, "orders/fulfilled");
+  return true;
 }
 
 /** E-mail d'expédition au client. */

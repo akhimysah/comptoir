@@ -146,7 +146,7 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 - Paiement dans la devise du client (les autres devises sont affichées, le paiement reste dans la devise de la boutique).
 - Étiquettes d'expédition et tarifs transporteurs en direct (Colissimo, Mondial Relay…).
 - B2B : autoliquidation de la TVA pour les professionnels d'un autre pays de l'UE (vente hors taxes avec numéro de TVA). Les listes de prix pro et le paiement à échéance sont en place.
-- API publique et applications tierces.
+- Boutique d'applications (des logiciels tiers se branchent déjà via l'API et les webhooks : Paramètres → API et webhooks).
 - Éditeur de code du thème : les sections, les réglages et un CSS personnalisé sont modifiables, pas le gabarit des pages.
 - Abonnement payant des marchands à la plateforme (elle se rémunère par la commission).
 

@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canFulfill, cancelUnpaidOrder, markOrderPaid, notifyOrderShipped } from "@/lib/orders";
+import { canFulfill, cancelUnpaidOrder, fulfillOrder, markOrderPaid, notifyOrderShipped } from "@/lib/orders";
 import { PAID_STATUSES, refundableCents, refundOrder } from "@/lib/refunds";
 import { decideReturn } from "@/lib/returns";
 import { carrierLabel } from "@/lib/tracking";
@@ -44,10 +44,13 @@ export async function setFulfilled(form: FormData) {
   const notify = form.get("hasNotify") ? form.get("notify") === "on" : true;
   const tracking = fulfilled ? readTracking(form) : { trackingCarrier: "", trackingNumber: "", trackingUrl: "" };
   // Mise à jour conditionnelle : un double clic n'expédie (et n'envoie l'e-mail) qu'une fois.
-  const done = await db.order.updateMany({ where: { id: order.id, fulfillmentStatus: fulfilled ? "unfulfilled" : "fulfilled" }, data: { fulfillmentStatus: fulfilled ? "fulfilled" : "unfulfilled", fulfilledAt: fulfilled ? new Date() : null, ...tracking } });
-  if (!done.count) return revalidatePath(`/admin/orders/${order.id}`);
-  await db.orderEvent.create({ data: { orderId: order.id, type: fulfilled ? "fulfilled" : "unfulfilled", author: user.name, message: trackingText(tracking) } });
-  if (fulfilled && notify && order.deliveryMethod !== "pickup") await notifyOrderShipped(order.id);
+  if (fulfilled) {
+    if (!(await fulfillOrder(order.id, tracking, user.name, trackingText(tracking), notify))) return revalidatePath(`/admin/orders/${order.id}`);
+  } else {
+    const done = await db.order.updateMany({ where: { id: order.id, fulfillmentStatus: "fulfilled" }, data: { fulfillmentStatus: "unfulfilled", fulfilledAt: null, ...tracking } });
+    if (!done.count) return revalidatePath(`/admin/orders/${order.id}`);
+    await db.orderEvent.create({ data: { orderId: order.id, type: "unfulfilled", author: user.name, message: "" } });
+  }
   await logActivity(`Commande #${order.number} marquée comme ${fulfilled ? "traitée" : "non traitée"}`, `/admin/orders/${order.id}`);
   revalidatePath(`/admin/orders/${order.id}`);
   revalidatePath("/admin", "layout");
@@ -90,11 +93,14 @@ export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" 
     }
     const target = action === "fulfill" ? "fulfilled" : "unfulfilled";
     if (!canFulfill(o) || o.fulfillmentStatus === target) continue;
+    if (target === "fulfilled") {
+      if (await fulfillOrder(o.id, { trackingCarrier: "", trackingNumber: "", trackingUrl: "" }, user.name, "", true)) count++;
+      continue;
+    }
     await db.$transaction([
-      db.order.update({ where: { id: o.id }, data: { fulfillmentStatus: target, fulfilledAt: target === "fulfilled" ? new Date() : null } }),
+      db.order.update({ where: { id: o.id }, data: { fulfillmentStatus: target, fulfilledAt: null } }),
       db.orderEvent.create({ data: { orderId: o.id, type: target, author: user.name } }),
     ]);
-    if (target === "fulfilled") await notifyOrderShipped(o.id);
     count++;
   }
   if (count) await logActivity(`${count} commande(s) : ${action === "fulfill" ? "marquées traitées" : action === "unfulfill" ? "marquées non traitées" : "marquées payées"}`);
