@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { createOrder, markOrderPaid, OrderError } from "@/lib/orders";
+import { cancelUnpaidOrder, confirmTermsOrder, createOrder, markOrderPaid, OrderError } from "@/lib/orders";
 import { priceCart } from "@/lib/pricing";
 import { refundOrder } from "@/lib/refunds";
 
@@ -126,5 +126,38 @@ describe("TVA selon le pays de livraison", () => {
     const order = await createOrder(s, be, { ...buyer("be@test.local"), address: { line1: "1 rue Test", zip: "1000", city: "Bruxelles", country: "Belgique" } }, "demo");
     expect(order.taxRateBps).toBe(2100);
     expect(order.taxCents).toBe(be.taxCents);
+  });
+});
+
+describe("clients professionnels (B2B)", () => {
+  it("applique la liste de prix : prix fixe en priorité, sinon la réduction générale", async () => {
+    const list = await db.priceList.create({ data: { storeId: store.id, name: "Revendeurs", percentOff: 30, prices: { create: { variantId: rare.id, priceCents: 4000 } } } });
+    const cart = await priceCart(store, [{ variantId: bol.id, quantity: 1 }, { variantId: rare.id, quantity: 1 }], null, {}, null, { priceListId: list.id });
+    expect(cart.lines.find((l) => l.baseVariantId === bol.id)!.priceCents).toBe(1400); // 2000 − 30 %
+    expect(cart.lines.find((l) => l.baseVariantId === rare.id)!.priceCents).toBe(4000); // prix fixe
+    expect(cart.priceListName).toBe("Revendeurs");
+    // Sans client pro, ou avec la liste d'une autre boutique : prix publics.
+    const pub = await priceCart(store, [{ variantId: bol.id, quantity: 1 }], null, {}, null, { priceListId: "inconnue" });
+    expect(pub.lines[0].priceCents).toBe(2000);
+  });
+
+  it("paiement à échéance : stock retiré à la commande, une seule fois, et rendu si elle est annulée", async () => {
+    const cart = await priceCart(store, [{ variantId: bol.id, quantity: 2 }]);
+    const order = await createOrder(store, cart, buyer("pro@exemple.fr"), "terms");
+    await confirmTermsOrder(order.id, 30);
+    const o = await db.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(o.paymentStatus).toBe("pending");
+    expect(Math.round((o.dueAt!.getTime() - Date.now()) / 86400_000)).toBe(30);
+    expect(await stockOf(bol.id)).toBe(3);
+    expect(await db.mailLog.count({ where: { to: "pro@exemple.fr" } })).toBe(1); // confirmation avec la date limite
+    await markOrderPaid(order.id); // le client paie plus tard
+    expect(await stockOf(bol.id)).toBe(3); // pas retiré une deuxième fois
+    expect(await db.mailLog.count({ where: { to: "pro@exemple.fr" } })).toBe(1); // pas de seconde confirmation
+
+    const other = await createOrder(store, await priceCart(store, [{ variantId: bol.id, quantity: 1 }]), buyer("pro2@exemple.fr"), "terms");
+    await confirmTermsOrder(other.id, 15);
+    expect(await stockOf(bol.id)).toBe(2);
+    await cancelUnpaidOrder(other.id);
+    expect(await stockOf(bol.id)).toBe(3);
   });
 });

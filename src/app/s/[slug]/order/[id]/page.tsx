@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { markOrderPaid } from "@/lib/orders";
 import { getStore } from "@/lib/storefront";
+import { payLink } from "@/lib/invoices";
 import { getStripe } from "@/lib/stripe";
 import { carrierLabel, trackingLink } from "@/lib/tracking";
 
@@ -28,22 +29,35 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
     }
   }
   const paid = order.paymentStatus === "paid";
+  // Client professionnel à échéance : la commande est confirmée, le paiement viendra avant la date limite.
+  const onTerms = order.paymentStatus === "pending" && Boolean(order.dueAt) && !order.cancelledAt;
+  const confirmed = paid || onTerms;
+  const payUrl = onTerms && order.totalCents > 0 ? await payLink(order, slug) : null;
   const m = (c: number) => formatMoney(c, store.currency);
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-8 px-4 py-16">
-      {paid && <ClearCart slug={slug} />}
-      {paid && (store.gaId || store.metaPixelId) && <TrackPurchase orderId={order.id} valueCents={order.totalCents} currency={store.currency} />}
+      {confirmed && <ClearCart slug={slug} />}
+      {confirmed && (store.gaId || store.metaPixelId) && <TrackPurchase orderId={order.id} valueCents={order.totalCents} currency={store.currency} />}
       <div className="flex flex-col items-center gap-3 text-center">
-        <div className="grid h-14 w-14 place-items-center rounded-full bg-[var(--c-accent)] text-2xl text-[var(--c-accent-text)]">{paid ? "✓" : "…"}</div>
-        <h1 className="font-[family-name:var(--t-display)] text-3xl font-semibold">{paid ? `Merci ${order.name.split(" ")[0]} !` : "Paiement en cours de validation"}</h1>
+        <div className="grid h-14 w-14 place-items-center rounded-full bg-[var(--c-accent)] text-2xl text-[var(--c-accent-text)]">{confirmed ? "✓" : "…"}</div>
+        <h1 className="font-[family-name:var(--t-display)] text-3xl font-semibold">{confirmed ? `Merci ${order.name.split(" ")[0]} !` : "Paiement en cours de validation"}</h1>
         <p className="text-[var(--c-muted)]">
-          {paid
+          {confirmed
             ? <>Votre commande <b className="tabular-nums">#{order.number}</b> est confirmée. Gardez ce numéro : la boutique vous contactera à {order.email} si besoin.</>
             : "Nous attendons la confirmation de votre banque. Rechargez cette page dans quelques instants."}
         </p>
       </div>
-      {paid && order.deliveryMethod === "pickup" && (
+      {onTerms && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--t-radius)] border border-[var(--c-accent)] p-4">
+          <span>
+            <span className="font-semibold tabular-nums">{m(order.totalCents)} à régler avant le {order.dueAt!.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</span>
+            <span className="block text-sm text-[var(--c-muted)]">Paiement à échéance : le lien de paiement vous a aussi été envoyé par e-mail.</span>
+          </span>
+          {payUrl && <a href={payUrl} className="rounded-[var(--t-radius)] bg-[var(--c-accent)] px-4 py-2 text-sm font-semibold text-[var(--c-accent-text)]">Payer maintenant</a>}
+        </div>
+      )}
+      {confirmed && order.deliveryMethod === "pickup" && (
         <div className="rounded-[var(--t-radius)] border border-[var(--c-accent)] p-4">
           <p className="font-semibold">{order.fulfillmentStatus === "fulfilled" ? "Commande récupérée. Merci !" : order.pickupReadyAt ? "Votre commande est prête : vous pouvez venir la chercher." : "Retrait en boutique : nous vous écrivons dès qu'elle est prête."}</p>
           {order.fulfillmentStatus !== "fulfilled" && <p className="mt-1 whitespace-pre-line text-sm text-[var(--c-muted)]">{store.pickupAddress}{store.pickupInstructions ? `\n${store.pickupInstructions}` : ""}</p>}
@@ -71,10 +85,10 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex justify-between border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-3 font-semibold tabular-nums"><span>Total payé</span><span>{m(order.totalCents)}</span></div>
+        <div className="mt-4 flex justify-between border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-3 font-semibold tabular-nums"><span>{onTerms ? "Total à payer" : "Total payé"}</span><span>{m(order.totalCents)}</span></div>
       </div>
       <div className="flex flex-wrap justify-center gap-3">
-        {paid && <a href={`/print/invoice/${order.id}`} target="_blank" className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-6 py-3 font-semibold">Télécharger la facture</a>}
+        {confirmed && <a href={`/print/invoice/${order.id}`} target="_blank" className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-6 py-3 font-semibold">Télécharger la facture</a>}
         <a href={`/s/${slug}`} className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-6 py-3 font-semibold">Retour à la boutique</a>
       </div>
     </div>

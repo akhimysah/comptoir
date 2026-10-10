@@ -64,11 +64,15 @@ function addressBlock(order: Order, store?: Store) {
   return `<p style="font-size:14px;line-height:1.5;color:#616161;margin:0"><b style="color:#303030">Adresse de livraison</b><br>${esc(order.name)}<br>${esc(a.line1)}<br>${esc(a.zip)} ${esc(a.city)}<br>${esc(a.country)}</p>`;
 }
 
-export function orderConfirmationEmail(store: Store, order: Order & { items: OrderItem[] }) {
+export function orderConfirmationEmail(store: Store, order: Order & { items: OrderItem[] }, payUrl?: string | null) {
   const t = texts(store, "order_confirmation", { prenom: firstName(order.name), numero: String(order.number), montant: formatMoney(order.totalCents, store.currency) });
+  // Client professionnel à échéance : montant et date limite, avec le lien pour payer en ligne.
+  const due = order.dueAt && order.paymentStatus === "pending"
+    ? `<div style="margin:16px 0;background:#f7f7f7;border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.5"><b>${formatMoney(order.totalCents, store.currency)} à régler avant le ${order.dueAt.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</b>${payUrl ? `<div style="margin-top:10px">${t.button(payUrl, "Payer en ligne")}</div>` : ""}</div>`
+    : "";
   return {
     subject: t.subject,
-    html: t.layout(t.title, `${t.intro}
+    html: t.layout(t.title, `${t.intro}${due}
 ${itemsTable(order, store.currency)}${addressBlock(order, store)}
 <p style="margin-top:24px">${t.button(`${appUrl()}/s/${store.slug}`, "Retourner sur la boutique")}</p>`),
   };

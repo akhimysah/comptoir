@@ -145,9 +145,9 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 - Boutique en plusieurs langues.
 - Paiement dans la devise du client (les autres devises sont affichées, le paiement reste dans la devise de la boutique).
 - Étiquettes d'expédition et tarifs transporteurs en direct (Colissimo, Mondial Relay…).
-- B2B : tarifs professionnels, paiement à 30 jours.
+- B2B : autoliquidation de la TVA pour les professionnels d'un autre pays de l'UE (vente hors taxes avec numéro de TVA). Les listes de prix pro et le paiement à échéance sont en place.
 - API publique et applications tierces.
-- Éditeur de code du thème (seules les sections et réglages sont modifiables).
+- Éditeur de code du thème : les sections, les réglages et un CSS personnalisé sont modifiables, pas le gabarit des pages.
 - Abonnement payant des marchands à la plateforme (elle se rémunère par la commission).
 
 ## Tests## Tests

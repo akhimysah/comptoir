@@ -5,21 +5,23 @@ import { Empty, PageHeader } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db, textSearch } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
-import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/orders";
+import { FULFILLMENT_LABELS, paymentLabel } from "@/lib/orders";
 import { cx, formatDateTime } from "@/lib/utils";
 
 const TABS = [
   { key: "all", label: "Toutes" },
   { key: "toship", label: "Non traitées" },
   { key: "unpaid", label: "Non payées" },
+  { key: "overdue", label: "En retard" },
   { key: "shipped", label: "Traitées" },
   { key: "cancelled", label: "Annulées" },
 ] as const;
 
 function filter(storeId: string, tab: string): Prisma.OrderWhereInput {
   switch (tab) {
-    case "toship": return { storeId, paymentStatus: { in: ["paid", "partially_refunded"] }, fulfillmentStatus: "unfulfilled", cancelledAt: null };
+    case "toship": return { storeId, OR: [{ paymentStatus: { in: ["paid", "partially_refunded"] } }, { paymentStatus: "pending", dueAt: { not: null } }], fulfillmentStatus: "unfulfilled", cancelledAt: null };
     case "unpaid": return { storeId, paymentStatus: "pending", cancelledAt: null };
+    case "overdue": return { storeId, paymentStatus: "pending", dueAt: { lt: new Date() }, cancelledAt: null };
     case "shipped": return { storeId, fulfillmentStatus: "fulfilled", cancelledAt: null };
     case "cancelled": return { storeId, cancelledAt: { not: null } };
     default: return { storeId };
@@ -61,7 +63,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               date: formatDateTime(o.createdAt),
               name: o.name,
               total: formatMoney(o.totalCents, store.currency),
-              payment: o.cancelledAt ? null : PAYMENT_LABELS[o.paymentStatus],
+              payment: o.cancelledAt ? null : paymentLabel(o),
               fulfillment: o.cancelledAt ? null : FULFILLMENT_LABELS[o.fulfillmentStatus],
               items: o.items.reduce((s, i) => s + i.quantity, 0),
               manual: o.paymentMethod === "manual",

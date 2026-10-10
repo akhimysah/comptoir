@@ -86,6 +86,7 @@ model Store {
   orders                Order[]
   customers             Customer[]
   discounts             Discount[]
+  priceLists            PriceList[]
   members               StoreMember[]
   invites               StoreInvite[]
   shippingZones         ShippingZone[]
@@ -361,23 +362,51 @@ model ProductCollection {
 }
 
 model Customer {
-  id               String    @id @default(cuid())
+  id               String     @id @default(cuid())
   storeId          String
-  store            Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store            Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
   email            String
   name             String
-  note             String    @default("") // note interne, visible seulement dans l'admin
-  tags             String    @default("") // étiquettes séparées par des virgules (ex. « vip, grossiste »)
-  phone            String    @default("")
-  address          String    @default("") // JSON { line1, zip, city, country } : adresse par défaut (import, commandes manuelles)
-  acceptsMarketing Boolean   @default(false) // abonné à la newsletter
-  points           Int       @default(0) // solde de points de fidélité
-  marketingToken   String?   @unique // jeton du lien de désabonnement
+  note             String     @default("") // note interne, visible seulement dans l'admin
+  tags             String     @default("") // étiquettes séparées par des virgules (ex. « vip, grossiste »)
+  phone            String     @default("")
+  address          String     @default("") // JSON { line1, zip, city, country } : adresse par défaut (import, commandes manuelles)
+  acceptsMarketing Boolean    @default(false) // abonné à la newsletter
+  points           Int        @default(0) // solde de points de fidélité
+  marketingToken   String?    @unique // jeton du lien de désabonnement
   subscribedAt     DateTime?
-  createdAt        DateTime  @default(now())
+  createdAt        DateTime   @default(now())
   orders           Order[]
+  // B2B : client professionnel
+  company          String     @default("")
+  vatNumber        String     @default("") // numéro de TVA intracommunautaire
+  priceListId      String?
+  priceList        PriceList? @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  paymentTermsDays Int        @default(0) // 0 = paiement à la commande ; 15, 30, 45, 60 = paiement à échéance
 
   @@unique([storeId, email])
+}
+
+/// Liste de prix professionnels : une réduction sur tout le catalogue, et/ou des prix fixes par variante.
+model PriceList {
+  id         String           @id @default(cuid())
+  storeId    String
+  store      Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name       String
+  percentOff Int              @default(0) // réduction générale en pourcentage (0 à 90)
+  createdAt  DateTime         @default(now())
+  prices     PriceListPrice[]
+  customers  Customer[]
+}
+
+model PriceListPrice {
+  id          String    @id @default(cuid())
+  priceListId String
+  priceList   PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  variantId   String
+  priceCents  Int
+
+  @@unique([priceListId, variantId])
 }
 
 model Discount {
@@ -441,6 +470,8 @@ model Order {
   trackingCarrier       String          @default("") // transporteur (colissimo, chronopost…) ou nom libre
   trackingNumber        String          @default("")
   trackingUrl           String          @default("") // lien de suivi personnalisé (transporteur « autre »)
+  dueAt                 DateTime? // paiement à échéance (client professionnel) : date limite
+  stockCommittedAt      DateTime? // stock déjà retiré avant le paiement (commande à échéance)
   payToken              String?         @unique // lien de paiement envoyé avec la facture (commande créée dans l'admin)
   invoiceSentAt         DateTime?
   deliveryMethod        String          @default("shipping") // shipping | pickup

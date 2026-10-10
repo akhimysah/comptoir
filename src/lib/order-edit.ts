@@ -12,6 +12,7 @@ import { parseJson } from "./utils";
  */
 export function editBlocker(o: Pick<Order, "cancelledAt" | "paymentStatus" | "fulfillmentStatus" | "paymentMethod" | "giftCardCents" | "subscriptionId">) {
   if (o.cancelledAt) return "Cette commande est annulée.";
+  if (o.paymentMethod === "terms" && o.paymentStatus === "pending") return "Cette commande à échéance est déjà confirmée au client (stock retiré) : annulez-la et créez-en une nouvelle.";
   if (o.paymentStatus !== "pending") return "paid";
   if (o.fulfillmentStatus === "fulfilled") return "Cette commande est déjà traitée.";
   if (o.paymentMethod === "stripe") return "Le client est en train de payer cette commande en ligne : elle ne peut pas être modifiée.";

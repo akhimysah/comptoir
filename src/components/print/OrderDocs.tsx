@@ -4,7 +4,7 @@ import type { Address } from "@/lib/orders";
 import { FRANCHISE_MENTION, includedTax, rateLabel } from "@/lib/tax";
 import { parseJson } from "@/lib/utils";
 
-type FullOrder = Order & { items: OrderItem[] };
+type FullOrder = Order & { items: OrderItem[]; customer?: { company: string; vatNumber: string } | null };
 const sheet = "sheet mx-auto mb-6 w-full max-w-[210mm] bg-white p-[14mm] text-[12px] leading-relaxed shadow-[0_2px_12px_rgba(0,0,0,.15)]";
 const date = (d: Date) => d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
@@ -39,10 +39,11 @@ export function Invoice({ store, order }: { store: Store; order: FullOrder }) {
           <div>N° F-{order.number}</div>
           <div className="text-[#555]">Date : {date(order.paidAt ?? order.createdAt)}</div>
           <div className="text-[#555]">Commande #{order.number}</div>
+          {order.dueAt && <div className="font-semibold">Échéance : {date(order.dueAt)}</div>}
         </div>
       </header>
       <div className="mb-8 grid grid-cols-2 gap-6">
-        <div><div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#777]">Facturé à</div><div>{order.name}</div><div className="text-[#555]">{order.email}</div></div>
+        <div><div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#777]">Facturé à</div>{order.customer?.company && <div className="font-semibold">{order.customer.company}</div>}<div>{order.name}</div>{order.customer?.vatNumber && <div className="text-[#555]">TVA intracommunautaire {order.customer.vatNumber}</div>}<div className="text-[#555]">{order.email}</div></div>
         <div><div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#777]">Livré à</div><ShipTo order={order} /></div>
       </div>
       <table className="w-full border-collapse">

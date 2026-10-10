@@ -5,6 +5,7 @@ import { parseJson } from "./utils";
 import { includedTax, vatRateFor } from "./tax";
 import { splitCartId, subPrice } from "./subscriptions";
 import { bundleComponents, bundleStock } from "./bundles";
+import { loadProPricing, proPrice } from "./b2b";
 
 export type CartInput = { variantId: string; quantity: number }[];
 
@@ -55,6 +56,8 @@ export type PricedCart = {
   giftCardError: string | null;
   taxRateBps: number;
   taxCents: number;
+  /** Liste de prix professionnels appliquée (client B2B connecté), ou null. */
+  priceListName?: string | null;
 };
 
 export type ShippingChoice = { country?: string | null; rateId?: string | null };
@@ -106,7 +109,7 @@ export function discountProblem(d: Discount | null, subtotalCents: number, eligi
  * Recalcule toujours le panier côté serveur à partir de la base :
  * les prix envoyés par le navigateur ne sont jamais utilisés.
  */
-export async function priceCart(store: Store, items: CartInput, code?: string | null, ship: ShippingChoice = {}, giftCode?: string | null): Promise<PricedCart> {
+export async function priceCart(store: Store, items: CartInput, code?: string | null, ship: ShippingChoice = {}, giftCode?: string | null, opts: { priceListId?: string | null } = {}): Promise<PricedCart> {
   const qty = new Map<string, number>();
   for (const it of items) {
     if (!it || typeof it.variantId !== "string") continue;
@@ -122,6 +125,9 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
   // Un lot n'a pas de stock propre : il dépend de celui de ses composants.
   const bundles = await bundleComponents([...new Set(variants.map((v) => v.productId))]);
   const stockOf = (v: (typeof variants)[number]) => (bundles.has(v.productId) ? bundleStock(bundles.get(v.productId)!) : v.stock);
+
+  // Client professionnel : ses prix remplacent les prix publics (jamais pour les cartes cadeaux).
+  const pro = await loadProPricing(store.id, opts.priceListId, variants.map((v) => v.id));
 
   const notices: string[] = [];
   const lines: PricedLine[] = [];
@@ -140,6 +146,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     }
     if (quantity < wanted) notices.push(`Il ne reste que ${stockOf(v)} × ${v.product.title}.`);
     const sub = ref.subscribe && v.product.subscriptionInterval ? v.product.subscriptionInterval : null;
+    const base = v.product.isGiftCard ? v.priceCents : proPrice(v.priceCents, v.id, pro);
     lines.push({
       variantId,
       baseVariantId: v.id,
@@ -148,8 +155,8 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       productTitle: v.product.title,
       productHandle: v.product.handle,
       variantTitle: v.title,
-      priceCents: sub ? subPrice(v.priceCents, v.product.subscriptionDiscountBps) : v.priceCents,
-      compareAtCents: sub && v.product.subscriptionDiscountBps ? v.priceCents : v.compareAtCents,
+      priceCents: sub ? subPrice(base, v.product.subscriptionDiscountBps) : base,
+      compareAtCents: (sub && v.product.subscriptionDiscountBps) || base < v.priceCents ? v.priceCents : v.compareAtCents,
       quantity,
       available: v.product.isGiftCard || v.product.continueSelling ? 99 : stockOf(v),
       image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null,
@@ -288,6 +295,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     freeShippingFromCents: store.freeShippingFromCents,
     weightGrams,
     notices,
+    priceListName: pro?.name ?? null,
     pickup: store.pickupEnabled && store.pickupAddress.trim() && needsShipping ? { address: store.pickupAddress, instructions: store.pickupInstructions } : null,
   };
 }

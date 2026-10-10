@@ -15,6 +15,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const input = String((await req.formData()).get("password") ?? "");
   if (!passwordMatches(store, input)) return NextResponse.redirect(`${home}?pw=wrong`, 303);
   const res = NextResponse.redirect(home, 303);
-  res.cookies.set(passCookie(store.id), passValue(store), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: `/s/${slug}`, maxAge: 30 * 86400 });
+  res.cookies.set(passCookie(store.id), passValue(store), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 30 * 86400 }); // aussi pour /api/cart et /api/checkout
   return res;
 }

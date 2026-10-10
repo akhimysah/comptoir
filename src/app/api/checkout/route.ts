@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { createOrder, markOrderPaid, OrderError } from "@/lib/orders";
+import { confirmTermsOrder, createOrder, markOrderPaid, OrderError } from "@/lib/orders";
+import { getCustomer } from "@/lib/customer-auth";
 import { PICKUP_ID, priceCart } from "@/lib/pricing";
 import { storeAccess } from "@/lib/store-access";
 import { subscribe } from "@/lib/marketing";
@@ -21,6 +22,8 @@ const schema = z.object({
   rateId: z.string().max(40).optional().nullable(),
   giftCode: z.string().max(40).optional().nullable(),
   marketing: z.boolean().optional().default(false),
+  /** Client professionnel : payer à échéance plutôt qu'à la commande. */
+  terms: z.boolean().optional().default(false),
 });
 
 export async function POST(req: Request) {
@@ -32,7 +35,12 @@ export async function POST(req: Request) {
   if (!store) return NextResponse.json({ error: "Boutique introuvable." }, { status: 404 });
   if (!(await storeAccess(store)).allowed) return NextResponse.json({ error: "Cette boutique n'est pas encore ouverte." }, { status: 403 });
 
-  const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode);
+  const customer = await getCustomer(store.id);
+  const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode, { priceListId: customer?.priceListId });
+  // Paiement à échéance : réservé au client professionnel connecté, et la commande est à son nom.
+  const terms = b.terms && cart.totalCents > 0;
+  if (terms && !customer?.paymentTermsDays) return NextResponse.json({ error: "Le paiement à échéance n'est pas disponible pour ce compte." }, { status: 400 });
+  if (terms) b.email = customer!.email;
   if (b.giftCode && cart.giftCardError) return NextResponse.json({ error: cart.giftCardError }, { status: 400 });
   if (cart.shippingError) return NextResponse.json({ error: cart.shippingError }, { status: 400 });
   const pickup = cart.shippingRateId === PICKUP_ID;
@@ -54,6 +62,21 @@ export async function POST(req: Request) {
 
   const subIntervals = [...new Set(cart.lines.filter((l) => l.subscription).map((l) => l.subscription!))];
   if (subIntervals.length > 1 || cart.lines.filter((l) => l.subscription).length > 1) return NextResponse.json({ error: "Un seul produit en abonnement par commande : passez une commande séparée pour le suivant." }, { status: 400 });
+
+  if (terms) {
+    if (subIntervals.length) return NextResponse.json({ error: "Les abonnements se paient à la commande : retirez-les ou choisissez le paiement immédiat." }, { status: 400 });
+    let order;
+    try {
+      order = await createOrder(store, cart, { email: b.email, name: b.name, address: { line1: b.line1, zip: b.zip, city: b.city, country: b.country }, note: b.note }, "terms");
+    } catch (e) {
+      if (e instanceof OrderError) return NextResponse.json({ error: e.message, refresh: true }, { status: 409 });
+      throw e;
+    }
+    if (pickup) await db.order.update({ where: { id: order.id }, data: { deliveryMethod: "pickup" } });
+    if (b.marketing) await subscribe(store.id, b.email, b.name);
+    await confirmTermsOrder(order.id, customer!.paymentTermsDays);
+    return NextResponse.json({ url: `${appUrl()}/s/${store.slug}/order/${order.id}` });
+  }
 
   const stripe = getStripe();
   const stripeReady = Boolean(stripe && store.stripeAccountId && store.stripeChargesEnabled);

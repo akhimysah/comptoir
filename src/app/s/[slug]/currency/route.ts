@@ -13,7 +13,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const res = NextResponse.redirect(target);
   const code = url.searchParams.get("c") ?? "";
   if (store && storeCurrencies(store).some((c) => c.code === code)) {
-    res.cookies.set(cookieName(store.id), code, { path: `/s/${slug}`, maxAge: 365 * 86400, sameSite: "lax" });
+    res.cookies.set(cookieName(store.id), code, { path: "/", maxAge: 365 * 86400, sameSite: "lax" });
   }
   return res;
 }

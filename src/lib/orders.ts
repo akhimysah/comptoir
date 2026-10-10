@@ -7,6 +7,7 @@ import { sendMail } from "./mail";
 import { earnPoints } from "./loyalty";
 import { nextDate } from "./subscriptions";
 import type { PricedCart } from "./pricing";
+import { payLink } from "./invoices";
 
 export type Address = { line1: string; zip: string; city: string; country: string };
 
@@ -14,7 +15,7 @@ export async function createOrder(
   store: Store,
   cart: PricedCart,
   buyer: { email: string; name: string; address: Address; note: string },
-  paymentMethod: "demo" | "stripe" | "manual" | "pos_cash" | "pos_card",
+  paymentMethod: "demo" | "stripe" | "manual" | "terms" | "pos_cash" | "pos_card",
 ): Promise<Order> {
   const email = buyer.email.trim().toLowerCase();
   const customer = await db.customer.upsert({
@@ -68,6 +69,10 @@ export async function cancelUnpaidOrder(orderId: string, author = "") {
   const r = await db.order.updateMany({ where: { id: o.id, paymentStatus: "pending", cancelledAt: null }, data: { cancelledAt: new Date() } });
   if (!r.count) return false;
   await release(o.storeId, o.giftCardCode, o.giftCardCents, o.discountId);
+  // Commande à échéance : son stock avait été retiré à la commande, il revient en vente.
+  if (o.stockCommittedAt) await db.$transaction(async (tx) => {
+    for (const m of await stockMoves(tx, o.id)) await tx.variant.updateMany({ where: { id: m.variantId }, data: { stock: { increment: m.quantity } } });
+  });
   await db.orderEvent.create({ data: { orderId: o.id, type: "cancelled", author } });
   return true;
 }
@@ -137,52 +142,88 @@ async function insertOrder(
   throw new Error("Impossible d'attribuer un numéro de commande.");
 }
 
-/** Passe la commande en « payée », décrémente le stock et compte l'usage du code promo. Sans effet si déjà payée. */
+type Tx = Prisma.TransactionClient;
+
+/** Variantes réellement retirées du stock par une commande : un lot retire chacun de ses composants. */
+async function stockMoves(tx: Tx, orderId: string) {
+  const items = await tx.orderItem.findMany({ where: { orderId } });
+  const moves: { variantId: string; quantity: number }[] = [];
+  for (const item of items) {
+    if (!item.variantId || item.isGiftCard) continue;
+    const owner = await tx.variant.findUnique({ where: { id: item.variantId }, select: { productId: true } });
+    const parts = owner ? await tx.bundleItem.findMany({ where: { bundleId: owner.productId } }) : [];
+    if (parts.length) for (const p of parts) moves.push({ variantId: p.variantId, quantity: p.quantity * item.quantity });
+    else moves.push({ variantId: item.variantId, quantity: item.quantity });
+  }
+  return moves;
+}
+
+type StockReport = { lowStock: { title: string; stock: number }[]; oversold: string[] };
+
+/** Retire du stock les articles de la commande, une seule fois (au paiement, ou dès la commande à échéance). */
+async function commitStock(tx: Tx, orderId: string, report: StockReport) {
+  const first = await tx.order.updateMany({ where: { id: orderId, stockCommittedAt: null }, data: { stockCommittedAt: new Date() } });
+  if (!first.count) return;
+  for (const item of await stockMoves(tx, orderId)) {
+    const v = await tx.variant.findUnique({ where: { id: item.variantId }, include: { product: { include: { store: true } } } });
+    if (!v) continue;
+    // En précommande, le stock peut devenir négatif : il indique ce qui reste à réapprovisionner.
+    const after = v.product.continueSelling ? v.stock - item.quantity : Math.max(0, v.stock - item.quantity);
+    // Survente (paiement validé après qu'un autre client a pris le dernier exemplaire) : on la signale au marchand.
+    if (!v.product.continueSelling && v.stock < item.quantity) report.oversold.push(`${v.product.title}${v.title !== "Par défaut" ? ` (${v.title})` : ""} : ${item.quantity - Math.max(0, v.stock)} manquant(s)`);
+    await tx.variant.update({ where: { id: v.id }, data: { stock: after } });
+    const threshold = v.product.store.lowStockThreshold;
+    if (threshold > 0 && v.stock > threshold && after <= threshold) report.lowStock.push({ title: v.title === "Par défaut" ? v.product.title : `${v.product.title} (${v.title})`, stock: after });
+  }
+}
+
+/** Survente signalée dans la chronologie, stock bas signalé par e-mail au propriétaire. */
+async function reportStock(orderId: string, { lowStock, oversold }: StockReport) {
+  if (oversold.length) await db.orderEvent.create({ data: { orderId, type: "comment", author: "Parnassa Pay", message: `⚠ Stock insuffisant au moment du paiement : ${oversold.join(", ")}. Prévenez le client ou réapprovisionnez.` } });
+  if (lowStock.length) {
+    const o = await db.order.findUnique({ where: { id: orderId }, include: { store: { include: { owner: true } } } });
+    if (o) await sendMail({ to: o.store.owner.email, storeId: o.storeId, ...lowStockEmail(o.store, lowStock) });
+  }
+}
+
+/** Passe la commande en « payée » et retire le stock (sauf s'il l'a déjà été). Sans effet si déjà payée. */
 export async function markOrderPaid(orderId: string) {
-  const lowStock: { title: string; stock: number }[] = [];
-  const oversold: string[] = [];
+  const report: StockReport = { lowStock: [], oversold: [] };
   const paid = await db.$transaction(async (tx) => {
     const updated = await tx.order.updateMany({
       where: { id: orderId, paymentStatus: "pending", cancelledAt: null },
       data: { paymentStatus: "paid", paidAt: new Date() },
     });
     if (updated.count === 0) return false;
-    const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
-    // Un lot vendu retire du stock chacun de ses composants.
-    const moves: { variantId: string; quantity: number }[] = [];
-    for (const item of order.items) {
-      if (!item.variantId || item.isGiftCard) continue;
-      const owner = await tx.variant.findUnique({ where: { id: item.variantId }, select: { productId: true } });
-      const parts = owner ? await tx.bundleItem.findMany({ where: { bundleId: owner.productId } }) : [];
-      if (parts.length) for (const p of parts) moves.push({ variantId: p.variantId, quantity: p.quantity * item.quantity });
-      else moves.push({ variantId: item.variantId, quantity: item.quantity });
-    }
-    for (const item of moves) {
-      const v = await tx.variant.findUnique({ where: { id: item.variantId }, include: { product: { include: { store: true } } } });
-      if (!v) continue;
-      // En précommande, le stock peut devenir négatif : il indique ce qui reste à réapprovisionner.
-      const after = v.product.continueSelling ? v.stock - item.quantity : Math.max(0, v.stock - item.quantity);
-      // Survente (paiement validé après qu'un autre client a pris le dernier exemplaire) : on la signale au marchand.
-      if (!v.product.continueSelling && v.stock < item.quantity) oversold.push(`${v.product.title}${v.title !== "Par défaut" ? ` (${v.title})` : ""} : ${item.quantity - Math.max(0, v.stock)} manquant(s)`);
-      await tx.variant.update({ where: { id: v.id }, data: { stock: after } });
-      const threshold = v.product.store.lowStockThreshold;
-      if (threshold > 0 && v.stock > threshold && after <= threshold) lowStock.push({ title: v.title === "Par défaut" ? v.product.title : `${v.product.title} (${v.title})`, stock: after });
-    }
+    await commitStock(tx, orderId, report);
     // (Le solde de carte cadeau et l'utilisation du code promo ont été réservés à la création de la commande.)
     return true;
   });
-  if (paid && oversold.length) await db.orderEvent.create({ data: { orderId, type: "comment", author: "Parnassa Pay", message: `⚠ Stock insuffisant au moment du paiement : ${oversold.join(", ")}. Prévenez le client ou réapprovisionnez.` } });
   if (paid) {
     await startSubscriptions(orderId);
     await earnPoints(orderId);
     await issuePurchasedGiftCards(orderId);
-    await notifyOrderPaid(orderId);
-    if (lowStock.length) {
-      const o = await db.order.findUnique({ where: { id: orderId }, include: { store: { include: { owner: true } } } });
-      if (o) await sendMail({ to: o.store.owner.email, storeId: o.storeId, ...lowStockEmail(o.store, lowStock) });
-    }
+    // Une commande à échéance a déjà été confirmée au client quand il l'a passée.
+    const o = await db.order.findUnique({ where: { id: orderId }, select: { dueAt: true } });
+    if (!o?.dueAt) await notifyOrderPaid(orderId);
+    await reportStock(orderId, report);
   }
   return paid;
+}
+
+/**
+ * Commande d'un client professionnel à paiement différé : confirmée tout de suite (stock retiré, e-mails),
+ * elle reste « en attente de paiement » jusqu'à la date limite et peut être expédiée avant d'être payée.
+ */
+export async function confirmTermsOrder(orderId: string, days: number) {
+  const report: StockReport = { lowStock: [], oversold: [] };
+  await db.$transaction(async (tx) => {
+    await tx.order.update({ where: { id: orderId }, data: { dueAt: new Date(Date.now() + days * 86400_000) } });
+    await tx.orderEvent.create({ data: { orderId, type: "comment", author: "Parnassa Pay", message: `Paiement à ${days} jours accordé au client professionnel.` } });
+    await commitStock(tx, orderId, report);
+  });
+  await notifyOrderPaid(orderId);
+  await reportStock(orderId, report);
 }
 
 /** Cartes cadeaux achetées dans la boutique : création, envoi du code par e-mail, commande traitée si elle ne contient que des cartes. */
@@ -215,7 +256,8 @@ async function notifyOrderPaid(orderId: string) {
   const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true, store: { include: { owner: true } } } });
   if (!order) return;
   const anonymous = order.email.endsWith(".local"); // vente en caisse sans e-mail client
-  const confirm = orderConfirmationEmail(order.store, order);
+  const pay = order.dueAt && order.paymentStatus === "pending" ? await payLink(order, order.store.slug) : null;
+  const confirm = orderConfirmationEmail(order.store, order, pay);
   const alert = newOrderAlertEmail(order.store, order);
   await Promise.all([
     anonymous ? Promise.resolve() : sendMail({ to: order.email, storeId: order.storeId, ...confirm }),
@@ -236,6 +278,20 @@ export const PAYMENT_LABELS: Record<string, { label: string; tone: Tone }> = {
   refunded: { label: "Remboursée", tone: "neutral" },
   partially_refunded: { label: "Partiellement remboursée", tone: "warn" },
 };
+/** Statut de paiement affiché ; une commande à échéance montre sa date limite, ou son retard. */
+export function paymentLabel(o: { paymentStatus: string; dueAt: Date | null }) {
+  if (o.paymentStatus === "pending" && o.dueAt) {
+    return o.dueAt < new Date()
+      ? { label: "Paiement en retard", tone: "bad" as Tone }
+      : { label: `À payer avant le ${o.dueAt.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`, tone: "warn" as Tone };
+  }
+  return PAYMENT_LABELS[o.paymentStatus];
+}
+
+/** Commande à expédier : payée, ou à échéance (le client professionnel paie après réception). */
+export const canFulfill = (o: { paymentStatus: string; dueAt: Date | null; cancelledAt: Date | null }) =>
+  !o.cancelledAt && (["paid", "partially_refunded"].includes(o.paymentStatus) || (o.paymentStatus === "pending" && Boolean(o.dueAt)));
+
 export const FULFILLMENT_LABELS: Record<string, { label: string; tone: Tone }> = {
   unfulfilled: { label: "Non traitée", tone: "attention" },
   fulfilled: { label: "Traitée", tone: "neutral" },

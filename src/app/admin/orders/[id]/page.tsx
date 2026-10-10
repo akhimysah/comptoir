@@ -10,8 +10,8 @@ import { PageHeader, Pill, Thumb } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
-import { FULFILLMENT_LABELS, PAYMENT_LABELS, type Address } from "@/lib/orders";
-import { formatDateTime, initials, parseJson } from "@/lib/utils";
+import { canFulfill, FULFILLMENT_LABELS, paymentLabel, type Address } from "@/lib/orders";
+import { formatDate, formatDateTime, initials, parseJson } from "@/lib/utils";
 import { RETURN_STATUS, returnLines } from "@/lib/returns";
 
 const EVENT_TEXT: Record<string, string> = {
@@ -48,9 +48,9 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const a = parseJson<Address>(o.address, { line1: "", zip: "", city: "", country: "" });
   const m = (c: number) => formatMoney(c, store.currency);
   const qty = o.items.reduce((s, i) => s + i.quantity, 0);
-  const pay = PAYMENT_LABELS[o.paymentStatus];
+  const pay = paymentLabel(o);
   // Commande créée dans l'admin et pas encore réglée : elle peut être payée en ligne via un lien.
-  const invoiceLink = o.paymentMethod === "manual" && invoicePayable(o) ? await payLink(o, store.slug) : null;
+  const invoiceLink = ["manual", "terms"].includes(o.paymentMethod) && invoicePayable(o) ? await payLink(o, store.slug) : null;
   const ful = FULFILLMENT_LABELS[o.fulfillmentStatus];
 
   // Les étapes automatiques (création, paiement) viennent des champs de la commande ; le reste de la table des événements.
@@ -65,12 +65,12 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
       <PageHeader
         back="/admin/orders"
         title={`#${o.number}`}
-        subtitle={`${formatDateTime(o.createdAt)} · ${o.paymentMethod === "manual" ? "Créée dans l'admin" : o.paymentMethod.startsWith("pos") ? "Point de vente" : "Boutique en ligne"}`}
+        subtitle={`${formatDateTime(o.createdAt)} · ${o.paymentMethod === "manual" ? "Créée dans l'admin" : o.paymentMethod.startsWith("pos") ? "Point de vente" : "Boutique en ligne"}${o.dueAt ? ` · paiement à échéance (${formatDate(o.dueAt)})` : ""}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {!o.cancelledAt && o.fulfillmentStatus !== "fulfilled" && !o.paymentMethod.startsWith("pos") && <Link href={`/admin/orders/${o.id}/edit`} className="btn h-8">Modifier</Link>}
             <a href={`/print/packing?ids=${o.id}`} target="_blank" className="btn h-8">Bon de préparation</a>
-            {o.paymentStatus !== "pending" && <a href={`/print/invoice/${o.id}`} target="_blank" className="btn h-8">Facture</a>}
+            {(o.paymentStatus !== "pending" || o.dueAt) && <a href={`/print/invoice/${o.id}`} target="_blank" className="btn h-8">Facture</a>}
             {o.cancelledAt ? <Pill>Annulée</Pill> : <><Pill tone={pay.tone}>{pay.label}</Pill><Pill tone={ful.tone}>{ful.label}</Pill></>}
             {!o.cancelledAt && ["paid", "partially_refunded"].includes(o.paymentStatus) && o.totalCents - o.refundedCents > 0 && <a href={`/admin/orders/${o.id}/refund`} className="btn h-8">Rembourser</a>}
             {!o.cancelledAt && (
@@ -165,7 +165,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 ) : <span className="text-muted">sans numéro de suivi</span>}
               </div>
             )}
-            {!o.cancelledAt && ["paid", "partially_refunded"].includes(o.paymentStatus) && o.deliveryMethod === "pickup" && o.fulfillmentStatus !== "fulfilled" && (
+            {canFulfill(o) && o.deliveryMethod === "pickup" && o.fulfillmentStatus !== "fulfilled" && (
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3">
                 <span className="text-[13px] text-muted">{o.pickupReadyAt ? `Prête depuis le ${formatDateTime(o.pickupReadyAt)} : en attente du client.` : "Retrait en boutique : préparez la commande puis prévenez le client."}</span>
                 {o.pickupReadyAt ? (
@@ -184,7 +184,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 )}
               </div>
             )}
-            {!o.cancelledAt && ["paid", "partially_refunded"].includes(o.paymentStatus) && (o.deliveryMethod !== "pickup" || o.fulfillmentStatus === "fulfilled") && (
+            {canFulfill(o) && (o.deliveryMethod !== "pickup" || o.fulfillmentStatus === "fulfilled") && (
               o.fulfillmentStatus === "fulfilled" ? (
                 <div className="flex flex-wrap items-start justify-end gap-2 border-t border-line px-4 py-3">
                   <details className={`mr-auto ${o.deliveryMethod === "pickup" ? "hidden" : ""}`}>

@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { cancelUnpaidOrder, markOrderPaid, notifyOrderShipped } from "@/lib/orders";
+import { canFulfill, cancelUnpaidOrder, markOrderPaid, notifyOrderShipped } from "@/lib/orders";
 import { PAID_STATUSES, refundableCents, refundOrder } from "@/lib/refunds";
 import { decideReturn } from "@/lib/returns";
 import { carrierLabel } from "@/lib/tracking";
@@ -89,7 +89,7 @@ export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" 
       continue;
     }
     const target = action === "fulfill" ? "fulfilled" : "unfulfilled";
-    if (!PAID_STATUSES.includes(o.paymentStatus) || o.fulfillmentStatus === target) continue;
+    if (!canFulfill(o) || o.fulfillmentStatus === target) continue;
     await db.$transaction([
       db.order.update({ where: { id: o.id }, data: { fulfillmentStatus: target, fulfilledAt: target === "fulfilled" ? new Date() : null } }),
       db.orderEvent.create({ data: { orderId: o.id, type: target, author: user.name } }),

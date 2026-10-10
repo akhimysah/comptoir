@@ -13,7 +13,8 @@ type Recovered = { items: { variantId: string; quantity: number }[]; email: stri
 
 export function CartView({ slug, currency, display, loyalty, cancelled, demo, recovered, customer }: { slug: string; currency: string; display?: { code: string; rate: number }; loyalty?: { perUnit: number } | null; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null }) {
   const { items, ready, setQuantity, replace, add } = useCart(slug);
-  const [cart, setCart] = useState<(PricedCart & { recommendations?: Suggestion[] }) | null>(null);
+  const [cart, setCart] = useState<(PricedCart & { recommendations?: Suggestion[]; paymentTermsDays?: number }) | null>(null);
+  const [payLater, setPayLater] = useState(false);
   const [code, setCode] = useState("");
   const [applied, setApplied] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +67,7 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
     setBusy(true);
     setError(null);
     const data = Object.fromEntries(new FormData(e.currentTarget));
-    const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, country, rateId: cart?.shippingRateId ?? rateId, giftCode: gift, marketing, slug, items, code: applied }) });
+    const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, country, rateId: cart?.shippingRateId ?? rateId, giftCode: gift, marketing, slug, items, code: applied, terms: payLater && Boolean(cart?.paymentTermsDays) }) });
     const json = await res.json().catch(() => ({}));
     if (res.ok && json.url) { window.location.href = json.url; return; }
     setError(json.error ?? "La commande n'a pas pu être créée. Réessayez.");
@@ -102,7 +103,7 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
                 <a href={`/s/${slug}/p/${l.productHandle}`} className="font-medium">{l.productTitle}</a>
                 {l.variantTitle !== "Par défaut" && <span className="text-sm text-[var(--c-muted)]">{l.variantTitle}</span>}
                 {l.subscription && <span className="text-sm font-medium">Abonnement · livré {l.subscription === "week" ? "toutes les semaines" : "tous les mois"}</span>}
-                <span className="text-sm">{m(l.priceCents)}</span>
+                <span className="text-sm">{cart.priceListName && l.compareAtCents && l.compareAtCents > l.priceCents && <s className="mr-1.5 text-[var(--c-muted)]">{m(l.compareAtCents)}</s>}{m(l.priceCents)}</span>
                 <div className="mt-auto flex items-center gap-3">
                   <div className="inline-flex items-center rounded-[var(--t-radius)] border border-[color-mix(in_srgb,var(--c-text)_22%,transparent)]">
                     <button type="button" className="h-9 w-9" aria-label="Moins" onClick={() => setQuantity(l.variantId, l.quantity - 1)}>−</button>
@@ -149,6 +150,7 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
               <button className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-4 text-sm font-semibold">Utiliser</button>
             </form>
             {gift && cart?.giftCardError && <p className="text-sm text-red-600">{cart.giftCardError}</p>}
+            {cart?.priceListName && <p className="text-sm font-medium">Vos prix professionnels sont appliqués ({cart.priceListName}).</p>}
             {cart && (
               <dl className="grid grid-cols-[1fr_auto] gap-y-1.5 text-sm tabular-nums">
                 <dt className="text-[var(--c-muted)]">Sous-total</dt><dd className="text-right">{m(cart.subtotalCents)}</dd>
@@ -226,9 +228,20 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
             {cart?.shippingError && <p className="text-sm text-red-600">{cart.shippingError}</p>}
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} />Recevoir les nouveautés et offres par e-mail</label>
             <textarea id="co-note" name="note" maxLength={500} placeholder="Note pour la boutique (optionnel)" aria-label="Note" className={`${field} min-h-[70px]`} />
+            {cart?.paymentTermsDays && cart.totalCents > 0 ? (
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1 text-sm font-semibold">Paiement</legend>
+                {([[false, "Payer maintenant"], [true, `Paiement à ${cart.paymentTermsDays} jours (sur facture)`]] as const).map(([later, label]) => (
+                  <label key={label} className={`flex cursor-pointer items-center gap-3 rounded-[var(--t-radius)] border px-3 py-2.5 ${payLater === later ? "border-[var(--c-text)]" : "border-[color-mix(in_srgb,var(--c-text)_22%,transparent)]"}`}>
+                    <input type="radio" name="payment" checked={payLater === later} onChange={() => setPayLater(later)} />
+                    <span className="flex-1">{label}</span>
+                  </label>
+                ))}
+              </fieldset>
+            ) : null}
             {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
             <button disabled={busy || !cart?.lines.length || Boolean(cart?.shippingError)} className="h-12 rounded-[var(--t-radius)] bg-[var(--c-accent)] font-semibold text-[var(--c-accent-text)] transition hover:opacity-90 disabled:opacity-40">
-              {busy ? "Un instant…" : demo ? `Valider la commande · ${cart ? formatMoney(cart.totalCents, currency) : ""}` : `Payer ${cart ? formatMoney(cart.totalCents, currency) : ""}`}
+              {busy ? "Un instant…" : payLater && cart?.paymentTermsDays ? `Commander · à payer sous ${cart.paymentTermsDays} jours` : demo ? `Valider la commande · ${cart ? formatMoney(cart.totalCents, currency) : ""}` : `Payer ${cart ? formatMoney(cart.totalCents, currency) : ""}`}
             </button>
             <p className="text-center text-xs text-[var(--c-muted)]">{demo ? "Boutique en démonstration : aucun paiement ne sera demandé." : "Paiement sécurisé par Stripe : carte, Apple Pay, Google Pay."}</p>
           </form>

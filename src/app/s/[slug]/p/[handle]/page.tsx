@@ -12,6 +12,8 @@ import { complementaryProducts } from "@/lib/recommendations";
 import { getStore } from "@/lib/storefront";
 import { bundleStock } from "@/lib/bundles";
 import { parseJson } from "@/lib/utils";
+import { getCustomer } from "@/lib/customer-auth";
+import { loadProPricing, proPrice } from "@/lib/b2b";
 
 async function load(slug: string, handle: string) {
   const { store } = await getStore(slug);
@@ -40,6 +42,9 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const bundleLeft = parts.length ? bundleStock(parts.map((x) => ({ quantity: x.quantity, stock: partVariants.find((v) => v.id === x.variantId)?.stock ?? 0 }))) : null;
   const contents = parts.map((x) => { const v = partVariants.find((pv) => pv.id === x.variantId); return v ? `${x.quantity} × ${v.product.title}${v.title !== "Par défaut" ? ` (${v.title})` : ""}` : null; }).filter((x): x is string => !!x);
   const cur = await displayCurrency(store);
+  // Client professionnel connecté : ses prix, avec le prix public barré.
+  const customer = product.isGiftCard ? null : await getCustomer(store.id);
+  const pro = await loadProPricing(store.id, customer?.priceListId, product.variants.map((v) => v.id));
   const agg = await db.review.aggregate({ where: { productId: product.id, status: "published" }, _avg: { rating: true }, _count: true });
   return (
     <>
@@ -56,7 +61,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       hue={product.hue}
       rating={agg._count ? { avg: agg._avg.rating ?? 0, count: agg._count } : null}
       options={parseJson(product.options, [])}
-      variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: v.priceCents, compareAtCents: v.compareAtCents, stock: product.isGiftCard ? 99 : bundleLeft ?? v.stock, image: v.image }))}
+      variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: proPrice(v.priceCents, v.id, pro), compareAtCents: proPrice(v.priceCents, v.id, pro) < v.priceCents ? v.priceCents : v.compareAtCents, stock: product.isGiftCard ? 99 : bundleLeft ?? v.stock, image: v.image }))}
       contents={contents}
       preorder={product.continueSelling}
       subscription={product.subscriptionInterval ? { interval: product.subscriptionInterval, discountBps: product.subscriptionDiscountBps } : null}

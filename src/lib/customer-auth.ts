@@ -13,7 +13,10 @@ export async function createLoginCode(storeId: string, email: string) {
   return code;
 }
 
-/** Vérifie le code (5 essais maximum) et ouvre une session de 30 jours sur cette boutique. */
+/**
+ * Vérifie le code (5 essais maximum) et ouvre une session de 30 jours sur cette boutique.
+ * Cookie sur tout le site (son nom est propre à la boutique) : le panier (/api/cart) doit connaître le client pour ses prix pro.
+ */
 export async function verifyLoginCode(storeId: string, slug: string, email: string, code: string): Promise<{ error?: string }> {
   const row = await db.customerLoginCode.findFirst({ where: { storeId, email }, orderBy: { createdAt: "desc" } });
   if (!row || row.expiresAt < new Date()) return { error: "Ce code a expiré. Demandez-en un nouveau." };
@@ -27,7 +30,7 @@ export async function verifyLoginCode(storeId: string, slug: string, email: stri
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + 30 * 86400_000);
   await db.customerSession.create({ data: { id: hash(token), customerId: customer.id, storeId, expiresAt } });
-  (await cookies()).set(cookieName(storeId), token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: `/s/${slug}`, expires: expiresAt });
+  (await cookies()).set(cookieName(storeId), token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", expires: expiresAt });
   return {};
 }
 
@@ -43,5 +46,7 @@ export async function logoutCustomer(storeId: string, slug: string) {
   const jar = await cookies();
   const token = jar.get(cookieName(storeId))?.value;
   if (token) await db.customerSession.deleteMany({ where: { id: hash(token) } });
+  // Les anciennes sessions étaient limitées à /s/slug : les deux sont effacées.
+  jar.set(cookieName(storeId), "", { path: "/", maxAge: 0 });
   jar.set(cookieName(storeId), "", { path: `/s/${slug}`, maxAge: 0 });
 }
