@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addOrderComment, cancelOrder, markPaid, returnDecision, sendInvoiceAction, setFulfilled, updateTracking } from "../actions";
+import { addOrderComment, cancelOrder, markPaid, markPickupReady, returnDecision, sendInvoiceAction, setFulfilled, updateTracking } from "../actions";
 import { CopyField } from "@/components/admin/CopyField";
 import { invoicePayable, payLink } from "@/lib/invoices";
 import { TrackingFields } from "@/components/admin/TrackingFields";
@@ -18,6 +18,7 @@ const EVENT_TEXT: Record<string, string> = {
   fulfilled: "a expédié la commande.",
   tracking_updated: "a modifié le suivi :",
   invoice_sent: "a envoyé la facture à",
+  pickup_ready: "a indiqué que la commande est prête pour le retrait.",
   unfulfilled: "a remis la commande à traiter.",
   cancelled: "a annulé la commande.",
   refunded: "a annulé et remboursé la commande.",
@@ -153,8 +154,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             </div>
             {o.fulfillmentStatus === "fulfilled" && (
               <div className="mx-3 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-[#f7f7f7] px-3 py-2.5 text-[13px]">
-                <span className="font-[550]">Expédiée{o.fulfilledAt ? ` le ${formatDateTime(o.fulfilledAt)}` : ""}</span>
-                {o.trackingNumber ? (
+                <span className="font-[550]">{o.deliveryMethod === "pickup" ? "Récupérée en boutique" : "Expédiée"}{o.fulfilledAt ? ` le ${formatDateTime(o.fulfilledAt)}` : ""}</span>
+                {o.deliveryMethod === "pickup" ? null : o.trackingNumber ? (
                   <>
                     <span className="text-muted">{carrierLabel(o.trackingCarrier)}</span>
                     {trackingLink(o) ? <a href={trackingLink(o)!} target="_blank" rel="noopener noreferrer" className="font-mono text-pine hover:underline">{o.trackingNumber}</a> : <span className="font-mono">{o.trackingNumber}</span>}
@@ -162,10 +163,29 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 ) : <span className="text-muted">sans numéro de suivi</span>}
               </div>
             )}
-            {!o.cancelledAt && ["paid", "partially_refunded"].includes(o.paymentStatus) && (
+            {!o.cancelledAt && ["paid", "partially_refunded"].includes(o.paymentStatus) && o.deliveryMethod === "pickup" && o.fulfillmentStatus !== "fulfilled" && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3">
+                <span className="text-[13px] text-muted">{o.pickupReadyAt ? `Prête depuis le ${formatDateTime(o.pickupReadyAt)} : en attente du client.` : "Retrait en boutique : préparez la commande puis prévenez le client."}</span>
+                {o.pickupReadyAt ? (
+                  <form action={setFulfilled}>
+                    <input type="hidden" name="id" value={o.id} />
+                    <input type="hidden" name="value" value="fulfilled" />
+                    <input type="hidden" name="hasNotify" value="1" />
+                    <button className="btn btn-primary">Marquer comme récupérée</button>
+                  </form>
+                ) : (
+                  <form action={markPickupReady} className="flex items-center gap-3">
+                    <input type="hidden" name="id" value={o.id} />
+                    <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="notify" defaultChecked className="h-4 w-4 accent-[#7c3aed]" />Prévenir le client</label>
+                    <button className="btn btn-primary">Prête pour le retrait</button>
+                  </form>
+                )}
+              </div>
+            )}
+            {!o.cancelledAt && ["paid", "partially_refunded"].includes(o.paymentStatus) && (o.deliveryMethod !== "pickup" || o.fulfillmentStatus === "fulfilled") && (
               o.fulfillmentStatus === "fulfilled" ? (
                 <div className="flex flex-wrap items-start justify-end gap-2 border-t border-line px-4 py-3">
-                  <details className="mr-auto">
+                  <details className={`mr-auto ${o.deliveryMethod === "pickup" ? "hidden" : ""}`}>
                     <summary className="btn cursor-pointer list-none">{o.trackingNumber ? "Modifier le suivi" : "Ajouter un suivi"}</summary>
                     <form action={updateTracking} className="mt-3 flex flex-col gap-3">
                       <input type="hidden" name="id" value={o.id} />
@@ -286,8 +306,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
               <div className="break-all text-pine">{o.email}</div>
             </div>
             <div>
-              <h3 className="mb-1 text-[13px] font-[650]">Adresse d'expédition</h3>
-              <address className="not-italic">{o.name}<br />{a.line1}<br />{a.zip} {a.city}<br />{a.country}</address>
+              <h3 className="mb-1 text-[13px] font-[650]">{o.deliveryMethod === "pickup" ? "Mode de réception" : "Adresse d'expédition"}</h3>
+              {o.deliveryMethod === "pickup" ? <div><Pill tone="info" dot={false}>Retrait en boutique</Pill><div className="mt-1 whitespace-pre-line text-muted">{store.pickupAddress}</div></div> : <address className="not-italic">{o.name}<br />{a.line1}<br />{a.zip} {a.city}<br />{a.country}</address>}
             </div>
           </section>
         </aside>

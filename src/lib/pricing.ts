@@ -45,6 +45,8 @@ export type PricedCart = {
   shippingRateId: string | null;
   shippingMethod: string;
   shippingError: string | null;
+  /** Retrait en boutique proposé (adresse et consignes), ou null. */
+  pickup?: { address: string; instructions: string } | null;
   giftCardCode: string | null;
   giftCardCents: number;
   giftCardBalanceCents: number;
@@ -270,11 +272,23 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     totalCents: due - giftCardCents,
     freeShippingFromCents: store.freeShippingFromCents,
     notices,
+    pickup: store.pickupEnabled && store.pickupAddress.trim() && needsShipping ? { address: store.pickupAddress, instructions: store.pickupInstructions } : null,
   };
 }
 
 /** Tarifs selon les zones d'expédition, ou tarif unique de la boutique s'il n'y a pas de zone. */
+export const PICKUP_ID = "pickup";
+
+/** Livraison, plus le retrait en boutique (gratuit, sans adresse ni pays) quand la boutique le propose. */
 async function computeShipping(store: Store, amount: number, hasItems: boolean, ship: ShippingChoice) {
+  const base = await computeDelivery(store, amount, hasItems, ship);
+  if (!store.pickupEnabled || !store.pickupAddress.trim()) return base;
+  const pickup = { id: PICKUP_ID, name: "Retrait en boutique", priceCents: 0 };
+  if (ship.rateId === PICKUP_ID) return { ...base, shippingOptions: [...base.shippingOptions, pickup], shippingRateId: PICKUP_ID, shippingMethod: pickup.name, shippingCents: 0, shippingError: null };
+  return { ...base, shippingOptions: [...base.shippingOptions, pickup] };
+}
+
+async function computeDelivery(store: Store, amount: number, hasItems: boolean, ship: ShippingChoice) {
   const zones = await db.shippingZone.findMany({ where: { storeId: store.id }, include: { rates: { orderBy: { position: "asc" } } } });
   if (!zones.length) {
     const free = !hasItems || store.freeShippingFromCents === 0 || amount >= store.freeShippingFromCents;

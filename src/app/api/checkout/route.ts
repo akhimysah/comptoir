@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { createOrder, markOrderPaid, OrderError } from "@/lib/orders";
-import { priceCart } from "@/lib/pricing";
+import { PICKUP_ID, priceCart } from "@/lib/pricing";
 import { storeAccess } from "@/lib/store-access";
 import { subscribe } from "@/lib/marketing";
 import { appUrl, demoPaymentsAllowed, feePercent, getStripe, platformFee } from "@/lib/stripe";
@@ -35,7 +35,8 @@ export async function POST(req: Request) {
   const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode);
   if (b.giftCode && cart.giftCardError) return NextResponse.json({ error: cart.giftCardError }, { status: 400 });
   if (cart.shippingError) return NextResponse.json({ error: cart.shippingError }, { status: 400 });
-  if (cart.lines.some((l) => !l.isGiftCard)) {
+  const pickup = cart.shippingRateId === PICKUP_ID;
+  if (cart.lines.some((l) => !l.isGiftCard) && !pickup) {
     if (b.line1.length < 3) return NextResponse.json({ error: "Indiquez votre adresse." }, { status: 400 });
     if (b.zip.length < 2) return NextResponse.json({ error: "Indiquez votre code postal." }, { status: 400 });
     if (!b.city) return NextResponse.json({ error: "Indiquez votre ville." }, { status: 400 });
@@ -73,6 +74,7 @@ export async function POST(req: Request) {
     if (e instanceof OrderError) return NextResponse.json({ error: e.message, refresh: true }, { status: 409 });
     throw e;
   }
+  if (pickup) await db.order.update({ where: { id: order.id }, data: { deliveryMethod: "pickup" } });
   if (b.marketing) await subscribe(store.id, b.email, b.name);
   const thanks = `${appUrl()}/s/${store.slug}/order/${order.id}`;
 

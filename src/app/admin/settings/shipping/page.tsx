@@ -2,6 +2,7 @@ import { addRate, deleteRate, deleteZone } from "./actions";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { ZoneForm } from "@/components/admin/ZoneForm";
 import { PageHeader } from "@/components/ui";
+import { savePickup } from "./actions";
 import { requireOwner } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -16,6 +17,18 @@ export default async function ShippingPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <PageHeader back="/admin/settings" title="Expédition et livraison" subtitle="Les pays où vous livrez et les tarifs proposés au client dans le panier." />
+      <form action={savePickup} className="card mb-4 flex flex-col gap-3 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-[650]">Retrait en boutique</h2>
+          <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="enabled" defaultChecked={store.pickupEnabled} className="h-4 w-4 accent-[#7c3aed]" />Proposer le retrait gratuit</label>
+        </div>
+        <p className="text-xs text-muted">Le client choisit « Retrait en boutique » dans le panier : pas de frais ni d'adresse de livraison. Vous le prévenez quand sa commande est prête.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="label">Adresse de retrait<textarea name="address" rows={3} defaultValue={store.pickupAddress} maxLength={300} placeholder={"Atelier Argile\n12 rue des Potiers\n69002 Lyon"} className="input" /></label>
+          <label className="label">Horaires et consignes<textarea name="instructions" rows={3} defaultValue={store.pickupInstructions} maxLength={500} placeholder={"Du mardi au samedi, 10 h – 19 h.\nMunissez-vous de votre numéro de commande."} className="input" /></label>
+        </div>
+        <button className="btn btn-primary self-end">Enregistrer</button>
+      </form>
       {!zones.length && (
         <p className="card bg-[#f7f7f7] px-4 py-3 text-[13px]">
           Aucune zone pour l'instant : un tarif unique de {m(store.shippingCents)} s'applique partout{store.freeShippingFromCents ? `, offert dès ${m(store.freeShippingFromCents)}` : ""} (réglable dans Paramètres). Créez des zones pour choisir les pays livrés et proposer plusieurs tarifs.

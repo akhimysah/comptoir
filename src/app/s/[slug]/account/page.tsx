@@ -9,8 +9,10 @@ import { RETURN_STATUS, returnBlocker, returnLines } from "@/lib/returns";
 
 export const metadata = { title: "Mon compte" };
 
-const STATUS = (o: { cancelledAt: Date | null; paymentStatus: string; fulfillmentStatus: string }) =>
-  o.cancelledAt ? "Annulée" : o.paymentStatus === "refunded" ? "Remboursée" : o.paymentStatus === "pending" ? "Paiement en attente" : o.fulfillmentStatus === "fulfilled" ? "Expédiée" : "En préparation";
+const STATUS = (o: { cancelledAt: Date | null; paymentStatus: string; fulfillmentStatus: string; deliveryMethod: string; pickupReadyAt: Date | null }) =>
+  o.cancelledAt ? "Annulée" : o.paymentStatus === "refunded" ? "Remboursée" : o.paymentStatus === "pending" ? "Paiement en attente"
+    : o.deliveryMethod === "pickup" ? (o.fulfillmentStatus === "fulfilled" ? "Récupérée" : o.pickupReadyAt ? "Prête à retirer" : "En préparation")
+    : o.fulfillmentStatus === "fulfilled" ? "Expédiée" : "En préparation";
 
 export default async function AccountPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ saved?: string; code?: string; err?: string; return?: string }> }) {
   const [{ slug }, { saved, code, err, return: returned }] = await Promise.all([params, searchParams]);

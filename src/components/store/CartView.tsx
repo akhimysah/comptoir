@@ -146,10 +146,31 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
           </div>
 
           <form onSubmit={checkout} className="flex flex-col gap-3">
-            <h2 className="font-[family-name:var(--t-display)] text-xl font-semibold">Livraison</h2>
+            <h2 className="font-[family-name:var(--t-display)] text-xl font-semibold">{cart?.pickup ? "Réception" : "Livraison"}</h2>
             <input id="co-email" name="email" type="email" required autoComplete="email" placeholder="E-mail" aria-label="E-mail" defaultValue={recovered?.email ?? customer?.email} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
             <input id="co-name" name="name" required autoComplete="name" placeholder="Nom complet" aria-label="Nom complet" defaultValue={recovered?.name ?? customer?.name} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
-            {(!cart || cart.lines.some((l) => !l.isGiftCard)) ? (
+            {cart?.pickup && (
+              <fieldset className="grid grid-cols-2 gap-2">
+                <legend className="sr-only">Mode de réception</legend>
+                {([["ship", "Livraison"], ["pickup", "Retrait en boutique"]] as const).map(([k, label]) => {
+                  const on = (cart.shippingRateId === "pickup") === (k === "pickup");
+                  return (
+                    <label key={k} className={`flex cursor-pointer items-center justify-center gap-2 rounded-[var(--t-radius)] border px-3 py-2.5 text-sm font-semibold ${on ? "border-[var(--c-text)] bg-[var(--c-surface)]" : "border-[color-mix(in_srgb,var(--c-text)_22%,transparent)]"}`}>
+                      <input type="radio" name="delivery" checked={on} onChange={() => setRateId(k === "pickup" ? "pickup" : null)} className="sr-only" />
+                      {label}
+                    </label>
+                  );
+                })}
+              </fieldset>
+            )}
+            {cart?.shippingRateId === "pickup" && cart.pickup ? (
+              <div className="rounded-[var(--t-radius)] bg-[var(--c-surface)] p-4 text-sm">
+                <p className="font-semibold">À retirer à</p>
+                <p className="whitespace-pre-line">{cart.pickup.address}</p>
+                {cart.pickup.instructions && <p className="mt-2 whitespace-pre-line text-[var(--c-muted)]">{cart.pickup.instructions}</p>}
+                <p className="mt-2 text-[var(--c-muted)]">Nous vous écrivons dès que votre commande est prête.</p>
+              </div>
+            ) : (!cart || cart.lines.some((l) => !l.isGiftCard)) ? (
               <>
             <input id="co-line1" name="line1" required autoComplete="street-address" placeholder="Adresse" aria-label="Adresse" className={field} />
             <div className="grid grid-cols-[1fr_1.6fr] gap-3">
@@ -164,10 +185,10 @@ export function CartView({ slug, currency, display, loyalty, cancelled, demo, re
             ) : (
               <input id="co-country" required autoComplete="country-name" value={country} onChange={(e) => setCountry(e.target.value)} aria-label="Pays" className={field} />
             )}
-            {cart && cart.shippingOptions.length > 1 && (
+            {cart && cart.shippingOptions.filter((o) => o.id !== "pickup").length > 1 && (
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-1 text-sm font-semibold">Mode de livraison</legend>
-                {cart.shippingOptions.map((o) => (
+                {cart.shippingOptions.filter((o) => o.id !== "pickup").map((o) => (
                   <label key={o.id} className={`flex cursor-pointer items-center gap-3 rounded-[var(--t-radius)] border px-3 py-2.5 ${cart.shippingRateId === o.id ? "border-[var(--c-text)]" : "border-[color-mix(in_srgb,var(--c-text)_22%,transparent)]"}`}>
                     <input type="radio" name="rate" checked={cart.shippingRateId === o.id} onChange={() => setRateId(o.id)} />
                     <span className="flex-1">{o.name}</span>

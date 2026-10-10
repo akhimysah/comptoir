@@ -11,6 +11,8 @@ import { PAID_STATUSES, refundableCents, refundOrder } from "@/lib/refunds";
 import { decideReturn } from "@/lib/returns";
 import { carrierLabel } from "@/lib/tracking";
 import { sendInvoice } from "@/lib/invoices";
+import { pickupReadyEmail } from "@/lib/emails";
+import { sendMail } from "@/lib/mail";
 
 async function ownOrder(form: FormData) {
   const { user, store } = await requirePerm("orders");
@@ -45,7 +47,7 @@ export async function setFulfilled(form: FormData) {
   const done = await db.order.updateMany({ where: { id: order.id, fulfillmentStatus: fulfilled ? "unfulfilled" : "fulfilled" }, data: { fulfillmentStatus: fulfilled ? "fulfilled" : "unfulfilled", fulfilledAt: fulfilled ? new Date() : null, ...tracking } });
   if (!done.count) return revalidatePath(`/admin/orders/${order.id}`);
   await db.orderEvent.create({ data: { orderId: order.id, type: fulfilled ? "fulfilled" : "unfulfilled", author: user.name, message: trackingText(tracking) } });
-  if (fulfilled && notify) await notifyOrderShipped(order.id);
+  if (fulfilled && notify && order.deliveryMethod !== "pickup") await notifyOrderShipped(order.id);
   await logActivity(`Commande #${order.number} marquée comme ${fulfilled ? "traitée" : "non traitée"}`, `/admin/orders/${order.id}`);
   revalidatePath(`/admin/orders/${order.id}`);
   revalidatePath("/admin", "layout");
@@ -140,5 +142,19 @@ export async function sendInvoiceAction(form: FormData) {
   const res = await sendInvoice(store.id, order.id, user.name, String(form.get("message") ?? ""));
   if (res.error) redirect(`/admin/orders/${order.id}?err=${encodeURIComponent(res.error)}`);
   await logActivity(`Facture de la commande #${order.number} envoyée`, `/admin/orders/${order.id}`);
+  revalidatePath(`/admin/orders/${order.id}`);
+}
+
+export async function markPickupReady(form: FormData) {
+  const { user, order } = await ownOrder(form);
+  if (order.deliveryMethod !== "pickup" || order.fulfillmentStatus === "fulfilled" || order.cancelledAt) return;
+  const r = await db.order.updateMany({ where: { id: order.id, pickupReadyAt: null }, data: { pickupReadyAt: new Date() } });
+  if (!r.count) return revalidatePath(`/admin/orders/${order.id}`);
+  await db.orderEvent.create({ data: { orderId: order.id, type: "pickup_ready", author: user.name } });
+  if (form.get("notify") === "on") {
+    const full = await db.order.findUnique({ where: { id: order.id }, include: { items: true, store: true } });
+    if (full) await sendMail({ to: full.email, storeId: full.storeId, ...pickupReadyEmail(full.store, full) });
+  }
+  await logActivity(`Commande #${order.number} prête pour le retrait`, `/admin/orders/${order.id}`);
   revalidatePath(`/admin/orders/${order.id}`);
 }

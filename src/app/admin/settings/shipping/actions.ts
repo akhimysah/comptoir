@@ -52,3 +52,14 @@ export async function deleteRate(form: FormData) {
   await db.shippingRate.deleteMany({ where: { id: String(form.get("id")), zone: { storeId: store.id } } });
   refresh();
 }
+
+export async function savePickup(form: FormData) {
+  const { store } = await requireOwner();
+  const enabled = form.get("enabled") === "on";
+  const address = String(form.get("address") ?? "").trim().slice(0, 300);
+  const instructions = String(form.get("instructions") ?? "").trim().slice(0, 500);
+  await db.store.update({ where: { id: store.id }, data: { pickupEnabled: enabled && address.length > 0, pickupAddress: address, pickupInstructions: instructions } });
+  await logActivity(`Retrait en boutique ${enabled && address ? "activé" : "désactivé"}`, "/admin/settings/shipping");
+  revalidatePath("/admin/settings/shipping");
+  revalidatePath(`/s/${store.slug}`, "layout");
+}

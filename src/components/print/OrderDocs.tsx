@@ -21,6 +21,7 @@ function Seller({ store }: { store: Store }) {
 
 function ShipTo({ order }: { order: FullOrder }) {
   const a = parseJson<Address>(order.address, { line1: "", zip: "", city: "", country: "" });
+  if (order.deliveryMethod === "pickup") return <div>{order.name}<br /><b>Retrait en boutique</b></div>;
   return <div>{order.name}<br />{a.line1}<br />{a.zip} {a.city}<br />{a.country}</div>;
 }
 

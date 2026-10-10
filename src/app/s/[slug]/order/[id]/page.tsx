@@ -43,7 +43,13 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
             : "Nous attendons la confirmation de votre banque. Rechargez cette page dans quelques instants."}
         </p>
       </div>
-      {order.fulfillmentStatus === "fulfilled" && (
+      {paid && order.deliveryMethod === "pickup" && (
+        <div className="rounded-[var(--t-radius)] border border-[var(--c-accent)] p-4">
+          <p className="font-semibold">{order.fulfillmentStatus === "fulfilled" ? "Commande récupérée. Merci !" : order.pickupReadyAt ? "Votre commande est prête : vous pouvez venir la chercher." : "Retrait en boutique : nous vous écrivons dès qu'elle est prête."}</p>
+          {order.fulfillmentStatus !== "fulfilled" && <p className="mt-1 whitespace-pre-line text-sm text-[var(--c-muted)]">{store.pickupAddress}{store.pickupInstructions ? `\n${store.pickupInstructions}` : ""}</p>}
+        </div>
+      )}
+      {order.fulfillmentStatus === "fulfilled" && order.deliveryMethod !== "pickup" && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--t-radius)] border border-[var(--c-accent)] p-4">
           <span>
             <span className="font-semibold">Votre commande est en route</span>

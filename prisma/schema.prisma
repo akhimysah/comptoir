@@ -57,6 +57,9 @@ model Store {
   passwordMessage       String                @default("Notre boutique ouvre très bientôt. Revenez nous voir !")
   gaId                  String                @default("") // Google Analytics 4 (G-XXXXXXX)
   metaPixelId           String                @default("") // Meta (Facebook / Instagram) Pixel
+  pickupEnabled         Boolean               @default(false) // retrait en boutique proposé au paiement
+  pickupAddress         String                @default("")
+  pickupInstructions    String                @default("") // horaires, consignes (pièce d'identité, numéro de commande…)
   returnsEnabled        Boolean               @default(true) // retours en libre-service depuis « Mon compte »
   returnWindowDays      Int                   @default(30)
   returnInstructions    String                @default("") // adresse de retour, emballage… envoyé à l'acceptation
@@ -422,6 +425,8 @@ model Order {
   trackingUrl           String          @default("") // lien de suivi personnalisé (transporteur « autre »)
   payToken              String?         @unique // lien de paiement envoyé avec la facture (commande créée dans l'admin)
   invoiceSentAt         DateTime?
+  deliveryMethod        String          @default("shipping") // shipping | pickup
+  pickupReadyAt         DateTime? // commande prête à être retirée (client prévenu)
   reviewRequestedAt     DateTime?
   taxRateBps            Int             @default(0) // taux de TVA au moment de la commande
   taxCents              Int             @default(0) // TVA comprise dans le total

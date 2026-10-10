@@ -32,7 +32,10 @@ function itemsTable(order: Order & { items: OrderItem[] }, currency: string) {
 ${line("Sous-total", m(order.subtotalCents))}${order.discountCents ? line(`Remise ${esc(order.discountCode ?? "")}`, `−${m(order.discountCents)}`) : ""}${line("Livraison", order.shippingCents ? m(order.shippingCents) : "Offerte")}${order.giftCardCents ? line(`Carte cadeau ····${esc((order.giftCardCode ?? "").slice(-4))}`, `−${m(order.giftCardCents)}`) : ""}${line("Total payé", m(order.totalCents), true)}</table>`;
 }
 
-function addressBlock(order: Order) {
+function addressBlock(order: Order, store?: Store) {
+  if (order.deliveryMethod === "pickup") {
+    return `<p style="font-size:14px;line-height:1.5;color:#616161;margin:0"><b style="color:#303030">Retrait en boutique</b><br>${esc(store?.pickupAddress ?? "").replace(/\n/g, "<br>")}${store?.pickupInstructions ? `<br><span style="font-size:13px">${esc(store.pickupInstructions).replace(/\n/g, "<br>")}</span>` : ""}</p>`;
+  }
   const a = parseJson<{ line1: string; zip: string; city: string; country: string }>(order.address, { line1: "", zip: "", city: "", country: "" });
   return `<p style="font-size:14px;line-height:1.5;color:#616161;margin:0"><b style="color:#303030">Adresse de livraison</b><br>${esc(order.name)}<br>${esc(a.line1)}<br>${esc(a.zip)} ${esc(a.city)}<br>${esc(a.country)}</p>`;
 }
@@ -42,7 +45,7 @@ export function orderConfirmationEmail(store: Store, order: Order & { items: Ord
     subject: `Commande #${order.number} confirmée`,
     html: layout(store.name, `Merci pour votre commande, ${order.name.split(" ")[0]} !`,
       `<p style="font-size:14px;line-height:1.5">Nous préparons votre commande <b>#${order.number}</b>. Vous recevrez un autre e-mail dès qu'elle sera expédiée.</p>
-${itemsTable(order, store.currency)}${addressBlock(order)}
+${itemsTable(order, store.currency)}${addressBlock(order, store)}
 <p style="margin-top:24px">${button(`${appUrl()}/s/${store.slug}`, "Retourner sur la boutique")}</p>`),
   };
 }
@@ -55,7 +58,7 @@ export function shippingEmail(store: Store, order: Order & { items: OrderItem[] 
   return {
     subject: update ? `Suivi de votre commande #${order.number} mis à jour` : `Votre commande #${order.number} est en route`,
     html: layout(store.name, update ? "Nouveau suivi pour votre colis" : "Votre commande a été expédiée",
-      `<p style="font-size:14px;line-height:1.5">${update ? `Les informations de suivi de votre commande <b>#${order.number}</b> ont changé.` : `Bonne nouvelle : votre commande <b>#${order.number}</b> a quitté nos mains et arrive bientôt.`}</p>${tracking}${itemsTable(order, store.currency)}${addressBlock(order)}`),
+      `<p style="font-size:14px;line-height:1.5">${update ? `Les informations de suivi de votre commande <b>#${order.number}</b> ont changé.` : `Bonne nouvelle : votre commande <b>#${order.number}</b> a quitté nos mains et arrive bientôt.`}</p>${tracking}${itemsTable(order, store.currency)}${addressBlock(order, store)}`),
   };
 }
 
@@ -251,5 +254,14 @@ export function chatReplyEmail(store: Store, name: string, authorName: string, b
       `<div style="font-size:14px;line-height:1.5;background:#f7f7f7;border-radius:8px;padding:12px 14px;white-space:pre-line">${esc(body)}</div>
 <p style="font-size:13px;color:#616161">${esc(authorName)}, ${esc(store.name)}</p>
 <p>${button(link, "Continuer la conversation")}</p>`),
+  };
+}
+
+export function pickupReadyEmail(store: Store, order: Order & { items: OrderItem[] }) {
+  return {
+    subject: `Votre commande #${order.number} est prête à être retirée`,
+    html: layout(store.name, "Votre commande vous attend !",
+      `<p style="font-size:14px;line-height:1.5">Bonne nouvelle : votre commande <b>#${order.number}</b> est prête. Présentez ce numéro au moment du retrait.</p>
+${addressBlock(order, store)}${itemsTable(order, store.currency)}`),
   };
 }
