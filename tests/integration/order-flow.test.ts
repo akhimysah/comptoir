@@ -196,3 +196,25 @@ describe("e-mails dans la langue du client", () => {
     expect(mail.html).not.toContain("Pièce unique");
   });
 });
+
+describe("cumul des remises", () => {
+  it("cumule un code et la livraison offerte automatique seulement si les deux l'autorisent", async () => {
+    const ship = await db.discount.create({ data: { storeId: store.id, code: "AUTO-LIVRAISON", automatic: true, title: "Livraison offerte", type: "free_shipping", value: 0, combinesWithShipping: true } });
+    const code = await db.discount.create({ data: { storeId: store.id, code: "BIENVENUE10", type: "percent", value: 10, combinesWithShipping: true, usageLimit: 5 } });
+    const both = await priceCart(store, [{ variantId: bol.id, quantity: 1 }], "BIENVENUE10");
+    expect(both.discountCents).toBe(200);
+    expect(both.shippingCents).toBe(0);
+    expect(both.discountCode).toBe("BIENVENUE10 + Livraison offerte");
+    const order = await createOrder(store, both, buyer("cumul@test.local"), "demo");
+    expect((await db.discount.findUniqueOrThrow({ where: { id: code.id } })).usageCount).toBe(1);
+    expect((await db.discount.findUniqueOrThrow({ where: { id: ship.id } })).usageCount).toBe(1);
+    await cancelUnpaidOrder(order.id);
+    expect((await db.discount.findUniqueOrThrow({ where: { id: ship.id } })).usageCount).toBe(0); // réservations rendues
+
+    await db.discount.update({ where: { id: code.id }, data: { combinesWithShipping: false } });
+    const one = await priceCart(store, [{ variantId: bol.id, quantity: 1 }], "BIENVENUE10");
+    expect(one.discountCents).toBe(200);
+    expect(one.shippingCents).toBe(490); // pas de cumul : le code seul
+    expect(one.shippingDiscountId).toBeNull();
+  });
+});

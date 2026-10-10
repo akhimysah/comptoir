@@ -30,7 +30,7 @@ export async function createOrder(
   try {
     return await insertOrder(store, cart, customer.id, email, buyer, paymentMethod);
   } catch (e) {
-    await release(store.id, cart.giftCardCode, cart.giftCardCents, cart.discountId);
+    await release(store.id, cart.giftCardCode, cart.giftCardCents, [cart.discountId, cart.shippingDiscountId ?? null]);
     throw e;
   }
 }
@@ -48,20 +48,23 @@ async function reserve(storeId: string, cart: PricedCart) {
     const r = await db.giftCard.updateMany({ where: { storeId, code: cart.giftCardCode, disabled: false, balanceCents: { gte: cart.giftCardCents } }, data: { balanceCents: { decrement: cart.giftCardCents } } });
     if (!r.count) throw new OrderError("Le solde de la carte cadeau ne suffit plus. Rechargez votre panier.");
   }
-  if (cart.discountId) {
-    const n = await db.$executeRaw`UPDATE "Discount" SET "usageCount" = "usageCount" + 1 WHERE "id" = ${cart.discountId} AND ("usageLimit" IS NULL OR "usageCount" < "usageLimit")`;
+  // Remise principale, puis livraison offerte cumulée : chacune compte une utilisation.
+  const taken: string[] = [];
+  for (const id of [cart.discountId, cart.shippingDiscountId].filter((x): x is string => Boolean(x))) {
+    const n = await db.$executeRaw`UPDATE "Discount" SET "usageCount" = "usageCount" + 1 WHERE "id" = ${id} AND ("usageLimit" IS NULL OR "usageCount" < "usageLimit")`;
     if (!n) {
-      await release(storeId, cart.giftCardCode, cart.giftCardCents, null);
+      await release(storeId, cart.giftCardCode, cart.giftCardCents, taken);
       throw new OrderError("Ce code promo a déjà été utilisé le nombre maximum de fois.");
     }
+    taken.push(id);
   }
 }
 
 /** Rend le solde de carte cadeau et/ou l'utilisation de remise réservés par une commande qui n'aboutit pas. */
-export async function release(storeId: string, giftCardCode: string | null, giftCardCents: number, discountId: string | null) {
+export async function release(storeId: string, giftCardCode: string | null, giftCardCents: number, discountIds: string | null | (string | null)[]) {
   if (giftCardCode && giftCardCents > 0) await db.giftCard.updateMany({ where: { storeId, code: giftCardCode }, data: { balanceCents: { increment: giftCardCents } } });
   // Requête portable (SQLite et PostgreSQL) : jamais en dessous de zéro.
-  if (discountId) await db.discount.updateMany({ where: { id: discountId, usageCount: { gt: 0 } }, data: { usageCount: { decrement: 1 } } });
+  for (const id of [discountIds].flat()) if (id) await db.discount.updateMany({ where: { id, usageCount: { gt: 0 } }, data: { usageCount: { decrement: 1 } } });
 }
 
 /** Annule une commande jamais payée (abandon du paiement Stripe, annulation par le marchand) et libère ses réservations. */
@@ -70,7 +73,7 @@ export async function cancelUnpaidOrder(orderId: string, author = "") {
   if (!o || o.paymentStatus !== "pending" || o.cancelledAt) return false;
   const r = await db.order.updateMany({ where: { id: o.id, paymentStatus: "pending", cancelledAt: null }, data: { cancelledAt: new Date() } });
   if (!r.count) return false;
-  await release(o.storeId, o.giftCardCode, o.giftCardCents, o.discountId);
+  await release(o.storeId, o.giftCardCode, o.giftCardCents, [o.discountId, o.shippingDiscountId]);
   // Commande à échéance : son stock avait été retiré à la commande, il revient en vente.
   if (o.stockCommittedAt) await db.$transaction(async (tx) => {
     for (const m of await stockMoves(tx, o.id)) await tx.variant.updateMany({ where: { id: m.variantId }, data: { stock: { increment: m.quantity } } });
@@ -109,6 +112,7 @@ async function insertOrder(
           giftCardCode: cart.giftCardCode,
           giftCardCents: cart.giftCardCents,
           discountId: cart.discountId,
+          shippingDiscountId: cart.shippingDiscountId ?? null,
           taxRateBps: cart.taxRateBps,
           taxCents: cart.taxCents,
           reverseCharge: Boolean(cart.reverseCharge),

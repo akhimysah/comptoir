@@ -87,6 +87,8 @@ export type PricedCart = {
   discountCode: string | null;
   /** Remise réellement appliquée (pour réserver et compter ses utilisations). */
   discountId: string | null;
+  /** Livraison offerte cumulée avec la remise principale (comptée elle aussi). */
+  shippingDiscountId?: string | null;
   discountError: string | null;
   shippingCents: number;
   totalCents: number;
@@ -282,38 +284,53 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     return { eligible, problem: discountProblem(d, discountable, eligible, locale), amount: discountAmount(d, eligible) };
   };
   const normalized = code?.trim().toUpperCase();
+  let codeDiscount: Discount | null = null;
+  let codeAmount = 0;
   if (normalized) {
     const d = await db.discount.findUnique({ where: { storeId_code: { storeId: store.id, code: normalized } } });
     if (!d || d.automatic) discountError = t.noCode;
     else {
       const r = await evaluate(d);
       discountError = r.problem;
-      if (!discountError) {
-        if (d.type === "free_shipping") freeShipping = true;
-        else discountCents = r.amount;
-        discountCode = d.code;
-        discountId = d.id;
-      }
+      if (!discountError) { codeDiscount = d; codeAmount = r.amount; }
     }
   }
-  // Remise automatique : la plus avantageuse, si aucun code n'est appliqué.
-  if (!discountCode && discountable > 0) {
+  // Remises automatiques : la meilleure sur les produits et la meilleure livraison offerte, évaluées séparément.
+  let bestAmount: { d: Discount; amount: number } | null = null;
+  let bestShipping: Discount | null = null;
+  if (discountable > 0) {
     const autos = await db.discount.findMany({ where: { storeId: store.id, automatic: true, active: true } });
-    let best: { d: (typeof autos)[number]; amount: number } | null = null;
     for (const d of autos) {
       const r = await evaluate(d);
       if (r.problem) continue;
-      const amount = d.type === "free_shipping" ? 0 : r.amount;
-      if (d.type !== "free_shipping" && amount <= 0) continue;
-      if (!best || amount > best.amount || (amount === best.amount && d.type === "free_shipping")) best = { d, amount };
-    }
-    if (best) {
-      discountCode = best.d.title || t.autoDiscount;
-      discountId = best.d.id;
-      if (best.d.type === "free_shipping") freeShipping = true;
-      else discountCents = best.amount;
+      if (d.type === "free_shipping") { if (!bestShipping || (d.combinesWithShipping && !bestShipping.combinesWithShipping)) bestShipping = d; continue; }
+      if (r.amount > 0 && (!bestAmount || r.amount > bestAmount.amount)) bestAmount = { d, amount: r.amount };
     }
   }
+  // Une remise sur les produits et une livraison offerte se cumulent si les deux l'autorisent ; sinon une seule s'applique.
+  const label = (d: Discount) => (d.automatic ? d.title || t.autoDiscount : d.code);
+  let amountDiscount: { d: Discount; amount: number } | null = null;
+  let shippingDiscount: Discount | null = null;
+  if (codeDiscount) {
+    if (codeDiscount.type === "free_shipping") {
+      shippingDiscount = codeDiscount;
+      if (bestAmount && codeDiscount.combinesWithShipping && bestAmount.d.combinesWithShipping) amountDiscount = bestAmount;
+    } else {
+      amountDiscount = { d: codeDiscount, amount: codeAmount };
+      if (bestShipping && codeDiscount.combinesWithShipping && bestShipping.combinesWithShipping) shippingDiscount = bestShipping;
+    }
+  } else if (bestAmount) {
+    amountDiscount = bestAmount;
+    if (bestShipping && bestAmount.d.combinesWithShipping && bestShipping.combinesWithShipping) shippingDiscount = bestShipping;
+  } else if (bestShipping) {
+    shippingDiscount = bestShipping;
+  }
+  if (amountDiscount) discountCents = amountDiscount.amount;
+  if (shippingDiscount) freeShipping = true;
+  const applied = [amountDiscount?.d, shippingDiscount].filter((d): d is Discount => Boolean(d));
+  discountCode = applied.length ? applied.map(label).join(" + ") : null;
+  discountId = applied[0]?.id ?? null;
+  const shippingDiscountId = applied[1]?.id ?? null;
 
   const afterDiscount = subtotalCents - discountCents;
   const needsShipping = lines.some((l) => !l.isGiftCard);
@@ -349,6 +366,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     discountCents,
     discountCode,
     discountId,
+    shippingDiscountId,
     discountError,
     ...shipping,
     giftCardCode,

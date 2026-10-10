@@ -24,6 +24,7 @@ const schema = z.object({
   buyQty: z.string().optional().default("0"),
   getQty: z.string().optional().default("0"),
   oncePerCustomer: z.string().optional(),
+  combinesWithShipping: z.string().optional(),
 });
 
 export async function createDiscount(_: { error?: string; ok?: boolean } | undefined, form: FormData) {
@@ -70,7 +71,7 @@ export async function createDiscount(_: { error?: string; ok?: boolean } | undef
 
   try {
     await db.discount.create({
-      data: { storeId: store.id, code, automatic: d.method === "automatic", title: d.title, type: d.type, value, minSubtotalCents: parseMoney(d.minSubtotal) ?? 0, usageLimit: limit, endsAt, startsAt, appliesTo, targetIds: JSON.stringify(targetIds), buyQty, getQty, oncePerCustomer: d.method === "code" && d.oncePerCustomer === "on" },
+      data: { storeId: store.id, code, automatic: d.method === "automatic", title: d.title, type: d.type, value, minSubtotalCents: parseMoney(d.minSubtotal) ?? 0, usageLimit: limit, endsAt, startsAt, appliesTo, targetIds: JSON.stringify(targetIds), buyQty, getQty, oncePerCustomer: d.method === "code" && d.oncePerCustomer === "on", combinesWithShipping: d.combinesWithShipping === "on" },
     });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { error: `Le code ${code} existe déjà.` };
@@ -91,5 +92,13 @@ export async function toggleDiscount(form: FormData) {
 export async function deleteDiscount(form: FormData) {
   const { store } = await requirePerm("discounts");
   await db.discount.deleteMany({ where: { id: String(form.get("id")), storeId: store.id } });
+  revalidatePath("/admin/discounts");
+}
+
+/** Cumul avec une livraison offerte (ou, pour une livraison offerte, avec une remise sur les produits). */
+export async function toggleCombine(form: FormData) {
+  const { store } = await requirePerm("discounts");
+  const d = await db.discount.findFirst({ where: { id: String(form.get("id")), storeId: store.id } });
+  if (d) await db.discount.update({ where: { id: d.id }, data: { combinesWithShipping: !d.combinesWithShipping } });
   revalidatePath("/admin/discounts");
 }

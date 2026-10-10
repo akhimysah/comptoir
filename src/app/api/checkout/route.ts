@@ -115,11 +115,13 @@ export async function POST(req: Request) {
   }
   if (!cart.lines.length) return NextResponse.json({ error: t.empty }, { status: 400 });
   if (b.code && cart.discountError) return NextResponse.json({ error: cart.discountError }, { status: 400 });
-  if (cart.discountCode) {
-    const d = await db.discount.findUnique({ where: { storeId_code: { storeId: store.id, code: cart.discountCode } } });
-    if (d?.customerEmail && d.customerEmail !== b.email.trim().toLowerCase()) return NextResponse.json({ error: t.otherCustomer }, { status: 400 });
+  // Code saisi par le client (le libellé affiché peut réunir plusieurs remises cumulées).
+  const typed = b.code.trim().toUpperCase();
+  const d = typed ? await db.discount.findUnique({ where: { storeId_code: { storeId: store.id, code: typed } } }) : null;
+  if (d && (cart.discountId === d.id || cart.shippingDiscountId === d.id)) {
+    if (d.customerEmail && d.customerEmail !== b.email.trim().toLowerCase()) return NextResponse.json({ error: t.otherCustomer }, { status: 400 });
     // « Une fois par client » : une commande non annulée avec ce code et cette adresse suffit à le refuser.
-    if (d?.oncePerCustomer && (await db.order.count({ where: { storeId: store.id, discountId: d.id, email: { in: [b.email.trim(), b.email.trim().toLowerCase()] }, cancelledAt: null } })) > 0)
+    if (d.oncePerCustomer && (await db.order.count({ where: { storeId: store.id, OR: [{ discountId: d.id }, { shippingDiscountId: d.id }], email: { in: [b.email.trim(), b.email.trim().toLowerCase()] }, cancelledAt: null } })) > 0)
       return NextResponse.json({ error: t.alreadyUsed }, { status: 400 });
   }
   if (cart.notices.length) return NextResponse.json({ error: cart.notices[0], refresh: true }, { status: 409 });

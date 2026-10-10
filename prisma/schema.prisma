@@ -434,27 +434,28 @@ model PriceListPrice {
 }
 
 model Discount {
-  id               String    @id @default(cuid())
-  storeId          String
-  store            Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  code             String // toujours en majuscules
-  type             String // percent | fixed | free_shipping | bxgy
-  value            Int // pourcentage, ou centimes pour fixed
-  minSubtotalCents Int       @default(0)
-  usageLimit       Int?
-  usageCount       Int       @default(0)
-  active           Boolean   @default(true)
-  automatic        Boolean   @default(false) // appliquée sans code dans le panier
-  customerEmail    String? // bon de fidélité : utilisable seulement par ce client
-  title            String    @default("") // nom affiché pour une remise automatique
-  endsAt           DateTime?
-  startsAt         DateTime? // remise programmée : active à partir de cette date
-  appliesTo        String    @default("all") // all | collections | products
-  targetIds        String    @default("[]") // JSON : collections ou produits concernés
-  buyQty           Int       @default(0) // « Achetez X, obtenez Y » : X
-  getQty           Int       @default(0) // Y (réduction de value % sur ces articles, 100 = offerts)
-  oncePerCustomer  Boolean   @default(false)
-  createdAt        DateTime  @default(now())
+  id                   String    @id @default(cuid())
+  storeId              String
+  store                Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  code                 String // toujours en majuscules
+  type                 String // percent | fixed | free_shipping | bxgy
+  value                Int // pourcentage, ou centimes pour fixed
+  minSubtotalCents     Int       @default(0)
+  usageLimit           Int?
+  usageCount           Int       @default(0)
+  active               Boolean   @default(true)
+  automatic            Boolean   @default(false) // appliquée sans code dans le panier
+  customerEmail        String? // bon de fidélité : utilisable seulement par ce client
+  title                String    @default("") // nom affiché pour une remise automatique
+  endsAt               DateTime?
+  startsAt             DateTime? // remise programmée : active à partir de cette date
+  appliesTo            String    @default("all") // all | collections | products
+  targetIds            String    @default("[]") // JSON : collections ou produits concernés
+  buyQty               Int       @default(0) // « Achetez X, obtenez Y » : X
+  getQty               Int       @default(0) // Y (réduction de value % sur ces articles, 100 = offerts)
+  oncePerCustomer      Boolean   @default(false)
+  combinesWithShipping Boolean   @default(false) // remise produits cumulable avec une livraison offerte (et inversement pour une livraison offerte)
+  createdAt            DateTime  @default(now())
 
   @@unique([storeId, code])
 }
@@ -479,6 +480,7 @@ model Order {
   giftCardCode          String?
   giftCardCents         Int             @default(0)
   discountId            String? // remise appliquée (code ou automatique), pour compter ses utilisations
+  shippingDiscountId    String? // livraison offerte cumulée avec la remise principale
   stripePaymentIntentId String? // paiement Stripe à rembourser (y compris pour les abonnements)
   stripeInvoiceId       String?         @unique // facture Stripe d'un renouvellement (évite les doublons)
   shippingCents         Int

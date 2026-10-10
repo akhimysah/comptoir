@@ -1,4 +1,4 @@
-import { deleteDiscount, toggleDiscount } from "./actions";
+import { deleteDiscount, toggleDiscount, toggleCombine } from "./actions";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { DiscountForm } from "@/components/admin/DiscountForm";
 import { Empty, PageHeader, Pill } from "@/components/ui";
@@ -40,6 +40,7 @@ export default async function DiscountsPage() {
                           {d.type === "free_shipping" ? "Livraison offerte" : d.type === "bxgy" ? `${d.buyQty} achetés, ${d.getQty} ${d.value >= 100 ? "offert" : `à −${d.value} %`}${d.getQty > 1 && d.value >= 100 ? "s" : ""}` : d.type === "percent" ? `${d.value} %` : formatMoney(d.value, store.currency)}
                           {scope(d) && <div className="text-xs text-muted">{scope(d)}</div>}
                           {d.oncePerCustomer && <div className="text-xs text-muted">une fois par client</div>}
+                          <form action={toggleCombine}><input type="hidden" name="id" value={d.id} /><button className="text-xs text-muted hover:underline">{d.combinesWithShipping ? (d.type === "free_shipping" ? "cumulable avec les remises produits" : "cumulable avec la livraison offerte") : "non cumulable"} · modifier</button></form>
                           {d.startsAt && d.startsAt > now && <div className="text-xs text-muted">à partir du {formatDate(d.startsAt)}</div>}
                           {d.minSubtotalCents > 0 && <div className="text-xs text-muted">dès {formatMoney(d.minSubtotalCents, store.currency)}</div>}
                           {d.endsAt && <div className="text-xs text-muted">jusqu'au {formatDate(d.endsAt)}</div>}

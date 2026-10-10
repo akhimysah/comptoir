@@ -7,7 +7,7 @@ import { includedTax } from "@/lib/tax";
 
 const discount = (d: Partial<Discount>): Discount => ({
   id: "d", storeId: "s", code: "TEST", type: "percent", value: 10, minSubtotalCents: 0, usageLimit: null, usageCount: 0, active: true, automatic: false,
-  customerEmail: null, title: "", endsAt: null, startsAt: null, appliesTo: "all", targetIds: "[]", buyQty: 0, getQty: 0, oncePerCustomer: false, createdAt: new Date(), ...d,
+  customerEmail: null, title: "", endsAt: null, startsAt: null, appliesTo: "all", targetIds: "[]", buyQty: 0, getQty: 0, oncePerCustomer: false, combinesWithShipping: false, createdAt: new Date(), ...d,
 });
 const line = (productId: string, priceCents: number, quantity = 1, isGiftCard = false) => ({ productId, priceCents, quantity, isGiftCard });
 

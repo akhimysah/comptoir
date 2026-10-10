@@ -95,6 +95,10 @@ export function DiscountForm({ currency, collections, products }: { currency: st
           <label className="flex items-center gap-2 pb-2 text-[13px]"><input type="checkbox" name="oncePerCustomer" className="h-4 w-4 accent-[#7c3aed]" />Une fois par client</label>
         </div>
       )}
+      <label className="flex items-start gap-2 text-[13px]">
+        <input type="checkbox" name="combinesWithShipping" className="mt-0.5 h-4 w-4 accent-[#7c3aed]" />
+        <span>{type === "free_shipping" ? "Cumulable avec une remise sur les produits" : "Cumulable avec une livraison offerte"}<span className="block text-xs text-muted">Les deux remises s'appliquent ensemble si chacune l'autorise (ex. : code -10 % et livraison offerte automatique).</span></span>
+      </label>
       {state?.error && <p role="alert" className="text-sm font-semibold text-red-700">{state.error}</p>}
       {state?.ok && <p role="status" className="text-[13px] font-[550] text-[#0c5132]">Remise créée.</p>}
       <button className="btn btn-primary" disabled={pending}>{pending ? "Création…" : "Créer la remise"}</button>
