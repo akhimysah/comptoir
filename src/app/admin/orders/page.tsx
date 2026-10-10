@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { OrdersTable } from "@/components/admin/OrdersTable";
 import { Empty, PageHeader } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, textSearch } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/orders";
 import { cx, formatDateTime } from "@/lib/utils";
@@ -32,7 +32,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   const counts = await Promise.all(TABS.map((t) => db.order.count({ where: filter(store.id, t.key) })));
   const n = Number(q.replace("#", ""));
   const orders = await db.order.findMany({
-    where: { AND: [filter(store.id, tab), q ? { OR: [{ name: { contains: q } }, { email: { contains: q } }, ...(Number.isInteger(n) && n > 0 ? [{ number: n }] : [])] } : {}] },
+    where: { AND: [filter(store.id, tab), q ? { OR: [{ name: textSearch(q) }, { email: textSearch(q) }, ...(Number.isInteger(n) && n > 0 ? [{ number: n }] : [])] } : {}] },
     include: { items: true },
     orderBy: { createdAt: "desc" },
     take: 200,

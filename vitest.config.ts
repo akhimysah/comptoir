@@ -13,7 +13,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     environment: "node",
     globalSetup: ["tests/global-setup.ts"],
-    env: { DATABASE_URL: "file:./test.db", NODE_ENV: "test" },
+    env: { DATABASE_URL: process.env.TEST_DATABASE_URL || "file:./test.db", NODE_ENV: "test" },
     // Les tests sur la base partagent un fichier SQLite : on les exécute l'un après l'autre.
     fileParallelism: false,
     testTimeout: 20_000,

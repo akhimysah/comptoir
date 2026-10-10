@@ -10,3 +10,4 @@ next-env.d.ts
 .DS_Store
 prisma/test.db
 prisma/test.db-journal
+prisma/postgres/

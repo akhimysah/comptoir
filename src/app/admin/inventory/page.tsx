@@ -2,7 +2,7 @@ import Link from "next/link";
 import { StockInput } from "@/components/admin/StockInput";
 import { Empty, PageHeader, Thumb } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, textSearch } from "@/lib/db";
 import { cx, parseJson } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 import { incomingByVariant } from "@/lib/purchasing";
@@ -13,7 +13,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const { store } = await requirePerm("products");
   const variants = await db.variant.findMany({
     where: {
-      product: { storeId: store.id, isGiftCard: false, bundleItems: { none: {} }, ...(q ? { title: { contains: q } } : {}) },
+      product: { storeId: store.id, isGiftCard: false, bundleItems: { none: {} }, ...(q ? { title: textSearch(q) } : {}) },
       ...(filter === "low" ? { stock: { gt: 0, lte: store.lowStockThreshold } } : filter === "out" ? { stock: { lte: 0 } } : {}),
     },
     include: { product: true },

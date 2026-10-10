@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageHeader, Pill, Thumb } from "@/components/ui";
 import { requireStore } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { db, textSearch } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { parseJson } from "@/lib/utils";
 
@@ -12,9 +12,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const n = Number(term.replace("#", ""));
   const [products, orders, customers] = term
     ? await Promise.all([
-        perms.includes("products") ? db.product.findMany({ where: { storeId: store.id, title: { contains: term } }, take: 8 }) : [],
-        !perms.includes("orders") ? [] : db.order.findMany({ where: { storeId: store.id, OR: [{ name: { contains: term } }, { email: { contains: term } }, ...(Number.isInteger(n) && n > 0 ? [{ number: n }] : [])] }, orderBy: { createdAt: "desc" }, take: 8 }),
-        perms.includes("customers") ? db.customer.findMany({ where: { storeId: store.id, OR: [{ name: { contains: term } }, { email: { contains: term } }] }, take: 8 }) : [],
+        perms.includes("products") ? db.product.findMany({ where: { storeId: store.id, title: textSearch(term) }, take: 8 }) : [],
+        !perms.includes("orders") ? [] : db.order.findMany({ where: { storeId: store.id, OR: [{ name: textSearch(term) }, { email: textSearch(term) }, ...(Number.isInteger(n) && n > 0 ? [{ number: n }] : [])] }, orderBy: { createdAt: "desc" }, take: 8 }),
+        perms.includes("customers") ? db.customer.findMany({ where: { storeId: store.id, OR: [{ name: textSearch(term) }, { email: textSearch(term) }] }, take: 8 }) : [],
       ])
     : [[], [], []];
   const none = term && !products.length && !orders.length && !customers.length;

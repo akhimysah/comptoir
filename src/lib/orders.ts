@@ -57,7 +57,8 @@ async function reserve(storeId: string, cart: PricedCart) {
 /** Rend le solde de carte cadeau et/ou l'utilisation de remise réservés par une commande qui n'aboutit pas. */
 export async function release(storeId: string, giftCardCode: string | null, giftCardCents: number, discountId: string | null) {
   if (giftCardCode && giftCardCents > 0) await db.giftCard.updateMany({ where: { storeId, code: giftCardCode }, data: { balanceCents: { increment: giftCardCents } } });
-  if (discountId) await db.$executeRaw`UPDATE "Discount" SET "usageCount" = MAX("usageCount" - 1, 0) WHERE "id" = ${discountId}`.catch(() => db.discount.updateMany({ where: { id: discountId, usageCount: { gt: 0 } }, data: { usageCount: { decrement: 1 } } }));
+  // Requête portable (SQLite et PostgreSQL) : jamais en dessous de zéro.
+  if (discountId) await db.discount.updateMany({ where: { id: discountId, usageCount: { gt: 0 } }, data: { usageCount: { decrement: 1 } } });
 }
 
 /** Annule une commande jamais payée (abandon du paiement Stripe, annulation par le marchand) et libère ses réservations. */

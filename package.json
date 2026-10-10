@@ -4,15 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "node scripts/prisma.mjs generate && next build",
     "start": "next start",
     "check": "tsc --noEmit && vitest run",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:push": "prisma db push",
+    "db:push": "node scripts/prisma.mjs db push",
     "db:seed": "tsx prisma/seed.ts",
-    "setup": "prisma db push && tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "setup": "node scripts/prisma.mjs db push && tsx prisma/seed.ts",
+    "postinstall": "node scripts/prisma.mjs generate"
   },
   "dependencies": {
     "@prisma/client": "6.2.1",
