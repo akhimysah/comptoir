@@ -78,7 +78,8 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         <aside className="flex flex-col gap-4">
           <section className="card flex flex-col gap-3 p-4">
             <h2 className="text-sm font-[650]">Client</h2>
-            <div><h3 className="text-[13px] font-[650]">Coordonnées</h3><div className="break-all text-pine">{c.email}</div></div>
+            <div><h3 className="text-[13px] font-[650]">Coordonnées</h3><div className="break-all text-pine">{c.email}</div>{c.phone && <div className="text-muted">{c.phone}</div>}</div>
+            {(() => { const ad = parseJson<{ line1?: string; zip?: string; city?: string; country?: string }>(c.address, {}); return ad.line1 || ad.city ? <div><h3 className="text-[13px] font-[650]">Adresse</h3><address className="not-italic text-muted">{ad.line1}<br />{ad.zip} {ad.city}<br />{ad.country}</address></div> : null; })()}
             {addr && <div><h3 className="text-[13px] font-[650]">Adresse par défaut</h3><address className="not-italic text-muted">{addr.line1}<br />{addr.zip} {addr.city}<br />{addr.country}</address></div>}
           </section>
           {store.loyaltyEnabled && (

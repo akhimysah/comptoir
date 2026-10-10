@@ -24,7 +24,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
       <PageHeader
         title="Clients"
         subtitle={`${rows.length} client${rows.length > 1 ? "s" : ""}${segment || tag ? ` · ${pct} % de votre clientèle · ${formatMoney(spent, store.currency)} dépensés` : ""}`}
-        actions={<><Link href="/admin/customers/segments" className="btn">Segments</Link><Link href={segment ? `/admin/customers/segments/${segment.id}` : "/admin/customers/segments/new"} className="btn btn-primary">{segment ? "Modifier le segment" : "Créer un segment"}</Link></>}
+        actions={<><Link href="/admin/customers/import" className="btn">Importer</Link><a href="/admin/customers/export" className="btn">Exporter</a><Link href="/admin/customers/segments" className="btn">Segments</Link><Link href={segment ? `/admin/customers/segments/${segment.id}` : "/admin/customers/segments/new"} className="btn btn-primary">{segment ? "Modifier le segment" : "Créer un segment"}</Link></>}
       />
       <nav className="mb-3 flex gap-1 overflow-x-auto" aria-label="Segments">
         <Link href="/admin/customers" className={chip(!segment && !tag)} aria-current={!segment && !tag ? "page" : undefined}>Tous les clients</Link>

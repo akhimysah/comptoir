@@ -360,6 +360,8 @@ model Customer {
   name             String
   note             String    @default("") // note interne, visible seulement dans l'admin
   tags             String    @default("") // étiquettes séparées par des virgules (ex. « vip, grossiste »)
+  phone            String    @default("")
+  address          String    @default("") // JSON { line1, zip, city, country } : adresse par défaut (import, commandes manuelles)
   acceptsMarketing Boolean   @default(false) // abonné à la newsletter
   points           Int       @default(0) // solde de points de fidélité
   marketingToken   String?   @unique // jeton du lien de désabonnement
