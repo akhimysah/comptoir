@@ -2,6 +2,7 @@ import { displayCurrency, storeCurrencies } from "@/lib/currency";
 import type { Metadata } from "next";
 import { CartLink } from "@/components/store/Header";
 import { NewsletterForm } from "@/components/store/NewsletterForm";
+import { ChatWidget } from "@/components/store/ChatWidget";
 import { CurrencySelect } from "@/components/store/CurrencySelect";
 import { storeFontVars } from "@/components/store/fonts";
 import { getStore } from "@/lib/storefront";
@@ -60,6 +61,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
         </nav>
       </header>
       <main className="flex-1">{children}</main>
+      {store.chatEnabled && <ChatWidget slug={slug} storeName={store.name} greeting={store.chatGreeting} />}
       <footer className="border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)]">
         <div className="mx-auto max-w-6xl px-4 pt-10 text-[var(--c-muted)]"><NewsletterForm slug={slug} /></div>
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-8 text-sm text-[var(--c-muted)]">

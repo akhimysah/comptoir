@@ -233,3 +233,23 @@ export function backInStockEmail(store: Store, product: { title: string; image: 
 <p style="font-size:12px;color:#8a8a8a">Vous recevez cet e-mail car vous avez demandé à être prévenu. Nous ne vous écrirons pas à nouveau pour cet article.</p>`),
   };
 }
+
+export function chatAlertEmail(store: Store, name: string, email: string, body: string, conversationId: string) {
+  return {
+    subject: `[${store.name}] Nouveau message de ${name}`,
+    html: layout(store.name, `Message de ${name}`,
+      `<p style="font-size:13px;color:#616161">${esc(email)}</p>
+<div style="font-size:14px;line-height:1.5;background:#f7f7f7;border-radius:8px;padding:12px 14px;white-space:pre-line">${esc(body)}</div>
+<p style="margin-top:16px">${button(`${appUrl()}/admin/inbox?c=${conversationId}`, "Répondre")}</p>`),
+  };
+}
+
+export function chatReplyEmail(store: Store, name: string, authorName: string, body: string, link: string) {
+  return {
+    subject: `Réponse de ${store.name} à votre message`,
+    html: layout(store.name, `Bonjour ${name},`,
+      `<div style="font-size:14px;line-height:1.5;background:#f7f7f7;border-radius:8px;padding:12px 14px;white-space:pre-line">${esc(body)}</div>
+<p style="font-size:13px;color:#616161">${esc(authorName)}, ${esc(store.name)}</p>
+<p>${button(link, "Continuer la conversation")}</p>`),
+  };
+}

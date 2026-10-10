@@ -21,6 +21,7 @@ const ICONS: Record<string, string> = {
   pos: "M4 4.5h12v8H4zM7 16.5h6M10 12.5v4M6.5 7.5h3M6.5 10h7",
   bell: "M10 3.5a4.5 4.5 0 0 0-4.5 4.5v3L4 13.5h12L14.5 11V8A4.5 4.5 0 0 0 10 3.5zM8.5 16a1.5 1.5 0 0 0 3 0",
   plus: "M10 4.5v11M4.5 10h11",
+  chat: "M3.5 5h13v8.5H8L4.5 16.5V13.5h-1z",
   back: "M12 4.5 6.5 10l5.5 5.5",
 };
 
@@ -71,14 +72,15 @@ function NavLink({ item, path }: { item: Item; path: string }) {
   );
 }
 
-export function AdminNav({ toShip, returnsToHandle = 0, storeSlug, isOwner, storeCount, perms }: { toShip: number; returnsToHandle?: number; storeSlug: string; isOwner: boolean; storeCount: number; perms: string[] }) {
+export function AdminNav({ toShip, returnsToHandle = 0, unreadMessages = 0, storeSlug, isOwner, storeCount, perms }: { toShip: number; returnsToHandle?: number; unreadMessages?: number; storeSlug: string; isOwner: boolean; storeCount: number; perms: string[] }) {
   const path = usePathname();
-  const need: Record<string, string> = { "/admin/orders": "orders", "/admin/products": "products", "/admin/customers": "customers", "/admin/analytics": "analytics", "/admin/discounts": "discounts", "/admin/marketing": "marketing" };
+  const need: Record<string, string> = { "/admin/orders": "orders", "/admin/products": "products", "/admin/customers": "customers", "/admin/inbox": "customers", "/admin/analytics": "analytics", "/admin/discounts": "discounts", "/admin/marketing": "marketing" };
   const all: Item[] = [
     { href: "/admin", label: "Accueil", icon: "home" },
     { href: "/admin/orders", label: "Commandes", icon: "orders", badge: toShip, match: ["/admin/orders", "/admin/checkouts", "/admin/subscriptions"], children: [{ href: "/admin/orders/returns", label: returnsToHandle ? `Retours (${returnsToHandle})` : "Retours" }, { href: "/admin/subscriptions", label: "Abonnements" }, { href: "/admin/checkouts", label: "Paniers abandonnés" }] },
     { href: "/admin/products", label: "Produits", icon: "products", match: ["/admin/products", "/admin/collections", "/admin/inventory", "/admin/reviews", "/admin/gift-cards"], children: [{ href: "/admin/collections", label: "Collections" }, { href: "/admin/inventory", label: "Stock" }, { href: "/admin/products/purchase-orders", label: "Bons de commande" }, { href: "/admin/gift-cards", label: "Cartes cadeaux" }, { href: "/admin/reviews", label: "Avis" }] },
     { href: "/admin/customers", label: "Clients", icon: "customers", children: [{ href: "/admin/customers/segments", label: "Segments" }] },
+    { href: "/admin/inbox", label: "Messagerie", icon: "chat", badge: unreadMessages },
     { href: "/admin/analytics", label: "Statistiques", icon: "chart" },
     { href: "/admin/marketing", label: "Marketing", icon: "marketing" },
     { href: "/admin/discounts", label: "Remises", icon: "discounts" },

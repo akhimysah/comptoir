@@ -50,6 +50,8 @@ model Store {
   autoReviewRequest     Boolean         @default(false) // demande d'avis après expédition
   reviewRequestDays     Int             @default(7)
   menus                 String          @default("") // JSON { main, footer } : menus de navigation (vide = menus par défaut)
+  chatEnabled           Boolean         @default(true) // bulle de discussion sur la boutique
+  chatGreeting          String          @default("Bonjour ! Une question sur un produit ou une commande ? Écrivez-nous, nous répondons vite.")
   returnsEnabled        Boolean         @default(true) // retours en libre-service depuis « Mon compte »
   returnWindowDays      Int             @default(30)
   returnInstructions    String          @default("") // adresse de retour, emballage… envoyé à l'acceptation
@@ -83,6 +85,7 @@ model Store {
   suppliers             Supplier[]
   purchaseOrders        PurchaseOrder[]
   stockAlerts           StockAlert[]
+  conversations         Conversation[]
 }
 
 /// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
@@ -657,4 +660,34 @@ model StockAlert {
 
   @@unique([variantId, email])
   @@index([storeId, notifiedAt])
+}
+
+/// Messagerie (comme Shopify Inbox) : une conversation par visiteur, retrouvée grâce à un jeton gardé dans son navigateur.
+model Conversation {
+  id            String        @id @default(cuid())
+  storeId       String
+  store         Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  token         String        @unique // gardé par le navigateur du visiteur et dans le lien des e-mails de réponse
+  email         String
+  name          String
+  status        String        @default("open") // open | closed
+  unread        Int           @default(0) // messages du client pas encore lus par la boutique
+  lastMessageAt DateTime      @default(now())
+  notifiedAt    DateTime? // dernière alerte e-mail envoyée à la boutique
+  createdAt     DateTime      @default(now())
+  messages      ChatMessage[]
+
+  @@index([storeId, lastMessageAt])
+}
+
+model ChatMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fromCustomer   Boolean
+  authorName     String
+  body           String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }
