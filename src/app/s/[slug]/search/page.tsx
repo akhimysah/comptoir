@@ -1,5 +1,5 @@
 import { displayCurrency } from "@/lib/currency";
-import { ProductGrid } from "@/components/store/ProductCard";
+import { FilteredProducts } from "@/components/store/Listing";
 import { getCatalog, getStore } from "@/lib/storefront";
 import { db } from "@/lib/db";
 
@@ -8,10 +8,11 @@ export const metadata = { title: "Recherche" };
 /** Sans accents ni majuscules : « ceramique » trouve « Céramique ». */
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export default async function SearchPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ q?: string }> }) {
-  const [{ slug }, { q = "" }] = await Promise.all([params, searchParams]);
+export default async function SearchPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const [{ slug }, sp] = await Promise.all([params, searchParams]);
+  const q = typeof sp.q === "string" ? sp.q : "";
   const { store } = await getStore(slug);
-  const { products } = await getCatalog(store.id);
+  const { products, collections } = await getCatalog(store.id);
   const cur = await displayCurrency(store);
   const view = { ...store, currency: cur.code, rate: cur.rate };
   const terms = norm(q).split(/\s+/).filter(Boolean);
@@ -31,7 +32,7 @@ export default async function SearchPage({ params, searchParams }: { params: Pro
         <button className="rounded-[var(--t-radius)] bg-[var(--c-accent)] px-5 font-semibold text-[var(--c-accent-text)]">Rechercher</button>
       </form>
       {terms.length > 0 && <h1 className="mb-6 font-[family-name:var(--t-display)] text-2xl font-semibold">{results.length} résultat{results.length > 1 ? "s" : ""} pour « {q} »</h1>}
-      {results.length ? <ProductGrid products={results} store={view} /> : terms.length ? <p className="text-[var(--c-muted)]">Aucun produit ne correspond. Essayez un autre mot, ou <a href={`/s/${slug}/products`} className="underline underline-offset-4">voyez tous les produits</a>.</p> : null}
+      {results.length ? <FilteredProducts products={results} collections={collections} searchParams={sp} store={view} empty={null} /> : terms.length ? <p className="text-[var(--c-muted)]">Aucun produit ne correspond. Essayez un autre mot, ou <a href={`/s/${slug}/products`} className="underline underline-offset-4">voyez tous les produits</a>.</p> : null}
     </div>
   );
 }

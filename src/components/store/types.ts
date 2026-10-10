@@ -10,6 +10,8 @@ export type CardProduct = {
   soldOut: boolean;
   collectionHandles: string[];
   rating: { avg: number; count: number } | null;
+  /** Valeurs d'options proposées par les variantes (ex. Taille : S, M), pour les filtres. */
+  options: { name: string; values: string[] }[];
 };
 
 export type CardCollection = { handle: string; title: string; image: string | null; count: number };

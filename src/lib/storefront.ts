@@ -41,6 +41,11 @@ export const getCatalog = cache(async (storeId: string) => {
         soldOut: !p.isGiftCard && !p.continueSelling && (bundles.has(p.id) ? bundleStock(bundles.get(p.id)!) <= 0 : p.variants.every((v) => v.stock <= 0)),
         collectionHandles: p.collections.map((c) => c.collection.handle),
         rating: ratingBy.get(p.id) ?? null,
+        // Les montants d'une carte cadeau ne sont pas un critère de filtre.
+        options: (p.isGiftCard ? [] : parseJson<{ name: string; values: string[] }[]>(p.options, [])).map((o, idx) => ({
+          name: o.name.trim(),
+          values: [...new Set(p.variants.map((v) => parseJson<string[]>(v.optionValues, [])[idx]).filter((x): x is string => !!x).map((x) => x.trim()))],
+        })).filter((o) => o.name && o.values.length),
       };
     });
   const cols: CardCollection[] = collections.map((c) => ({ handle: c.handle, title: c.title, image: c.image, count: c.products.length }));

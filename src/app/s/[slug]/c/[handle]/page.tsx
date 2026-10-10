@@ -1,6 +1,5 @@
 import { displayCurrency } from "@/lib/currency";
-import { ListingHeader, sortProducts } from "@/components/store/Listing";
-import { ProductGrid } from "@/components/store/ProductCard";
+import { FilteredProducts, ListingHeader } from "@/components/store/Listing";
 import { db } from "@/lib/db";
 import { getCatalog, getStore } from "@/lib/storefront";
 import { notFoundOrRedirect } from "@/lib/navigation";
@@ -13,8 +12,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return { title: c.seoTitle || c.title, description: c.seoDescription || c.description.slice(0, 160) || undefined };
 }
 
-export default async function CollectionPage({ params, searchParams }: { params: Promise<{ slug: string; handle: string }>; searchParams: Promise<{ sort?: string }> }) {
-  const [{ slug, handle }, { sort }] = await Promise.all([params, searchParams]);
+export default async function CollectionPage({ params, searchParams }: { params: Promise<{ slug: string; handle: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const [{ slug, handle }, sp] = await Promise.all([params, searchParams]);
+  const sort = typeof sp.sort === "string" ? sp.sort : undefined;
   const { store } = await getStore(slug);
   const collection = await db.collection.findUnique({ where: { storeId_handle: { storeId: store.id, handle } } });
   if (!collection) return notFoundOrRedirect(store, `/c/${handle}`);
@@ -29,8 +29,8 @@ export default async function CollectionPage({ params, searchParams }: { params:
         <img src={collection.image} alt="" className="h-56 w-full object-cover md:h-72" />
       )}
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <ListingHeader title={collection.title} description={collection.description} count={list.length} sort={sort} />
-        {list.length ? <ProductGrid products={sortProducts(list, sort)} store={view} /> : <p className="text-[var(--c-muted)]">Cette collection est vide pour le moment.</p>}
+        <ListingHeader title={collection.title} description={collection.description} count={list.length} sort={sort} keep={sp} />
+        <FilteredProducts products={list} searchParams={sp} store={view} empty={<p className="text-[var(--c-muted)]">Cette collection est vide pour le moment.</p>} />
       </div>
     </>
   );
