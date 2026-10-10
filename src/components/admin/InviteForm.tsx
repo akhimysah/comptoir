@@ -2,12 +2,13 @@
 
 import { useActionState, useState } from "react";
 import { inviteMember } from "@/app/admin/settings/users/actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 export function InviteForm() {
   const [state, action, pending] = useActionState(inviteMember, undefined);
   const [copied, setCopied] = useState(false);
   return (
-    <form action={action} className="card flex flex-col gap-3 p-4">
+    <form onSubmit={keepOnSubmit(action)} className="card flex flex-col gap-3 p-4">
       <h2 className="text-sm font-[650]">Ajouter un collaborateur</h2>
       <div className="flex gap-2">
         <input id="invite-email" name="email" type="email" required placeholder="E-mail du collaborateur" className="input" aria-label="E-mail du collaborateur" />

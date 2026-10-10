@@ -9,20 +9,21 @@ datasource db {
 }
 
 model User {
-  id            String        @id @default(cuid())
-  email         String        @unique
-  name          String
-  passwordHash  String
-  dailyReport   Boolean       @default(true) // rapport quotidien par e-mail (toutes ses boutiques)
-  totpSecret    String? // double authentification : clé de l'application (base32), active si totpEnabled
-  totpPending   String? // clé en cours d'activation (pas encore confirmée par un code)
-  totpEnabled   Boolean       @default(false)
-  totpLastStep  Int? // dernier pas de 30 s utilisé : un même code ne sert qu'une fois
-  recoveryCodes String        @default("[]") // JSON : empreintes des codes de secours restants
-  createdAt     DateTime      @default(now())
-  sessions      Session[]
-  stores        Store[]
-  memberships   StoreMember[]
+  id              String        @id @default(cuid())
+  email           String        @unique
+  name            String
+  passwordHash    String
+  dailyReport     Boolean       @default(true) // rapport quotidien par e-mail (toutes ses boutiques)
+  termsAcceptedAt DateTime? // acceptation des conditions d'utilisation à l'inscription
+  totpSecret      String? // double authentification : clé de l'application (base32), active si totpEnabled
+  totpPending     String? // clé en cours d'activation (pas encore confirmée par un code)
+  totpEnabled     Boolean       @default(false)
+  totpLastStep    Int? // dernier pas de 30 s utilisé : un même code ne sert qu'une fois
+  recoveryCodes   String        @default("[]") // JSON : empreintes des codes de secours restants
+  createdAt       DateTime      @default(now())
+  sessions        Session[]
+  stores          Store[]
+  memberships     StoreMember[]
 }
 
 model Session {

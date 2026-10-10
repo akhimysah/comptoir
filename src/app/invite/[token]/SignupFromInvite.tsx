@@ -2,11 +2,12 @@
 
 import { useActionState } from "react";
 import { signupFromInvite } from "./actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 export function SignupFromInvite({ token, email }: { token: string; email: string }) {
   const [state, action, pending] = useActionState(signupFromInvite, undefined);
   return (
-    <form action={action} className="flex flex-col gap-3">
+    <form onSubmit={keepOnSubmit(action)} className="flex flex-col gap-3">
       <input type="hidden" name="token" value={token} />
       <label className="label">E-mail<input className="input bg-[#f7f7f7]" value={email} readOnly /></label>
       <label className="label">Votre nom<input id="inv-name" name="name" required autoComplete="name" className="input" /></label>

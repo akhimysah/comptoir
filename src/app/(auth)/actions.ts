@@ -34,6 +34,7 @@ const signupSchema = z.object({
 export async function signup(_: AuthState, form: FormData): Promise<AuthState> {
   const parsed = signupSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (form.get("terms") !== "on") return { error: "Acceptez les conditions d'utilisation pour créer votre compte." };
   const { name, email, password, storeName } = parsed.data;
 
   if (await db.user.findUnique({ where: { email } })) return { error: "Un compte existe déjà avec cette adresse. Connectez-vous." };
@@ -43,6 +44,7 @@ export async function signup(_: AuthState, form: FormData): Promise<AuthState> {
       name,
       email,
       passwordHash: await bcrypt.hash(password, 12),
+      termsAcceptedAt: new Date(),
       stores: { create: { name: storeName, slug: await uniqueSlug(storeName), theme: JSON.stringify(defaultTheme(storeName)) } },
     },
   });

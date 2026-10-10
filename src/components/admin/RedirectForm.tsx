@@ -2,13 +2,14 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { addRedirect } from "@/app/admin/navigation/actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 export function RedirectForm({ slug }: { slug: string }) {
   const [state, action, pending] = useActionState(addRedirect, undefined);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => { if (state?.ok) ref.current?.reset(); }, [state]);
   return (
-    <form ref={ref} action={action} className="flex flex-col gap-2 border-b border-line px-4 py-3">
+    <form ref={ref} onSubmit={keepOnSubmit(action)} className="flex flex-col gap-2 border-b border-line px-4 py-3">
       <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto] sm:items-end">
         <label className="label">Ancienne adresse<span className="hint">/s/{slug}…</span><input name="from" required maxLength={300} placeholder="/ancienne-page" className="input" /></label>
         <span className="hidden pb-2 text-muted sm:block" aria-hidden>→</span>

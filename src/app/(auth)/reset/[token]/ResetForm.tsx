@@ -2,11 +2,12 @@
 
 import { useActionState } from "react";
 import { resetPassword } from "../../password-actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 export function ResetForm({ token }: { token: string }) {
   const [state, action, pending] = useActionState(resetPassword, undefined);
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form onSubmit={keepOnSubmit(action)} className="flex flex-col gap-4">
       <input type="hidden" name="token" value={token} />
       <h1 className="text-xl font-bold">Nouveau mot de passe</h1>
       <label className="label">Nouveau mot de passe<span className="hint">8 caractères minimum.</span><input id="reset-password" name="password" type="password" required minLength={8} autoComplete="new-password" className="input" /></label>

@@ -2,11 +2,12 @@
 
 import { useActionState } from "react";
 import { createAnotherStore } from "./actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 export function NewStoreForm() {
   const [state, action, pending] = useActionState(createAnotherStore, undefined);
   return (
-    <form action={action} className="card flex max-w-lg flex-col gap-3 p-4">
+    <form onSubmit={keepOnSubmit(action)} className="card flex max-w-lg flex-col gap-3 p-4">
       <label className="label">Nom de la boutique<input id="store-name" name="name" required maxLength={60} className="input" placeholder="Ex. Atelier Argile Belgique" /></label>
       <label className="label">Devise
         <select id="store-currency" name="currency" defaultValue="EUR" className="input">

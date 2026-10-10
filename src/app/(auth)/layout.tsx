@@ -8,6 +8,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <Logo size={40} nameClassName="text-xl" />
       </Link>
       <div className="card w-full max-w-md p-6 sm:p-8">{children}</div>
+      <nav className="mt-6 flex gap-4 text-xs text-muted">
+        <Link href="/legal/cgu" className="hover:underline">Conditions</Link>
+        <Link href="/legal/confidentialite" className="hover:underline">Confidentialité</Link>
+        <Link href="/legal/mentions-legales" className="hover:underline">Mentions légales</Link>
+      </nav>
     </div>
   );
 }

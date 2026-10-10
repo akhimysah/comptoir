@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { login } from "../actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 export default function LoginForm({ next, email, notice }: { next?: string; email?: string; notice?: string }) {
   const [state, action, pending] = useActionState(login, undefined);
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form onSubmit={keepOnSubmit(action)} className="flex flex-col gap-4">
       {next && <input type="hidden" name="next" value={next} />}
       <div>
         <h1 className="text-2xl font-bold">Se connecter</h1>

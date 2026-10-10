@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { createGiftCard } from "@/app/admin/gift-cards/actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 export function GiftCardForm({ currency }: { currency: string }) {
   const [state, action, pending] = useActionState(createGiftCard, undefined);
@@ -10,7 +11,7 @@ export function GiftCardForm({ currency }: { currency: string }) {
   useEffect(() => { if (state?.code) { ref.current?.reset(); setCopied(false); } }, [state]);
   const pretty = state?.code?.match(/.{1,4}/g)?.join(" ");
   return (
-    <form ref={ref} action={action} className="card flex flex-col gap-3 p-4">
+    <form ref={ref} onSubmit={keepOnSubmit(action)} className="card flex flex-col gap-3 p-4">
       <h2 className="text-sm font-[650]">Créer une carte cadeau</h2>
       <label className="label">Montant ({currency})<input id="gc-amount" name="amount" required inputMode="decimal" placeholder="50,00" className="input num" /></label>
       <label className="label">Envoyer à (optionnel)<span className="hint">Le code part par e-mail à cette adresse.</span><input id="gc-email" name="email" type="email" className="input" placeholder="client@exemple.fr" /></label>

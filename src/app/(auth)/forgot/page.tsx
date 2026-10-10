@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { requestReset } from "../password-actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 export default function ForgotPage() {
   const [state, action, pending] = useActionState(requestReset, undefined);
@@ -16,7 +17,7 @@ export default function ForgotPage() {
     );
   }
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form onSubmit={keepOnSubmit(action)} className="flex flex-col gap-4">
       <div>
         <h1 className="text-xl font-bold">Mot de passe oublié</h1>
         <p className="mt-1 text-muted">Indiquez l'e-mail de votre compte, nous vous enverrons un lien.</p>

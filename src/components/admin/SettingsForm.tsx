@@ -2,13 +2,14 @@
 
 import { useActionState } from "react";
 import { saveSettings } from "@/app/admin/settings/actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 type Props = { name: string; tagline: string; currency: string; shipping: string; freeFrom: string; lowStockThreshold: number };
 
 export function SettingsForm(p: Props) {
   const [state, action, pending] = useActionState(saveSettings, undefined);
   return (
-    <form action={action} className="card flex flex-col gap-4 p-5">
+    <form onSubmit={keepOnSubmit(action)} className="card flex flex-col gap-4 p-5">
       <h2 className="text-sm font-[650]">Boutique</h2>
       <label className="label">Nom<input id="s-name" name="name" required maxLength={60} defaultValue={p.name} className="input" /></label>
       <label className="label">Description courte<span className="hint">Utilisée par les moteurs de recherche et dans le pied de page.</span><textarea id="s-tagline" name="tagline" maxLength={200} defaultValue={p.tagline} className="input min-h-[70px]" /></label>

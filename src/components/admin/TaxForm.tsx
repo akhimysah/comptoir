@@ -3,11 +3,12 @@
 import { useActionState } from "react";
 import { saveTaxes } from "@/app/admin/settings/actions";
 import { TAX_RATES } from "@/lib/tax";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 export function TaxForm(p: { taxRateBps: number; legalName: string; legalAddress: string; siret: string; vatNumber: string }) {
   const [state, action, pending] = useActionState(saveTaxes, undefined);
   return (
-    <form action={action} className="card flex flex-col gap-3 p-4">
+    <form onSubmit={keepOnSubmit(action)} className="card flex flex-col gap-3 p-4">
       <h2 className="text-sm font-[650]">Taxes et mentions légales</h2>
       <label className="label">TVA (incluse dans vos prix)
         <select name="taxRateBps" defaultValue={p.taxRateBps} className="input">

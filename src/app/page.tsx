@@ -67,7 +67,12 @@ export default async function Home() {
       </section>
       <footer className="mx-auto flex max-w-6xl items-center justify-between px-4 py-8 text-sm text-white/50">
         <Logo size={24} nameClassName="text-white/80" />
-        <span>© {new Date().getFullYear()} Parnassa Pay</span>
+        <span className="flex flex-wrap gap-4">
+          <Link href="/legal/cgu" className="hover:text-white">Conditions</Link>
+          <Link href="/legal/confidentialite" className="hover:text-white">Confidentialité</Link>
+          <Link href="/legal/mentions-legales" className="hover:text-white">Mentions légales</Link>
+          <span>© {new Date().getFullYear()} Parnassa Pay</span>
+        </span>
       </footer>
     </div>
   );

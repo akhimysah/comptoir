@@ -2,11 +2,12 @@
 
 import { useActionState } from "react";
 import { saveReturns } from "@/app/admin/settings/actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 export function ReturnsForm(p: { enabled: boolean; days: number; instructions: string }) {
   const [state, action, pending] = useActionState(saveReturns, undefined);
   return (
-    <form action={action} id="retours" className="card flex flex-col gap-3 p-4">
+    <form onSubmit={keepOnSubmit(action)} id="retours" className="card flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-[650]">Retours</h2>
         <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="enabled" defaultChecked={p.enabled} className="h-4 w-4 accent-[#7c3aed]" />Retours en ligne</label>

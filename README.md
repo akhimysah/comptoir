@@ -133,7 +133,7 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 - Hébergement (Vercel ou autre) et base de données PostgreSQL (SQLite ne convient qu'au développement), sauvegardes.
 - Clés Stripe (compte plateforme Connect) : le paiement par carte, les remboursements Stripe et les abonnements prélevés n'ont jamais été testés avec de vraies clés.
 - Clé Resend et domaine d'envoi vérifié : aujourd'hui les e-mails sont seulement enregistrés.
-- Textes légaux de la plateforme (CGU marchands, politique de confidentialité, mentions légales) à faire valider.
+- Textes légaux de la plateforme : brouillons en place (/legal/cgu, /legal/confidentialite, /legal/mentions-legales), à compléter (variables PLATFORM_* du .env) et à faire valider par un professionnel du droit (puis LEGAL_VALIDATED=1).
 
 **Fonctionnalités Shopify absentes**
 - Noms de domaine personnalisés par boutique (aujourd'hui `/s/<boutique>`).

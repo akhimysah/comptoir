@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { createDiscount } from "@/app/admin/discounts/actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 type Option = { id: string; title: string };
 type Type = "percent" | "fixed" | "free_shipping" | "bxgy";
@@ -21,7 +22,7 @@ export function DiscountForm({ currency, collections, products }: { currency: st
   const toggle = (id: string) => setTargets((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
 
   return (
-    <form ref={ref} action={action} className="card flex flex-col gap-4 p-5">
+    <form ref={ref} onSubmit={keepOnSubmit(action)} className="card flex flex-col gap-4 p-5">
       <h2 className="text-sm font-[650]">Nouvelle remise</h2>
 
       <fieldset className="flex flex-col gap-1.5">

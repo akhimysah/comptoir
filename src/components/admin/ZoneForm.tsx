@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { saveZone } from "@/app/admin/settings/shipping/actions";
 import { COUNTRIES } from "@/lib/countries";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 export function ZoneForm({ zone, onDone }: { zone?: { id: string; name: string; countries: string[] }; onDone?: () => void }) {
   const [state, action, pending] = useActionState(saveZone, undefined);
@@ -10,7 +11,7 @@ export function ZoneForm({ zone, onDone }: { zone?: { id: string; name: string; 
   useEffect(() => { if (state?.ok) { setOpen(Boolean(zone)); onDone?.(); } }, [state, zone, onDone]);
   if (!open) return <button type="button" className="btn self-start" onClick={() => setOpen(true)}>Créer une zone</button>;
   return (
-    <form action={action} className="flex flex-col gap-3 rounded-lg border border-line p-3">
+    <form onSubmit={keepOnSubmit(action)} className="flex flex-col gap-3 rounded-lg border border-line p-3">
       {zone && <input type="hidden" name="id" value={zone.id} />}
       <label className="label">Nom de la zone<input name="name" required maxLength={60} defaultValue={zone?.name} placeholder="Ex. Europe" className="input" /></label>
       <fieldset>

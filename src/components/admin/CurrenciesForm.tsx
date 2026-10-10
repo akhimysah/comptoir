@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { saveCurrencies } from "@/app/admin/settings/actions";
+import { keepOnSubmit } from "@/lib/keep-form";
 
 const CHOICES = ["USD", "GBP", "CHF", "CAD", "JPY", "MAD", "XOF", "DZD", "TND", "AED", "SAR", "EUR"];
 
@@ -9,7 +10,7 @@ export function CurrenciesForm({ base, current }: { base: string; current: { cod
   const [state, action, pending] = useActionState(saveCurrencies, undefined);
   const [on, setOn] = useState<string[]>(current.map((c) => c.code));
   return (
-    <form action={action} className="card flex flex-col gap-3 p-4">
+    <form onSubmit={keepOnSubmit(action)} className="card flex flex-col gap-3 p-4">
       <h2 className="text-sm font-[650]">Devises affichées</h2>
       <p className="text-xs text-muted">Vos clients choisissent une devise dans le menu de la boutique et voient les prix convertis. Le paiement reste en {base}.</p>
       <div className="flex flex-col gap-1.5">
