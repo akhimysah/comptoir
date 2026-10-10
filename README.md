@@ -129,13 +129,24 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 
 ## Pas encore fait
 
-- E-mails : confirmation de commande au client, alerte de nouvelle commande au marchand. À brancher avec Resend ou Postmark.
-- Noms de domaine personnalisés par boutique. Pour l'instant, chaque boutique vit à l'adresse `/s/<boutique>`.
-- Mot de passe oublié, et plusieurs collaborateurs par boutique.
-- Calcul des taxes et tarifs de livraison par pays ou par poids.
-- Abonnement payant des marchands à la plateforme. Aujourd'hui, la plateforme se rémunère uniquement par la commission.
+**Pour la mise en ligne (bloquant)**
+- Hébergement (Vercel ou autre) et base de données PostgreSQL (SQLite ne convient qu'au développement), sauvegardes.
+- Clés Stripe (compte plateforme Connect) : le paiement par carte, les remboursements Stripe et les abonnements prélevés n'ont jamais été testés avec de vraies clés.
+- Clé Resend et domaine d'envoi vérifié : aujourd'hui les e-mails sont seulement enregistrés.
+- Passage à Next.js 16 (dernière faille « haute » de postcss, utilisée à la compilation uniquement).
+- Textes légaux de la plateforme (CGU marchands, politique de confidentialité, mentions légales) à faire valider.
 
-## Tests
+**Fonctionnalités Shopify absentes**
+- Noms de domaine personnalisés par boutique (aujourd'hui `/s/<boutique>`).
+- Boutique en plusieurs langues.
+- Paiement dans la devise du client (les autres devises sont affichées, le paiement reste dans la devise de la boutique) et TVA par pays de l'acheteur (OSS).
+- Étiquettes d'expédition et tarifs transporteurs en direct (Colissimo, Mondial Relay…).
+- B2B : tarifs professionnels, paiement à 30 jours.
+- API publique et applications tierces.
+- Éditeur de code du thème (seules les sections et réglages sont modifiables).
+- Abonnement payant des marchands à la plateforme (elle se rémunère par la commission).
+
+## Tests## Tests
 
 ```bash
 npm test
