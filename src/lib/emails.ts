@@ -3,6 +3,7 @@ import type { Order, OrderItem, Store } from "@prisma/client";
 import { formatMoney } from "./money";
 import { appUrl } from "./stripe";
 import { parseJson } from "./utils";
+import { carrierLabel, trackingLink } from "./tracking";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -46,11 +47,15 @@ ${itemsTable(order, store.currency)}${addressBlock(order)}
   };
 }
 
-export function shippingEmail(store: Store, order: Order & { items: OrderItem[] }) {
+export function shippingEmail(store: Store, order: Order & { items: OrderItem[] }, update = false) {
+  const link = trackingLink(order);
+  const tracking = order.trackingNumber
+    ? `<div style="margin:16px 0;background:#f7f7f7;border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.5"><b>${esc(carrierLabel(order.trackingCarrier) || "Transporteur")}</b> · numéro de suivi <span style="font-family:monospace">${esc(order.trackingNumber)}</span>${link ? `<div style="margin-top:10px">${button(link, "Suivre mon colis")}</div>` : ""}</div>`
+    : "";
   return {
-    subject: `Votre commande #${order.number} est en route`,
-    html: layout(store.name, "Votre commande a été expédiée",
-      `<p style="font-size:14px;line-height:1.5">Bonne nouvelle : votre commande <b>#${order.number}</b> a quitté nos mains et arrive bientôt.</p>${itemsTable(order, store.currency)}${addressBlock(order)}`),
+    subject: update ? `Suivi de votre commande #${order.number} mis à jour` : `Votre commande #${order.number} est en route`,
+    html: layout(store.name, update ? "Nouveau suivi pour votre colis" : "Votre commande a été expédiée",
+      `<p style="font-size:14px;line-height:1.5">${update ? `Les informations de suivi de votre commande <b>#${order.number}</b> ont changé.` : `Bonne nouvelle : votre commande <b>#${order.number}</b> a quitté nos mains et arrive bientôt.`}</p>${tracking}${itemsTable(order, store.currency)}${addressBlock(order)}`),
   };
 }
 

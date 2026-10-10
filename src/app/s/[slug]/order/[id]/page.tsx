@@ -6,6 +6,7 @@ import { formatMoney } from "@/lib/money";
 import { markOrderPaid } from "@/lib/orders";
 import { getStore } from "@/lib/storefront";
 import { getStripe } from "@/lib/stripe";
+import { carrierLabel, trackingLink } from "@/lib/tracking";
 
 export const metadata = { title: "Commande confirmée" };
 
@@ -39,6 +40,15 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
             : "Nous attendons la confirmation de votre banque. Rechargez cette page dans quelques instants."}
         </p>
       </div>
+      {order.fulfillmentStatus === "fulfilled" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--t-radius)] border border-[var(--c-accent)] p-4">
+          <span>
+            <span className="font-semibold">Votre commande est en route</span>
+            {order.trackingNumber && <span className="block text-sm text-[var(--c-muted)]">{carrierLabel(order.trackingCarrier)} · <span className="font-mono">{order.trackingNumber}</span></span>}
+          </span>
+          {trackingLink(order) && <a href={trackingLink(order)!} target="_blank" rel="noopener noreferrer" className="rounded-[var(--t-radius)] bg-[var(--c-accent)] px-4 py-2 text-sm font-semibold text-[var(--c-accent-text)]">Suivre mon colis</a>}
+        </div>
+      )}
       <div className="rounded-[var(--t-radius)] bg-[var(--c-surface)] p-5">
         <ul className="flex flex-col gap-3">
           {order.items.map((i) => (

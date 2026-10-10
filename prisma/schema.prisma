@@ -397,6 +397,9 @@ model Order {
   refundedCents         Int             @default(0)
   subscriptionId        String? // commande de renouvellement d'un abonnement
   fulfilledAt           DateTime?
+  trackingCarrier       String          @default("") // transporteur (colissimo, chronopost…) ou nom libre
+  trackingNumber        String          @default("")
+  trackingUrl           String          @default("") // lien de suivi personnalisé (transporteur « autre »)
   reviewRequestedAt     DateTime?
   taxRateBps            Int             @default(0) // taux de TVA au moment de la commande
   taxCents              Int             @default(0) // TVA comprise dans le total

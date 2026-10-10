@@ -4,6 +4,7 @@ import { getCustomer } from "@/lib/customer-auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { getStore } from "@/lib/storefront";
+import { carrierLabel, trackingLink } from "@/lib/tracking";
 import { RETURN_STATUS, returnBlocker, returnLines } from "@/lib/returns";
 
 export const metadata = { title: "Mon compte" };
@@ -69,6 +70,9 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
                       <span className="text-sm text-[var(--c-muted)]">{STATUS(o)}</span>
                     </span>
                   </a>
+                  {o.fulfillmentStatus === "fulfilled" && trackingLink(o) && (
+                    <a href={trackingLink(o)!} target="_blank" rel="noopener noreferrer" className="-mt-2 mb-3 mr-4 inline-block text-sm font-semibold underline underline-offset-4">Suivre mon colis ({carrierLabel(o.trackingCarrier)})</a>
+                  )}
                   {o.returns.map((r) => (
                     <p key={r.id} className="-mt-2 pb-3 text-sm text-[var(--c-muted)]">
                       Retour de {returnLines(r).reduce((s, l) => s + l.quantity, 0)} article(s) · <b className="font-semibold text-[var(--c-text)]">{RETURN_STATUS[r.status as keyof typeof RETURN_STATUS]?.label ?? r.status}</b>

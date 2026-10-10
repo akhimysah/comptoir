@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { cancelUnpaidOrder, markOrderPaid, notifyOrderShipped } from "@/lib/orders";
 import { PAID_STATUSES, refundableCents, refundOrder } from "@/lib/refunds";
 import { decideReturn } from "@/lib/returns";
+import { carrierLabel } from "@/lib/tracking";
 
 async function ownOrder(form: FormData) {
   const { user, store } = await requirePerm("orders");
@@ -25,14 +26,25 @@ export async function addOrderComment(form: FormData) {
   revalidatePath(`/admin/orders/${order.id}`);
 }
 
+/** Suivi saisi dans le formulaire : transporteur connu ou libre, numéro, lien personnalisé (https uniquement). */
+function readTracking(form: FormData) {
+  const carrier = String(form.get("carrier") ?? "").trim().slice(0, 40);
+  const number = String(form.get("trackingNumber") ?? "").replace(/\s+/g, "").slice(0, 60);
+  const url = String(form.get("trackingUrl") ?? "").trim().slice(0, 500);
+  return { trackingCarrier: number ? carrier : "", trackingNumber: number, trackingUrl: number && carrier === "other" && /^https:\/\/[^\s]+$/i.test(url) ? url : "" };
+}
+const trackingText = (t: { trackingCarrier: string; trackingNumber: string }) => (t.trackingNumber ? `${carrierLabel(t.trackingCarrier)} · ${t.trackingNumber}` : "");
+
 export async function setFulfilled(form: FormData) {
   const { user, order } = await ownOrder(form);
   const fulfilled = form.get("value") === "fulfilled";
-  await db.$transaction([
-    db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: fulfilled ? "fulfilled" : "unfulfilled", fulfilledAt: fulfilled ? new Date() : null } }),
-    db.orderEvent.create({ data: { orderId: order.id, type: fulfilled ? "fulfilled" : "unfulfilled", author: user.name } }),
-  ]);
-  if (fulfilled) await notifyOrderShipped(order.id);
+  const notify = form.get("hasNotify") ? form.get("notify") === "on" : true;
+  const tracking = fulfilled ? readTracking(form) : { trackingCarrier: "", trackingNumber: "", trackingUrl: "" };
+  // Mise à jour conditionnelle : un double clic n'expédie (et n'envoie l'e-mail) qu'une fois.
+  const done = await db.order.updateMany({ where: { id: order.id, fulfillmentStatus: fulfilled ? "unfulfilled" : "fulfilled" }, data: { fulfillmentStatus: fulfilled ? "fulfilled" : "unfulfilled", fulfilledAt: fulfilled ? new Date() : null, ...tracking } });
+  if (!done.count) return revalidatePath(`/admin/orders/${order.id}`);
+  await db.orderEvent.create({ data: { orderId: order.id, type: fulfilled ? "fulfilled" : "unfulfilled", author: user.name, message: trackingText(tracking) } });
+  if (fulfilled && notify) await notifyOrderShipped(order.id);
   await logActivity(`Commande #${order.number} marquée comme ${fulfilled ? "traitée" : "non traitée"}`, `/admin/orders/${order.id}`);
   revalidatePath(`/admin/orders/${order.id}`);
   revalidatePath("/admin", "layout");
@@ -110,4 +122,14 @@ export async function returnDecision(form: FormData) {
   await logActivity(`Retour ${verb} sur la commande #${r.order.number}`, `/admin/orders/${r.orderId}`);
   revalidatePath(`/admin/orders/${r.orderId}`);
   revalidatePath("/admin/orders/returns");
+}
+
+export async function updateTracking(form: FormData) {
+  const { user, order } = await ownOrder(form);
+  if (order.fulfillmentStatus !== "fulfilled") return;
+  const tracking = readTracking(form);
+  await db.order.update({ where: { id: order.id }, data: tracking });
+  await db.orderEvent.create({ data: { orderId: order.id, type: "tracking_updated", author: user.name, message: trackingText(tracking) || "suivi retiré" } });
+  if (form.get("notify") === "on" && tracking.trackingNumber) await notifyOrderShipped(order.id, true);
+  revalidatePath(`/admin/orders/${order.id}`);
 }

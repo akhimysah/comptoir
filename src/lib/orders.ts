@@ -220,9 +220,9 @@ async function notifyOrderPaid(orderId: string) {
 }
 
 /** E-mail d'expédition au client. */
-export async function notifyOrderShipped(orderId: string) {
+export async function notifyOrderShipped(orderId: string, update = false) {
   const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true, store: true } });
-  if (order) await sendMail({ to: order.email, storeId: order.storeId, ...shippingEmail(order.store, order) });
+  if (order) await sendMail({ to: order.email, storeId: order.storeId, ...shippingEmail(order.store, order, update) });
 }
 
 type Tone = "warn" | "ok" | "neutral" | "bad" | "attention";

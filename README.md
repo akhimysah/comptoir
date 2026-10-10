@@ -38,6 +38,7 @@ Ensuite, ouvrez http://localhost:3000.
 | Équipe : invitation de collaborateurs par lien (Paramètres → Utilisateurs) | |
 | Pages de contenu et blog, avec une mise en forme simple | Pages (À propos, CGV…), blog, liens dans le pied de page |
 | Segments clients (commandes, montant dépensé, dernier achat, étiquettes, produit acheté, pays…) et étiquettes | Campagnes e-mail ciblées sur un segment |
+| Expédition avec suivi de colis (Colissimo, Chronopost, Mondial Relay, DPD, GLS, UPS, DHL, FedEx…) | Lien « Suivre mon colis » dans l'e-mail et le compte client |
 | Navigation : menus avec sous-menus déroulants | Redirections d'URL automatiques quand une adresse change |
 | Référencement : titre et description Google, aperçu du résultat | Sitemap par boutique (`/s/<boutique>/sitemap.xml`), robots.txt |
 | Cartes cadeaux : création, envoi par e-mail, suivi du solde | Paiement avec carte cadeau ; achat de cartes cadeaux dans la boutique |

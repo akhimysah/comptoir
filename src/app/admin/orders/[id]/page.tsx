@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addOrderComment, cancelOrder, markPaid, returnDecision, setFulfilled } from "../actions";
+import { addOrderComment, cancelOrder, markPaid, returnDecision, setFulfilled, updateTracking } from "../actions";
+import { TrackingFields } from "@/components/admin/TrackingFields";
+import { carrierLabel, trackingLink } from "@/lib/tracking";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { PageHeader, Pill, Thumb } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
@@ -11,7 +13,8 @@ import { formatDateTime, initials, parseJson } from "@/lib/utils";
 import { RETURN_STATUS, returnLines } from "@/lib/returns";
 
 const EVENT_TEXT: Record<string, string> = {
-  fulfilled: "a marqué la commande comme traitée.",
+  fulfilled: "a expédié la commande.",
+  tracking_updated: "a modifié le suivi :",
   unfulfilled: "a remis la commande à traiter.",
   cancelled: "a annulé la commande.",
   refunded: "a annulé et remboursé la commande.",
@@ -143,14 +146,47 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                 ))}
               </ul>
             </div>
-            {!o.cancelledAt && ["paid", "partially_refunded"].includes(o.paymentStatus) && (
-              <div className="flex justify-end border-t border-line px-4 py-3">
-                <form action={setFulfilled}>
-                  <input type="hidden" name="id" value={o.id} />
-                  <input type="hidden" name="value" value={o.fulfillmentStatus === "fulfilled" ? "unfulfilled" : "fulfilled"} />
-                  <button className={o.fulfillmentStatus === "fulfilled" ? "btn" : "btn btn-primary"}>{o.fulfillmentStatus === "fulfilled" ? "Annuler le traitement" : "Traiter les articles"}</button>
-                </form>
+            {o.fulfillmentStatus === "fulfilled" && (
+              <div className="mx-3 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-[#f7f7f7] px-3 py-2.5 text-[13px]">
+                <span className="font-[550]">Expédiée{o.fulfilledAt ? ` le ${formatDateTime(o.fulfilledAt)}` : ""}</span>
+                {o.trackingNumber ? (
+                  <>
+                    <span className="text-muted">{carrierLabel(o.trackingCarrier)}</span>
+                    {trackingLink(o) ? <a href={trackingLink(o)!} target="_blank" rel="noopener noreferrer" className="font-mono text-pine hover:underline">{o.trackingNumber}</a> : <span className="font-mono">{o.trackingNumber}</span>}
+                  </>
+                ) : <span className="text-muted">sans numéro de suivi</span>}
               </div>
+            )}
+            {!o.cancelledAt && ["paid", "partially_refunded"].includes(o.paymentStatus) && (
+              o.fulfillmentStatus === "fulfilled" ? (
+                <div className="flex flex-wrap items-start justify-end gap-2 border-t border-line px-4 py-3">
+                  <details className="mr-auto">
+                    <summary className="btn cursor-pointer list-none">{o.trackingNumber ? "Modifier le suivi" : "Ajouter un suivi"}</summary>
+                    <form action={updateTracking} className="mt-3 flex flex-col gap-3">
+                      <input type="hidden" name="id" value={o.id} />
+                      <TrackingFields carrier={o.trackingCarrier} number={o.trackingNumber} url={o.trackingUrl} />
+                      <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="notify" defaultChecked className="h-4 w-4 accent-[#7c3aed]" />Envoyer le nouveau suivi au client</label>
+                      <button className="btn btn-primary self-start">Enregistrer le suivi</button>
+                    </form>
+                  </details>
+                  <form action={setFulfilled}>
+                    <input type="hidden" name="id" value={o.id} />
+                    <input type="hidden" name="value" value="unfulfilled" />
+                    <button className="btn">Annuler le traitement</button>
+                  </form>
+                </div>
+              ) : (
+                <form action={setFulfilled} className="flex flex-col gap-3 border-t border-line px-4 py-3">
+                  <input type="hidden" name="id" value={o.id} />
+                  <input type="hidden" name="value" value="fulfilled" />
+                  <input type="hidden" name="hasNotify" value="1" />
+                  <TrackingFields />
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="notify" defaultChecked className="h-4 w-4 accent-[#7c3aed]" />Prévenir le client par e-mail</label>
+                    <button className="btn btn-primary">Traiter les articles</button>
+                  </div>
+                </form>
+              )
             )}
           </section>
 
