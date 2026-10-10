@@ -43,6 +43,7 @@ model Store {
   shippingCents         Int                   @default(490)
   freeShippingFromCents Int                   @default(6000)
   theme                 String // JSON, voir src/lib/theme.ts
+  customCss             String                @default("") // CSS personnalisé de la boutique (filtré, sans HTML)
   themeUpdatedAt        DateTime?
   stripeAccountId       String?
   stripeChargesEnabled  Boolean               @default(false)

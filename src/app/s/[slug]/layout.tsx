@@ -7,6 +7,7 @@ import { PredictiveSearch } from "@/components/store/PredictiveSearch";
 import { PasswordGate } from "@/components/store/PasswordGate";
 import { ConsentLink, Tracking } from "@/components/store/Tracking";
 import { storeAccess } from "@/lib/store-access";
+import { sanitizeCss } from "@/lib/custom-css";
 import { CurrencySelect } from "@/components/store/CurrencySelect";
 import { storeFontVars } from "@/components/store/fonts";
 import { getStoreUngated } from "@/lib/storefront";
@@ -36,6 +37,8 @@ export default async function StoreLayout({ children, params }: { children: Reac
   const menus = await resolveMenus(store);
   return (
     <div style={themeVars(theme) as React.CSSProperties} className={`${storeFontVars} flex min-h-screen flex-col bg-[var(--c-bg)] font-[family-name:var(--t-body)] text-[var(--c-text)]`}>
+      {/* CSS personnalisé de la boutique : filtré à l'enregistrement et de nouveau ici (aucun « < » possible). */}
+      {store.customCss && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(store.customCss) }} />}
       {access.preview && (
         <div className="bg-[#1a1a1a] px-4 py-2 text-center text-xs text-white">
           Boutique protégée par mot de passe : vous la voyez car vous êtes connecté à l'admin. <a href="/admin/settings/preferences" className="underline underline-offset-2">Préférences</a>

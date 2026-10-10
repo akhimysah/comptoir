@@ -7,6 +7,7 @@ import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isImageUrl } from "@/lib/images";
 import { themeSchema } from "@/lib/theme";
+import { CUSTOM_CSS_MAX, sanitizeCss } from "@/lib/custom-css";
 
 export async function saveTheme(json: string): Promise<{ error?: string; ok?: boolean }> {
   const { store } = await requirePerm("content");
@@ -21,5 +22,16 @@ export async function saveTheme(json: string): Promise<{ error?: string; ok?: bo
   await logActivity("Thème publié", "/admin/theme");
   revalidatePath(`/s/${store.slug}`, "layout");
   revalidatePath("/admin");
+  return { ok: true };
+}
+
+export async function saveCustomCss(_: { ok?: boolean; error?: string } | undefined, form: FormData): Promise<{ ok?: boolean; error?: string }> {
+  const { store } = await requirePerm("content");
+  const raw = String(form.get("css") ?? "");
+  if (raw.length > CUSTOM_CSS_MAX) return { error: `CSS trop long (${CUSTOM_CSS_MAX.toLocaleString("fr-FR")} caractères maximum).` };
+  await db.store.update({ where: { id: store.id }, data: { customCss: sanitizeCss(raw) } });
+  await logActivity("CSS personnalisé du thème modifié", "/admin/theme");
+  revalidatePath(`/s/${store.slug}`, "layout");
+  revalidatePath("/admin/theme");
   return { ok: true };
 }

@@ -58,3 +58,14 @@ describe("suivi des erreurs", () => {
     expect(normalizeErrorPath("/s/atelier-argile/p/bol-celadon")).toBe("/s/atelier-argile/p/bol-celadon");
   });
 });
+
+describe("CSS personnalisé", () => {
+  it("ne peut pas sortir de la balise style ni charger de script ou de feuille externe", async () => {
+    const { sanitizeCss } = await import("@/lib/custom-css");
+    const evil = "h1{color:red}</style><script>alert(1)</script>@import url(https://evil.example/x.css);div{background:url(javascript:alert(1));width:expression(alert(1))}";
+    const out = sanitizeCss(evil);
+    expect(out).not.toContain("<");
+    expect(out).not.toMatch(/@import|javascript:|expression\(/i);
+    expect(out).toContain("h1{color:red}");
+  });
+});
