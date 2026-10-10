@@ -118,19 +118,23 @@ L'offre gratuite de Vercel (Hobby) est réservée aux projets non commerciaux. P
    - **Create → Neon (Postgres)**, relié au projet. Cela crée `DATABASE_URL` et `DATABASE_URL_UNPOOLED`.
    - **Create → Blob**, relié au projet. Cela crée `BLOB_READ_WRITE_TOKEN`.
 3. Dans **Settings → Environment Variables**, ajoutez `APP_URL` (l'adresse du site, par exemple `https://comptoir.vercel.app`) et `PLATFORM_FEE_PERCENT` (`2`).
-4. Dans `prisma/schema.prisma`, passez `provider` à `"postgresql"`. Dans Vercel, réglez la commande de build sur `prisma generate && prisma db push --skip-generate && next build`, puis relancez un déploiement.
+4. Rien à changer dans le code : dès que `DATABASE_URL` est une adresse PostgreSQL, PostgreSQL est utilisé automatiquement. Dans Vercel, réglez la commande de build sur `node scripts/prisma.mjs db push --skip-generate && npm run build`, puis relancez un déploiement. Ajoutez aussi :
+   - `CRON_SECRET` (une longue valeur aléatoire) pour les tâches planifiées de `vercel.json` ;
+   - `RESEND_API_KEY` et l'adresse d'envoi pour les e-mails ;
+   - `PLATFORM_ADMINS` (vos e-mails) pour la page « Erreurs » et les alertes ;
+   - les informations légales `PLATFORM_*` (voir `.env.example`).
 5. Facultatif, la boutique de démonstration : lancez la commande suivante sur votre Mac, avec le mot de passe de votre choix.
 
    ```bash
    npx vercel env pull .env && SEED_DEMO_PASSWORD="un-mot-de-passe-solide" npm run db:seed
    ```
 
-Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dans les variables Vercel. Créez le webhook dans Stripe vers `https://votre-site/api/stripe/webhook`, avec les événements `checkout.session.completed` et `account.updated`, en cochant les comptes connectés.
+Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dans les variables Vercel. Créez le webhook dans Stripe vers `https://votre-site/api/stripe/webhook`, avec les événements `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `invoice.paid`, `customer.subscription.deleted` et `account.updated`, en cochant les comptes connectés.
 
 ## Pas encore fait
 
 **Pour la mise en ligne (bloquant)**
-- Hébergement (Vercel ou autre) et base de données PostgreSQL (SQLite ne convient qu'au développement), sauvegardes.
+- Hébergement (Vercel ou autre) et base de données PostgreSQL : le code est prêt et testé sur PostgreSQL à chaque envoi ; il reste à créer les comptes, et à activer les sauvegardes de la base.
 - Clés Stripe (compte plateforme Connect) : le paiement par carte, les remboursements Stripe et les abonnements prélevés n'ont jamais été testés avec de vraies clés.
 - Clé Resend et domaine d'envoi vérifié : aujourd'hui les e-mails sont seulement enregistrés.
 - Textes légaux de la plateforme : brouillons en place (/legal/cgu, /legal/confidentialite, /legal/mentions-legales), à compléter (variables PLATFORM_* du .env) et à faire valider par un professionnel du droit (puis LEGAL_VALIDATED=1).
