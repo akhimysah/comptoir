@@ -206,3 +206,18 @@ ${itemsTable(order, store.currency)}
 <p style="font-size:12px;color:#8a8a8a">Ou copiez ce lien : ${esc(link)}</p>`),
   };
 }
+
+export function purchaseOrderEmail(store: Store, po: { number: number; note: string; expectedAt: Date | null; shippingCents: number; items: { productTitle: string; variantTitle: string; sku: string; quantity: number; costCents: number }[] }) {
+  const m = (c: number) => formatMoney(c, store.currency);
+  const rows = po.items.map((i) => `<tr><td style="padding:6px 0;border-bottom:1px solid #ebebeb">${esc(i.productTitle)}${i.variantTitle !== "Par défaut" ? ` · ${esc(i.variantTitle)}` : ""}${i.sku ? `<br><span style="color:#8a8a8a;font-size:12px">Réf. ${esc(i.sku)}</span>` : ""}</td><td align="right" style="padding:6px 0;border-bottom:1px solid #ebebeb">${i.quantity}</td><td align="right" style="padding:6px 0;border-bottom:1px solid #ebebeb">${m(i.costCents)}</td></tr>`).join("");
+  const total = po.items.reduce((s, i) => s + i.quantity * i.costCents, 0) + po.shippingCents;
+  return {
+    subject: `Bon de commande n° ${po.number} – ${store.name}`,
+    html: layout(store.name, `Bon de commande n° ${po.number}`,
+      `<p style="font-size:14px;line-height:1.5">Bonjour, voici notre commande${po.expectedAt ? `, à livrer si possible avant le <b>${po.expectedAt.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</b>` : ""}.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;margin:12px 0"><tr><th align="left" style="font-size:12px;color:#616161">Article</th><th align="right" style="font-size:12px;color:#616161">Qté</th><th align="right" style="font-size:12px;color:#616161">Prix unitaire</th></tr>${rows}
+${po.shippingCents ? `<tr><td colspan="2" style="padding:6px 0;color:#616161">Frais de port</td><td align="right">${m(po.shippingCents)}</td></tr>` : ""}<tr><td colspan="2" style="padding:6px 0;font-weight:700">Total</td><td align="right" style="font-weight:700">${m(total)}</td></tr></table>
+${po.note ? `<p style="font-size:14px;line-height:1.5;white-space:pre-line;color:#616161">${esc(po.note)}</p>` : ""}
+<p style="font-size:13px;color:#616161">Merci de confirmer la commande en répondant à cet e-mail.</p>`),
+  };
+}

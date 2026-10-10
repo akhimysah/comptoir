@@ -4,6 +4,8 @@ import { Empty, PageHeader, Thumb } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cx, parseJson } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
+import { incomingByVariant } from "@/lib/purchasing";
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ q?: string; filter?: string }> }) {
   const { q = "", filter = "all" } = await searchParams;
@@ -11,7 +13,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const variants = await db.variant.findMany({
     where: {
       product: { storeId: store.id, isGiftCard: false, bundleItems: { none: {} }, ...(q ? { title: { contains: q } } : {}) },
-      ...(filter === "low" ? { stock: { gt: 0, lte: 5 } } : filter === "out" ? { stock: { lte: 0 } } : {}),
+      ...(filter === "low" ? { stock: { gt: 0, lte: store.lowStockThreshold } } : filter === "out" ? { stock: { lte: 0 } } : {}),
     },
     include: { product: true },
     orderBy: [{ product: { title: "asc" } }, { position: "asc" }],
@@ -23,11 +25,16 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     _sum: { quantity: true },
   });
   const committedBy = new Map(committed.map((c) => [c.variantId, c._sum.quantity ?? 0]));
+  const incoming = await incomingByVariant(store.id);
+  // Valeur du stock au prix d'achat (articles dont le coût est renseigné).
+  const all = await db.variant.findMany({ where: { product: { storeId: store.id, isGiftCard: false, bundleItems: { none: {} } }, stock: { gt: 0 } }, select: { stock: true, costCents: true } });
+  const value = all.reduce((s, v) => s + (v.costCents ?? 0) * v.stock, 0);
+  const withoutCost = all.filter((v) => v.costCents === null).length;
   const tabs = [["all", "Tout"], ["low", "Stock faible"], ["out", "En rupture"]] as const;
 
   return (
     <>
-      <PageHeader title="Stock" />
+      <PageHeader title="Stock" subtitle={value > 0 ? `Valeur du stock au prix d'achat : ${formatMoney(value, store.currency)}${withoutCost ? ` (${withoutCost} article${withoutCost > 1 ? "s" : ""} sans coût renseigné)` : ""}` : "Renseignez le coût par article de vos produits pour connaître la valeur de votre stock."} actions={<Link href="/admin/products/purchase-orders/new" className="btn">Commander au fournisseur</Link>} />
       <section className="card min-w-0 overflow-hidden">
         <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
           {tabs.map(([k, label]) => (
@@ -38,7 +45,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         {variants.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px]">
-              <thead><tr><th className="th">Produit</th><th className="th">SKU</th><th className="th text-right">Engagé</th><th className="th text-right">Disponible</th></tr></thead>
+              <thead><tr><th className="th">Produit</th><th className="th">SKU</th><th className="th text-right">Engagé</th><th className="th text-right">À recevoir</th><th className="th text-right">Disponible</th></tr></thead>
               <tbody>
                 {variants.map((v) => (
                   <tr key={v.id} className="hover:bg-[#f7f7f7]">
@@ -53,6 +60,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     </td>
                     <td className="td text-muted">{v.sku || "Aucun SKU"}</td>
                     <td className="td num text-right">{committedBy.get(v.id) ?? 0}</td>
+                    <td className="td num text-right">{incoming.get(v.id) ? <Link href="/admin/products/purchase-orders" className="text-pine hover:underline">{incoming.get(v.id)}</Link> : <span className="text-muted">0</span>}</td>
                     <td className="td"><StockInput variantId={v.id} initial={v.stock} label={`${v.product.title} ${v.title}`} /></td>
                   </tr>
                 ))}

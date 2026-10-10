@@ -17,7 +17,7 @@ export default async function NewProductPage() {
         collections={collections}
         storeUrl={`${appUrl()}/s/${store.slug}`}
         bundleChoices={choices}
-        initial={{ title: "", description: "", status: "active", hue: Math.floor(Math.random() * 360), images: [], options: [], variants: [{ optionValues: [], price: "", compareAt: "", sku: "", stock: 10 }], collectionIds: [] }}
+        initial={{ title: "", description: "", status: "active", hue: Math.floor(Math.random() * 360), images: [], options: [], variants: [{ optionValues: [], price: "", compareAt: "", cost: "", sku: "", stock: 10 }], collectionIds: [] }}
       />
     </>
   );

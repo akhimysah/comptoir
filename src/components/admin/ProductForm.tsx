@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useMemo, useRef, useState } from "react";
 import { saveProduct, type ProductPayload } from "@/app/admin/products/actions";
 import { Thumb } from "@/components/ui";
+import { formatMoney, parseMoney } from "@/lib/money";
 import { SaveBar } from "./SaveBar";
 import { SeoCard } from "./SeoCard";
 import { uploadImage } from "./upload";
@@ -50,7 +51,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
   const combos = useMemo(() => cartesian(options), [options]);
   const firstRow = Object.values(rows)[0];
   const variants: VariantRow[] = combos.map(
-    (vals) => rows[key(vals)] ?? { optionValues: vals, price: firstRow?.price ?? "", compareAt: firstRow?.compareAt ?? "", sku: "", stock: 0 },
+    (vals) => rows[key(vals)] ?? { optionValues: vals, price: firstRow?.price ?? "", compareAt: firstRow?.compareAt ?? "", cost: firstRow?.cost ?? "", sku: "", stock: 0 },
   );
   // Une seule variante sans option garde son id même quand on retire les options.
   if (combos.length === 1 && combos[0].length === 0 && !rows[key([])] && firstRow) variants[0] = { ...firstRow, optionValues: [] };
@@ -154,6 +155,13 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
                     <input id="compare-at" className="input num pl-9" inputMode="decimal" value={single.compareAt} onChange={(e) => setRow([], { compareAt: e.target.value })} placeholder="0,00" /></span>
                   </label>
                 </div>
+                <div className="mt-3 grid gap-3 border-t border-line pt-3 sm:grid-cols-3 sm:items-end">
+                  <label className="label">Coût par article <span className="hint">Les clients ne le voient pas.</span>
+                    <span className="relative"><span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">{currency === "EUR" ? "€" : currency}</span>
+                    <input id="cost" className="input num pl-9" inputMode="decimal" value={single.cost} onChange={(e) => setRow([], { cost: e.target.value })} placeholder="0,00" /></span>
+                  </label>
+                  <Margin price={single.price} cost={single.cost} currency={currency} />
+                </div>
               </section>
               <section className="card p-4">
                 <h2 className="mb-3 text-sm font-[650]">Stock</h2>
@@ -229,13 +237,14 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
                 )}
                 <div className="overflow-x-auto border-t border-line">
                   <table className="w-full min-w-[560px]">
-                    <thead><tr><th className="th">Variante</th><th className="th">Prix</th><th className="th">Prix avant réduction</th><th className="th">Disponible</th><th className="th">SKU</th></tr></thead>
+                    <thead><tr><th className="th">Variante</th><th className="th">Prix</th><th className="th">Prix avant réduction</th><th className="th">Coût</th><th className="th">Disponible</th><th className="th">SKU</th></tr></thead>
                     <tbody>
                       {variants.map((v) => (
                         <tr key={key(v.optionValues)}>
                           <td className="td font-[550]">{v.optionValues.join(" / ")}</td>
                           <td className="td"><input aria-label={`Prix ${v.optionValues.join(" / ")}`} className="input num w-28" inputMode="decimal" required value={v.price} onChange={(e) => setRow(v.optionValues, { price: e.target.value })} placeholder="0,00" /></td>
                           <td className="td"><input aria-label={`Prix avant réduction ${v.optionValues.join(" / ")}`} className="input num w-28" inputMode="decimal" value={v.compareAt} onChange={(e) => setRow(v.optionValues, { compareAt: e.target.value })} placeholder="0,00" /></td>
+                          <td className="td"><input aria-label={`Coût par article ${v.optionValues.join(" / ")}`} className="input num w-24" inputMode="decimal" value={v.cost} onChange={(e) => setRow(v.optionValues, { cost: e.target.value })} placeholder="0,00" /></td>
                           <td className="td"><input aria-label={`Disponible ${v.optionValues.join(" / ")}`} className="input num w-20" type="number" min={0} value={v.stock} onChange={(e) => setRow(v.optionValues, { stock: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} /></td>
                           <td className="td"><input aria-label={`SKU ${v.optionValues.join(" / ")}`} className="input w-28" value={v.sku} maxLength={60} onChange={(e) => setRow(v.optionValues, { sku: e.target.value })} /></td>
                         </tr>
@@ -346,5 +355,18 @@ function OptionEditor({ option, onChange, onRemove }: { option: Option; onChange
         />
       </div>
     </div>
+  );
+}
+
+/** Profit et marge calculés en direct à partir du prix et du coût, comme dans Shopify. */
+function Margin({ price, cost, currency }: { price: string; cost: string; currency: string }) {
+  const p = parseMoney(price);
+  const c = cost.trim() ? parseMoney(cost) : null;
+  const ok = p !== null && c !== null && p > 0;
+  return (
+    <>
+      <div className="label">Profit<div className="input num flex items-center bg-[#f7f7f7] text-muted">{ok ? formatMoney(p - c, currency) : "—"}</div></div>
+      <div className="label">Marge<div className="input num flex items-center bg-[#f7f7f7] text-muted">{ok ? `${(((p - c) / p) * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %` : "—"}</div></div>
+    </>
   );
 }

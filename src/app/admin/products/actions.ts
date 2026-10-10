@@ -29,6 +29,7 @@ const payloadSchema = z.object({
         optionValues: z.array(z.string()),
         price: z.string(),
         compareAt: z.string(),
+        cost: z.string().optional().default(""),
         sku: z.string().max(60),
         stock: z.number().int().min(0).max(1_000_000),
       }),
@@ -74,12 +75,15 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
     const priceCents = parseMoney(v.price);
     if (priceCents === null) return { error: `Indiquez un prix valide${p.variants.length > 1 ? ` pour ${v.optionValues.join(" / ")}` : ""}.` };
     const compareAtCents = parseMoney(v.compareAt);
+    const costCents = v.cost.trim() ? parseMoney(v.cost) : null;
+    if (v.cost.trim() && costCents === null) return { error: `Coût par article invalide${p.variants.length > 1 ? ` pour ${v.optionValues.join(" / ")}` : ""}.` };
     variants.push({
       id: v.id,
       title: v.optionValues.length ? v.optionValues.join(" / ") : "Par défaut",
       optionValues: JSON.stringify(v.optionValues),
       priceCents,
       compareAtCents: compareAtCents && compareAtCents > priceCents ? compareAtCents : null,
+      costCents,
       sku: v.sku.trim(),
       stock: v.stock,
       position: i,

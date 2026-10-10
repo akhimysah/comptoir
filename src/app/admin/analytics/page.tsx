@@ -55,12 +55,22 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     if (b) b.v += o.totalCents - o.refundedCents;
   }
 
-  const byProduct = new Map<string, { title: string; units: number; cents: number; image: string | null; hue: number }>();
+  // Marge brute : prix réellement payé (remise de la commande répartie) moins le coût d'achat, hors articles remboursés.
+  // Seuls les articles dont le coût était renseigné au moment de la vente comptent.
+  let costedSales = 0, profit = 0, uncosted = 0;
+  const byProduct = new Map<string, { title: string; units: number; cents: number; image: string | null; hue: number; sales: number; profit: number }>();
   for (const o of orders) for (const i of o.items) {
-    const cur = byProduct.get(i.productTitle) ?? { title: i.productTitle, units: 0, cents: 0, image: i.image, hue: i.hue };
+    const cur = byProduct.get(i.productTitle) ?? { title: i.productTitle, units: 0, cents: 0, image: i.image, hue: i.hue, sales: 0, profit: 0 };
     cur.units += i.quantity; cur.cents += i.priceCents * i.quantity;
+    const kept = i.quantity - i.refundedQuantity;
+    if (i.costCents !== null && kept > 0 && !i.isGiftCard) {
+      const paid = Math.round(i.priceCents * kept * (o.subtotalCents ? 1 - o.discountCents / o.subtotalCents : 1));
+      costedSales += paid; profit += paid - i.costCents * kept;
+      cur.sales += paid; cur.profit += paid - i.costCents * kept;
+    } else if (kept > 0 && !i.isGiftCard) uncosted += kept;
     byProduct.set(i.productTitle, cur);
   }
+  const marginPct = costedSales ? Math.round((profit / costedSales) * 100) : null;
   const top = [...byProduct.values()].sort((a, b) => b.cents - a.cents).slice(0, 8);
   const topMax = Math.max(...top.map((t) => t.cents), 1);
 
@@ -76,6 +86,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     { label: "Valeur moyenne des commandes", value: m(aov), delta: null },
     { label: "Articles vendus", value: String(units), delta: null },
     { label: "Taux de clients fidèles", value: `${returningRate} %`, delta: null },
+    { label: "Marge brute", value: marginPct === null ? "—" : `${m(profit)} · ${marginPct} %`, delta: null, hint: marginPct === null ? "Renseignez le coût par article de vos produits." : uncosted ? `${uncosted} article(s) vendu(s) sans coût renseigné, non comptés.` : "Sur tous les articles vendus." },
   ];
 
   return (
@@ -87,11 +98,12 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {cards.map((c) => (
           <div key={c.label} className="card flex flex-col gap-1 p-4">
             <span className="w-fit border-b border-dashed border-[#b5b5b5] text-xs font-[550] text-muted">{c.label}</span>
             <span className="text-lg font-bold tabular-nums">{c.value}</span>
+            {"hint" in c && c.hint && <span className="text-xs text-muted">{c.hint}</span>}
             {c.delta !== null && <span className={cx("text-xs font-[550]", c.delta >= 0 ? "text-[#0c5132]" : "text-[#8e0b21]")}>{c.delta >= 0 ? "↗" : "↘"} {Math.abs(c.delta)} % vs période précédente</span>}
           </div>
         ))}
@@ -115,6 +127,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
                     <div className="mt-1 flex items-center gap-2">
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#ebebeb]"><div className="h-full rounded-full bg-[#8b5cf6]" style={{ width: `${(t.cents / topMax) * 100}%` }} /></div>
                       <span className="w-16 text-right text-xs text-muted">{t.units} vendu{t.units > 1 ? "s" : ""}</span>
+                      {t.sales > 0 && <span className="w-20 text-right text-xs text-muted">marge {Math.round((t.profit / t.sales) * 100)} %</span>}
                     </div>
                   </div>
                 </li>

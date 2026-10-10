@@ -79,6 +79,8 @@ async function insertOrder(
   buyer: { email: string; name: string; address: Address; note: string },
   paymentMethod: string,
 ) {
+  // Coût d'achat de chaque article au moment de la commande (pour la marge, même si le coût change ensuite).
+  const costs = new Map((await db.variant.findMany({ where: { id: { in: cart.lines.map((l) => l.baseVariantId) } }, select: { id: true, costCents: true } })).map((v) => [v.id, v.costCents]));
   // Le numéro de commande suit le précédent ; on réessaie si deux commandes arrivent en même temps.
   for (let attempt = 0; attempt < 5; attempt++) {
     const last = await db.order.findFirst({ where: { storeId: store.id }, orderBy: { number: "desc" }, select: { number: true } });
@@ -111,6 +113,7 @@ async function insertOrder(
               productTitle: l.productTitle,
               variantTitle: l.variantTitle,
               priceCents: l.priceCents,
+              costCents: costs.get(l.baseVariantId) ?? null,
               quantity: l.quantity,
               image: l.image,
               hue: l.hue,

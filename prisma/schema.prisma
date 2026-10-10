@@ -80,6 +80,8 @@ model Store {
   returns               ReturnRequest[]
   redirects             Redirect[]
   segments              Segment[]
+  suppliers             Supplier[]
+  purchaseOrders        PurchaseOrder[]
 }
 
 /// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
@@ -297,6 +299,7 @@ model Variant {
   optionValues   String  @default("[]") // JSON: string[] dans l'ordre des options
   priceCents     Int
   compareAtCents Int?
+  costCents      Int? // coût d'achat par article (marge)
   sku            String  @default("")
   stock          Int     @default(0)
   position       Int     @default(0)
@@ -438,6 +441,7 @@ model OrderItem {
   refundedQuantity     Int     @default(0)
   isGiftCard           Boolean @default(false)
   subscriptionInterval String? // article pris en abonnement
+  costCents            Int? // coût par article au moment de la commande
 }
 
 /// Remboursement (total ou partiel) d'une commande, avec ou sans retour en stock.
@@ -585,4 +589,51 @@ model Segment {
   rules     String   @default("[]") // JSON : { field, op, value }[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// Fournisseur de la boutique (bons de commande).
+model Supplier {
+  id        String          @id @default(cuid())
+  storeId   String
+  store     Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name      String
+  email     String          @default("")
+  phone     String          @default("")
+  address   String          @default("")
+  createdAt DateTime        @default(now())
+  orders    PurchaseOrder[]
+}
+
+/// Bon de commande fournisseur : brouillon → commandé → reçu (en partie ou en totalité). La réception augmente le stock.
+model PurchaseOrder {
+  id            String              @id @default(cuid())
+  storeId       String
+  store         Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  number        Int
+  supplierId    String?
+  supplier      Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  status        String              @default("draft") // draft | ordered | partial | received | cancelled
+  expectedAt    DateTime?
+  shippingCents Int                 @default(0)
+  note          String              @default("")
+  orderedAt     DateTime?
+  receivedAt    DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  items         PurchaseOrderItem[]
+
+  @@unique([storeId, number])
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  variantId       String? // pas de relation : le bon garde sa trace si la variante est supprimée
+  productTitle    String
+  variantTitle    String
+  sku             String        @default("")
+  quantity        Int
+  received        Int           @default(0)
+  costCents       Int           @default(0)
 }
