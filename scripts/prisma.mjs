@@ -23,5 +23,8 @@ if (/^postgres(ql)?:/.test(url)) {
   writeFileSync(schema, `// Fichier généré par scripts/prisma.mjs depuis prisma/schema.prisma — ne pas modifier.\n${pg}`);
 }
 
-const result = spawnSync("npx", ["prisma", ...process.argv.slice(2), "--schema", schema], { stdio: "inherit", cwd: root, env: process.env });
+// Mise à jour du schéma : connexion directe (Neon, Vercel Postgres) plutôt que le pool de connexions.
+const direct = process.argv[2] === "db" ? process.env.DATABASE_URL_UNPOOLED || process.env.POSTGRES_URL_NON_POOLING : "";
+const env = direct ? { ...process.env, DATABASE_URL: direct } : process.env;
+const result = spawnSync("npx", ["prisma", ...process.argv.slice(2), "--schema", schema], { stdio: "inherit", cwd: root, env });
 process.exit(result.status ?? 1);
