@@ -5,7 +5,7 @@
 const v = (key: string, label: string) => process.env[key]?.trim() || `[${label} à compléter]`;
 
 export const platform = {
-  name: "Parnassa Pay",
+  name: "Revolution Ecom",
   company: v("PLATFORM_COMPANY", "Raison sociale"),
   legalForm: v("PLATFORM_LEGAL_FORM", "Forme juridique et capital"),
   address: v("PLATFORM_ADDRESS", "Adresse du siège"),

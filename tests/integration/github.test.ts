@@ -42,7 +42,7 @@ beforeAll(async () => {
       const send = (status: number, json: unknown) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(json)); };
       const url = new URL(req.url!, "http://x");
       // Application GitHub : manifeste, OAuth, jetons d'installation.
-      if (url.pathname === "/app-manifests/code-ok/conversions") return send(201, { id: 777, slug: "parnassa-test", pem: keys.privateKey, client_id: "cid", client_secret: "csecret", webhook_secret: "app-secret", owner: { login: "plateforme" } });
+      if (url.pathname === "/app-manifests/code-ok/conversions") return send(201, { id: 777, slug: "revolution-test", pem: keys.privateKey, client_id: "cid", client_secret: "csecret", webhook_secret: "app-secret", owner: { login: "plateforme" } });
       if (url.pathname === "/login/oauth/access_token") return send(200, JSON.parse(body).code === "oauth-ok" ? { access_token: "user-token" } : { error: "bad_verification_code" });
       if (url.pathname === "/user/installations") return req.headers.authorization === "Bearer user-token" ? send(200, { installations: [{ id: 42 }] }) : send(401, {});
       if (url.pathname === "/app/installations/42/access_tokens") return validJwt(req.headers.authorization) ? send(201, { token: "ghs-inst", expires_at: new Date(Date.now() + 3600_000).toISOString() }) : send(401, { message: "JWT invalide" });
@@ -139,7 +139,7 @@ describe("connexion en un clic (application GitHub de la plateforme)", () => {
   it("crée l'application par manifeste, vérifie l'installation, relie un dépôt sans jeton et suit les push", async () => {
     await db.platformSetting.deleteMany();
     const app = await convertManifest("code-ok");
-    expect(app.slug).toBe("parnassa-test");
+    expect(app.slug).toBe("revolution-test");
     expect((await db.platformSetting.findUniqueOrThrow({ where: { key: "github_app" } })).value).not.toContain("PRIVATE KEY"); // chiffré
 
     expect(await verifyInstallationOwner("oauth-ok", 42)).toBe(true);

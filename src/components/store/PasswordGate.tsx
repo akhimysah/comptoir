@@ -3,8 +3,8 @@ import { PasswordError } from "./PasswordError";
 import { dict, type Locale } from "@/lib/i18n";
 
 const T = dict(
-  { have: "Vous avez le mot de passe ?", enter: "Entrer", powered: "Boutique propulsée par Parnassa Pay" },
-  { have: "Have a password?", enter: "Enter", powered: "Store powered by Parnassa Pay" },
+  { have: "Vous avez le mot de passe ?", enter: "Entrer", powered: "Boutique propulsée par Revolution Ecom" },
+  { have: "Have a password?", enter: "Enter", powered: "Store powered by Revolution Ecom" },
 );
 
 /** Page « Ouverture prochaine » d'une boutique protégée par mot de passe. */

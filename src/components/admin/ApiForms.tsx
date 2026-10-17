@@ -32,7 +32,7 @@ export function WebhookForm({ topics }: { topics: Record<string, string> }) {
   const [state, action, pending] = useActionState(createWebhook, undefined);
   return (
     <form onSubmit={keepOnSubmit(action)} className="flex flex-col gap-3 p-4">
-      <label className="label">Adresse à appeler<input name="url" type="url" required maxLength={500} className="input" placeholder="https://mon-logiciel.fr/webhooks/parnassa" /></label>
+      <label className="label">Adresse à appeler<input name="url" type="url" required maxLength={500} className="input" placeholder="https://mon-logiciel.fr/webhooks/revolution" /></label>
       <fieldset className="flex flex-col gap-1.5">
         <legend className="mb-1 text-[13px]">Événements</legend>
         {Object.entries(topics).map(([k, label]) => (

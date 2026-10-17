@@ -29,7 +29,7 @@ export default async function PlatformGithubPage({ searchParams }: { searchParam
   const linked = app ? await db.store.count({ where: { githubInstallationId: { not: null } } }) : 0;
   const local = !appUrl().startsWith("https://") || appUrl().includes("localhost");
   const state = signState(["manifest", user.id]);
-  const appName = name || "Parnassa Pay";
+  const appName = name || "Revolution Ecom";
   const target = `${GH_WEB()}/${org ? `organizations/${encodeURIComponent(org)}/` : ""}settings/apps/new?state=${encodeURIComponent(state)}`;
 
   return (

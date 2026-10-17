@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "./db";
 import { splitTags } from "./segments";
 
-/** Colonnes de l'export / import clients de Parnassa Pay. */
+/** Colonnes de l'export / import clients de Revolution Ecom. */
 export const CUSTOMER_COLUMNS = ["Nom", "E-mail", "Abonné newsletter", "Étiquettes", "Note", "Téléphone", "Adresse", "Code postal", "Ville", "Pays"] as const;
 
 type Row = { name: string; email: string; marketing: boolean; tags: string; note: string; phone: string; line1: string; zip: string; city: string; country: string };
@@ -12,7 +12,7 @@ type Row = { name: string; email: string; marketing: boolean; tags: string; note
 const yes = (v: string) => /^(oui|yes|true|1|subscribed|abonné)$/i.test(v.trim());
 const COUNTRY: Record<string, string> = { FR: "France", BE: "Belgique", CH: "Suisse", LU: "Luxembourg", CA: "Canada", MA: "Maroc", DE: "Allemagne", ES: "Espagne", IT: "Italie", GB: "Royaume-Uni", US: "États-Unis", NL: "Pays-Bas", PT: "Portugal" };
 
-/** Lit un export clients Shopify (anciennes et nouvelles colonnes) ou le format Parnassa Pay. */
+/** Lit un export clients Shopify (anciennes et nouvelles colonnes) ou le format Revolution Ecom. */
 export function readCustomerTable(table: string[][]): { rows: (Row & { line: number })[]; shopify: boolean } | { error: string } {
   const header = (table[0] ?? []).map((h) => h.trim());
   // L'apostrophe de tête (protection Excel des exports, ex. « '+33… » ou « '69002 ») est retirée.

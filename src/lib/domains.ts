@@ -39,8 +39,8 @@ export async function storeBaseBySlug(slug: string) {
   return s ? storeBase(s) : `${appUrl()}/s/${slug}`;
 }
 
-export const newDomainToken = () => `parnassa-verification=${randomBytes(12).toString("hex")}`;
-export const txtRecordName = (domain: string) => `_parnassa.${domain}`;
+export const newDomainToken = () => `revolution-ecom-verification=${randomBytes(12).toString("hex")}`;
+export const txtRecordName = (domain: string) => `_revolution-ecom.${domain}`;
 /** Cible du CNAME que le marchand crée chez son registraire. */
 export const cnameTarget = () => process.env.DOMAIN_CNAME_TARGET || platformHost();
 

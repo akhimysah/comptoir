@@ -29,7 +29,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <>
             <div>
               <h1 className="text-lg font-bold">Rejoindre {invite.store.name}</h1>
-              <p className="text-muted">{invite.invitedBy} vous invite à gérer cette boutique sur Parnassa Pay.</p>
+              <p className="text-muted">{invite.invitedBy} vous invite à gérer cette boutique sur Revolution Ecom.</p>
             </div>
             {user ? (
               user.email === invite.email ? (

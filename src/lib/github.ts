@@ -27,7 +27,7 @@ export class GithubError extends Error {
 async function gh<T>(token: string, path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   const res = await fetch(`${API()}${path}`, {
     method: init.method ?? "GET",
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "ParnassaPay", ...(init.body ? { "Content-Type": "application/json" } : {}) },
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "RevolutionEcom", ...(init.body ? { "Content-Type": "application/json" } : {}) },
     body: init.body ? JSON.stringify(init.body) : undefined,
     signal: AbortSignal.timeout(15_000),
   }).catch(() => { throw new GithubError("GitHub ne répond pas. Réessayez plus tard."); });
@@ -148,7 +148,7 @@ export async function connectRepo(store: Store, input: { repo: string; branch: s
   let imported = false;
   if (existing[THEME_FILES.theme] !== undefined) { await pullTheme(linked); imported = true; }
   else {
-    const r = await pushTheme(linked, "Thème Parnassa Pay");
+    const r = await pushTheme(linked, "Thème Revolution Ecom");
     await db.store.update({ where: { id: store.id }, data: { githubLastSha: r.sha, githubSyncedAt: new Date() } });
   }
   // Application GitHub : son propre webhook reçoit les push de tous les dépôts installés.

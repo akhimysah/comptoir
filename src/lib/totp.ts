@@ -49,7 +49,7 @@ export function matchStep(secret: string, code: string, now = Date.now()) {
   return null;
 }
 
-export const otpauthUrl = (secret: string, account: string, issuer = "Parnassa Pay") =>
+export const otpauthUrl = (secret: string, account: string, issuer = "Revolution Ecom") =>
   `otpauth://totp/${encodeURIComponent(`${issuer}:${account}`)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 
 /** Codes de secours : affichés une seule fois, seules leurs empreintes sont gardées. */

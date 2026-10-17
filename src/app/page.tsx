@@ -37,7 +37,7 @@ export default async function Home() {
               <span className="w-fit rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[#c4b5fd]">Commerce en ligne, sans prise de tête</span>
               <h1 className="text-4xl font-bold leading-[1.05] md:text-6xl">Ouvrez votre boutique.<br /><span className="bg-[linear-gradient(90deg,#c4b5fd,#8b5cf6)] bg-clip-text text-transparent">Vendez dès ce soir.</span></h1>
               <p className="max-w-[52ch] text-lg text-white/70">
-                Parnassa Pay réunit tout ce qu'il faut pour vendre en ligne : vitrine personnalisable, paiement sécurisé, gestion du stock, des commandes et de toutes vos boutiques.
+                Revolution Ecom réunit tout ce qu'il faut pour vendre en ligne : vitrine personnalisable, paiement sécurisé, gestion du stock, des commandes et de toutes vos boutiques.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link href="/signup" className={primary}>Créer ma boutique gratuitement</Link>
@@ -46,9 +46,11 @@ export default async function Home() {
               <p className="text-sm text-white/50">Sans abonnement. Une commission de {process.env.PLATFORM_FEE_PERCENT ?? "2"} % seulement sur les ventes.</p>
             </div>
             <div className="relative mx-auto w-full max-w-md">
-              <div className="absolute -inset-8 rounded-full bg-[#7c3aed] opacity-30 blur-3xl" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/parnassa-pay.jpg" alt="Parnassa Pay" className="relative w-full rounded-[2rem] shadow-[0_40px_80px_-30px_rgba(0,0,0,.8)]" />
+              <div className="absolute -inset-8 rounded-full bg-[radial-gradient(circle,#084BAF_0%,#C36BE4_60%,transparent_75%)] opacity-35 blur-3xl" />
+              <div className="relative flex aspect-square w-full items-center justify-center rounded-[2rem] border border-white/10 bg-[#0e0b1f] shadow-[0_40px_80px_-30px_rgba(0,0,0,.8)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/brand/revolution-mark.svg" alt="Revolution Ecom" className="w-3/5" />
+              </div>
             </div>
           </section>
         </main>
@@ -71,7 +73,7 @@ export default async function Home() {
           <Link href="/legal/cgu" className="hover:text-white">Conditions</Link>
           <Link href="/legal/confidentialite" className="hover:text-white">Confidentialité</Link>
           <Link href="/legal/mentions-legales" className="hover:text-white">Mentions légales</Link>
-          <span>© {new Date().getFullYear()} Parnassa Pay</span>
+          <span>© {new Date().getFullYear()} Revolution Ecom</span>
         </span>
       </footer>
     </div>

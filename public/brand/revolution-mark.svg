@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="205 849 290 258">
+  <defs>
+    <linearGradient id="rv-dot" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#084BAF"/><stop offset="1" stop-color="#C36BE4"/></linearGradient>
+    <linearGradient id="rv-bar" x1="0" y1="0" x2="1" y2="0.35"><stop offset="0.2" stop-color="#084BAF"/><stop offset="1" stop-color="#C36BE4"/></linearGradient>
+  </defs>
+  <circle cx="257.5" cy="901" r="47.5" fill="url(#rv-dot)"/>
+  <line x1="443" y1="898" x2="352" y2="1056" stroke="url(#rv-bar)" stroke-width="95" stroke-linecap="round"/>
+</svg>

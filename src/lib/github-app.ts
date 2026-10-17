@@ -40,7 +40,7 @@ export function appJwt(c: AppConfig) {
 async function call<T>(path: string, auth: string, init: { method?: string; body?: unknown; base?: string } = {}): Promise<T> {
   const res = await fetch(`${init.base ?? GH_API()}${path}`, {
     method: init.method ?? "GET",
-    headers: { Authorization: auth, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "ParnassaPay", ...(init.body ? { "Content-Type": "application/json" } : {}) },
+    headers: { Authorization: auth, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "RevolutionEcom", ...(init.body ? { "Content-Type": "application/json" } : {}) },
     body: init.body ? JSON.stringify(init.body) : undefined,
     signal: AbortSignal.timeout(15_000),
   });
@@ -95,7 +95,7 @@ export function appManifest(name: string) {
   return {
     name,
     url: base,
-    description: "Synchronise le thème de votre boutique Parnassa Pay avec un dépôt GitHub.",
+    description: "Synchronise le thème de votre boutique Revolution Ecom avec un dépôt GitHub.",
     public: true, // installable par tous les marchands
     redirect_url: `${base}/api/github/manifest`,
     callback_urls: [`${base}/api/github/setup`],
@@ -110,7 +110,7 @@ export function appManifest(name: string) {
 
 /** Étape finale du manifeste : GitHub renvoie un code échangé contre les identifiants de l'application. */
 export async function convertManifest(code: string) {
-  const res = await fetch(`${GH_API()}/app-manifests/${encodeURIComponent(code)}/conversions`, { method: "POST", headers: { Accept: "application/vnd.github+json", "User-Agent": "ParnassaPay" }, signal: AbortSignal.timeout(15_000) });
+  const res = await fetch(`${GH_API()}/app-manifests/${encodeURIComponent(code)}/conversions`, { method: "POST", headers: { Accept: "application/vnd.github+json", "User-Agent": "RevolutionEcom" }, signal: AbortSignal.timeout(15_000) });
   const r = (await res.json().catch(() => ({}))) as { id?: number; slug?: string; pem?: string; client_id?: string; client_secret?: string; webhook_secret?: string | null; owner?: { login?: string }; message?: string };
   if (!res.ok || !r.id || !r.slug || !r.pem) throw new Error(r.message ?? "GitHub n'a pas créé l'application.");
   const cfg: AppConfig = { appId: String(r.id), slug: r.slug, privateKey: r.pem, clientId: r.client_id ?? "", clientSecret: r.client_secret ?? "", webhookSecret: r.webhook_secret ?? "", owner: r.owner?.login };

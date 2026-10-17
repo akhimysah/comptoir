@@ -20,7 +20,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
   return (
     <>
-      <PageHeader back="/admin/settings" title="Forfait" subtitle="Votre abonnement à Parnassa Pay et la commission prélevée sur vos ventes." />
+      <PageHeader back="/admin/settings" title="Forfait" subtitle="Votre abonnement à Revolution Ecom et la commission prélevée sur vos ventes." />
       {ok && <p role="status" className="mb-4 rounded-lg border border-[#b4fed2] bg-[#ecfdf3] px-4 py-3 text-[#0c5132]">Merci ! Votre forfait est activé (la confirmation de Stripe peut prendre quelques secondes).</p>}
       {err && <p role="alert" className="mb-4 rounded-lg border border-[#fedad9] bg-[#fff4f4] px-4 py-3 text-[#8e0b21]">La facturation n'est pas encore activée sur cette plateforme.</p>}
       {!enabled && <p className="mb-4 rounded-lg bg-[#f1f1f1] px-4 py-3 text-[13px]">Facturation des marchands désactivée : toutes les boutiques vendent librement, avec la commission par défaut ({storeFeePercent(store).toLocaleString("fr-FR")} %). Pour l'activer, configurez la clé Stripe et <code>BILLING_ENABLED=1</code>.</p>}

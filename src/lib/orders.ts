@@ -188,7 +188,7 @@ async function commitStock(tx: Tx, orderId: string, report: StockReport) {
 
 /** Survente signalée dans la chronologie, stock bas signalé par e-mail au propriétaire. */
 async function reportStock(orderId: string, { lowStock, oversold }: StockReport) {
-  if (oversold.length) await db.orderEvent.create({ data: { orderId, type: "comment", author: "Parnassa Pay", message: `⚠ Stock insuffisant au moment du paiement : ${oversold.join(", ")}. Prévenez le client ou réapprovisionnez.` } });
+  if (oversold.length) await db.orderEvent.create({ data: { orderId, type: "comment", author: "Revolution Ecom", message: `⚠ Stock insuffisant au moment du paiement : ${oversold.join(", ")}. Prévenez le client ou réapprovisionnez.` } });
   if (lowStock.length) {
     const o = await db.order.findUnique({ where: { id: orderId }, include: { store: { include: { owner: true } } } });
     if (o) await sendMail({ to: o.store.owner.email, storeId: o.storeId, ...lowStockEmail(o.store, lowStock) });
@@ -230,7 +230,7 @@ export async function confirmTermsOrder(orderId: string, days: number) {
   const report: StockReport = { lowStock: [], oversold: [] };
   await db.$transaction(async (tx) => {
     await tx.order.update({ where: { id: orderId }, data: { dueAt: new Date(Date.now() + days * 86400_000) } });
-    await tx.orderEvent.create({ data: { orderId, type: "comment", author: "Parnassa Pay", message: `Paiement à ${days} jours accordé au client professionnel.` } });
+    await tx.orderEvent.create({ data: { orderId, type: "comment", author: "Revolution Ecom", message: `Paiement à ${days} jours accordé au client professionnel.` } });
     await commitStock(tx, orderId, report);
   });
   await notifyOrderPaid(orderId);

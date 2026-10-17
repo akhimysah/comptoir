@@ -61,7 +61,7 @@ async function deliver(hook: { id: string; url: string; secret: string }, topic:
         method: "POST",
         redirect: "manual", // une redirection pourrait mener vers le réseau interne
         signal: AbortSignal.timeout(5000),
-        headers: { "Content-Type": "application/json", "User-Agent": "ParnassaPay-Webhooks/1", "X-Parnassa-Topic": topic, "X-Parnassa-Webhook-Id": randomUUID(), "X-Parnassa-Hmac-Sha256": sign(hook.secret, body) },
+        headers: { "Content-Type": "application/json", "User-Agent": "RevolutionEcom-Webhooks/1", "X-Revolution-Topic": topic, "X-Revolution-Webhook-Id": randomUUID(), "X-Revolution-Hmac-Sha256": sign(hook.secret, body) },
         body,
       });
       status = res.status;

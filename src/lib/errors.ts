@@ -31,7 +31,7 @@ export async function recordError(e: { message: string; stack?: string; path: st
     for (const to of admins) {
       await sendMail({
         to,
-        subject: `[Parnassa Pay] Erreur sur ${path}`,
+        subject: `[Revolution Ecom] Erreur sur ${path}`,
         html: `<p style="font-family:sans-serif;font-size:14px">Une erreur s'est produite sur <b>${esc(path)}</b> (${row.count} fois).</p><pre style="font-size:12px;background:#f7f7f7;padding:12px;white-space:pre-wrap">${esc(message)}</pre><p><a href="${appUrl()}/admin/platform/errors">Voir les erreurs</a></p>`,
       });
     }

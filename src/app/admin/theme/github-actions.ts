@@ -66,7 +66,7 @@ export async function pushGithubNow() {
   const { store } = await requireOwner();
   let changed = false;
   try {
-    const r = await pushTheme(store, "Thème envoyé depuis l'admin Parnassa Pay");
+    const r = await pushTheme(store, "Thème envoyé depuis l'admin Revolution Ecom");
     changed = r.changed;
     await db.store.update({ where: { id: store.id }, data: { githubLastSha: r.sha, githubSyncedAt: new Date(), githubError: "" } });
   } catch (e) { back("err", message(e)); }

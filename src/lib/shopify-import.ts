@@ -22,7 +22,7 @@ export type ShopifyImages = {
 };
 
 /**
- * Traduit le tableau Shopify au format d'import de Parnassa Pay.
+ * Traduit le tableau Shopify au format d'import de Revolution Ecom.
  * Les lignes qui ne portent qu'une photo supplémentaire ne créent pas de variante.
  * La variante unique « Title / Default Title » de Shopify devient un produit sans option.
  */

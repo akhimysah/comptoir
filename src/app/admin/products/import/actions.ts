@@ -22,7 +22,7 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
   if (file.size > 10 * 1024 * 1024) return { error: "Le fichier dépasse 10 Mo." };
 
   let table = parseCsv(await file.text());
-  // Export Shopify : traduit au format Parnassa Pay, photos récupérées ensuite.
+  // Export Shopify : traduit au format Revolution Ecom, photos récupérées ensuite.
   let shopifyImages: ShopifyImages | null = null;
   if (isShopifyCsv((table[0] ?? []).map((h) => h.trim()))) {
     const converted = convertShopify(table);

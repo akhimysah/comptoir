@@ -22,8 +22,8 @@ import { LocaleProvider } from "@/components/store/locale";
 import { LanguageSelect } from "@/components/store/LanguageSelect";
 
 const T = dict(
-  { preview: "Boutique protégée par mot de passe : vous la voyez car vous êtes connecté à l'admin.", prefs: "Préférences", menu: "Menu principal", favorites: "Mes favoris", account: "Mon compte", footer: "Pied de page", poweredBy: "Boutique propulsée par Parnassa Pay" },
-  { preview: "Password-protected store: you can see it because you are signed in to the admin.", prefs: "Preferences", menu: "Main menu", favorites: "My favourites", account: "My account", footer: "Footer", poweredBy: "Store powered by Parnassa Pay" },
+  { preview: "Boutique protégée par mot de passe : vous la voyez car vous êtes connecté à l'admin.", prefs: "Préférences", menu: "Menu principal", favorites: "Mes favoris", account: "Mon compte", footer: "Pied de page", poweredBy: "Boutique propulsée par Revolution Ecom" },
+  { preview: "Password-protected store: you can see it because you are signed in to the admin.", prefs: "Preferences", menu: "Main menu", favorites: "My favourites", account: "My account", footer: "Footer", poweredBy: "Store powered by Revolution Ecom" },
 );
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

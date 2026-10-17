@@ -67,7 +67,7 @@ export async function posCheckout(input: z.infer<typeof schema>): Promise<{ erro
   // Le retrait de stock passe du principal à l'emplacement de la caisse.
   if (location !== PRIMARY) {
     const problem = await db.$transaction(async (tx) => shipFromLocation(tx, order.id, location, await stockMoves(tx, order.id)));
-    if (problem) await db.orderEvent.create({ data: { orderId: order.id, type: "comment", author: "Parnassa Pay", message: `⚠ ${problem} Le stock a été retiré de l'emplacement principal.` } });
+    if (problem) await db.orderEvent.create({ data: { orderId: order.id, type: "comment", author: "Revolution Ecom", message: `⚠ ${problem} Le stock a été retiré de l'emplacement principal.` } });
   }
   await db.$transaction([
     db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "fulfilled", fulfilledAt: new Date(), reviewRequestedAt: new Date() } }),

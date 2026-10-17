@@ -16,7 +16,7 @@ export const orderLocale = (o: { locale?: string | null }): Locale => (isLocale(
 /** Textes communs des e-mails clients, dans la langue du client. Les e-mails au marchand restent en français. */
 const T = dict(
   {
-    sentBy: (s: string) => `Envoyé par ${s} via Parnassa Pay`,
+    sentBy: (s: string) => `Envoyé par ${s} via Revolution Ecom`,
     subtotal: "Sous-total",
     discount: "Remise",
     shipping: "Livraison",
@@ -67,7 +67,7 @@ const T = dict(
     chatContinue: "Continuer la conversation",
   },
   {
-    sentBy: (s: string) => `Sent by ${s} via Parnassa Pay`,
+    sentBy: (s: string) => `Sent by ${s} via Revolution Ecom`,
     subtotal: "Subtotal",
     discount: "Discount",
     shipping: "Shipping",
@@ -223,8 +223,8 @@ export function newOrderAlertEmail(store: Store, order: Order & { items: OrderIt
 
 export function passwordResetEmail(link: string) {
   return {
-    subject: "Réinitialiser votre mot de passe Parnassa Pay",
-    html: layout("Parnassa Pay", "Réinitialiser votre mot de passe",
+    subject: "Réinitialiser votre mot de passe Revolution Ecom",
+    html: layout("Revolution Ecom", "Réinitialiser votre mot de passe",
       `<p style="font-size:14px;line-height:1.5">Quelqu'un a demandé à réinitialiser le mot de passe de ce compte. Si c'est vous, cliquez sur le bouton ci-dessous. Le lien est valable 1 heure.</p>
 <p>${button(link, "Choisir un nouveau mot de passe")}</p>
 <p style="font-size:13px;color:#616161">Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail : votre mot de passe ne change pas.</p>`),
@@ -235,7 +235,7 @@ export function inviteEmail(storeName: string, invitedBy: string, link: string) 
   return {
     subject: `${invitedBy} vous invite à gérer ${storeName}`,
     html: layout(storeName, `Rejoindre ${storeName}`,
-      `<p style="font-size:14px;line-height:1.5">${esc(invitedBy)} vous invite à gérer la boutique <b>${esc(storeName)}</b> sur Parnassa Pay. Le lien est valable 7 jours.</p><p>${button(link, "Accepter l'invitation")}</p>`),
+      `<p style="font-size:14px;line-height:1.5">${esc(invitedBy)} vous invite à gérer la boutique <b>${esc(storeName)}</b> sur Revolution Ecom. Le lien est valable 7 jours.</p><p>${button(link, "Accepter l'invitation")}</p>`),
   };
 }
 

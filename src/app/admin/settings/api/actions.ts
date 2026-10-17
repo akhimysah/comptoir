@@ -64,6 +64,6 @@ export async function testWebhook(form: FormData) {
   // Un essai remet le compteur d'échecs à zéro, pour réactiver une adresse réparée.
   await db.webhook.update({ where: { id: hook.id }, data: { failures: 0 } });
   const topic = JSON.parse(hook.topics)[0];
-  if (isTopic(topic)) await emit(store.id, topic, { test: true, message: "Envoi d'essai de Parnassa Pay", store: { id: store.id, name: store.name } });
+  if (isTopic(topic)) await emit(store.id, topic, { test: true, message: "Envoi d'essai de Revolution Ecom", store: { id: store.id, name: store.name } });
   revalidatePath("/admin/settings/api");
 }

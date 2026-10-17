@@ -25,7 +25,7 @@ export async function choosePlan(form: FormData) {
     mode: "subscription",
     customer,
     locale: "fr",
-    line_items: [{ quantity: 1, price_data: { currency: "eur", unit_amount: plan.priceCents, recurring: { interval: "month" }, product_data: { name: `Parnassa Pay · forfait ${plan.name}` } } }],
+    line_items: [{ quantity: 1, price_data: { currency: "eur", unit_amount: plan.priceCents, recurring: { interval: "month" }, product_data: { name: `Revolution Ecom · forfait ${plan.name}` } } }],
     // « kind: plan » distingue ces abonnements de ceux que les clients des boutiques souscrivent.
     subscription_data: { metadata: { kind: "plan", storeId: store.id, plan: key } },
     metadata: { kind: "plan", storeId: store.id, plan: key },

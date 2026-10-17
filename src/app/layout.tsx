@@ -6,8 +6,8 @@ const body = Inter({ subsets: ["latin"], variable: "--font-body" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", weight: ["400", "500"] });
 
 export const metadata: Metadata = {
-  title: { default: "Parnassa Pay", template: "%s · Parnassa Pay" },
-  applicationName: "Parnassa Pay",
+  title: { default: "Revolution Ecom", template: "%s · Revolution Ecom" },
+  applicationName: "Revolution Ecom",
   description: "Créez votre boutique en ligne et vendez partout.",
 };
 

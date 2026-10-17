@@ -14,7 +14,7 @@ export async function sendMail({ to, subject, html, storeId }: { to: string; sub
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from: process.env.MAIL_FROM || "Parnassa Pay <onboarding@resend.dev>", to, subject, html }),
+        body: JSON.stringify({ from: process.env.MAIL_FROM || "Revolution Ecom <onboarding@resend.dev>", to, subject, html }),
       });
       status = res.ok ? "sent" : "failed";
       if (!res.ok) error = (await res.text()).slice(0, 500);

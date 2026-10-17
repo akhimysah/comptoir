@@ -92,10 +92,10 @@ export default async function ApiPage() {
   -H "Content-Type: application/json" \\
   -d '{"stock": 12}'`}</pre>
           <p className="font-[650]">Vérifier un webhook</p>
-          <p>Chaque envoi est un POST JSON avec les en-têtes <code>X-Parnassa-Topic</code> (l'événement) et <code>X-Parnassa-Hmac-Sha256</code> : la signature HMAC-SHA256, en base64, du corps exact avec la clé de signature. Recalculez-la et refusez l'envoi si elle diffère. Répondez par un code 2xx en moins de 5 secondes ; après {MAX_FAILURES} échecs d'affilée, l'adresse n'est plus appelée (un envoi d'essai la réactive).</p>
+          <p>Chaque envoi est un POST JSON avec les en-têtes <code>X-Revolution-Topic</code> (l'événement) et <code>X-Revolution-Hmac-Sha256</code> : la signature HMAC-SHA256, en base64, du corps exact avec la clé de signature. Recalculez-la et refusez l'envoi si elle diffère. Répondez par un code 2xx en moins de 5 secondes ; après {MAX_FAILURES} échecs d'affilée, l'adresse n'est plus appelée (un envoi d'essai la réactive).</p>
           <pre className="overflow-x-auto rounded-lg bg-[#1a1a1a] p-3 text-xs text-white">{`// Node.js
 const sig = crypto.createHmac("sha256", process.env.PARNASSA_WEBHOOK_SECRET).update(rawBody).digest("base64");
-const ok = crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(req.headers["x-parnassa-hmac-sha256"]));`}</pre>
+const ok = crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(req.headers["x-revolution-hmac-sha256"]));`}</pre>
         </section>
       </div>
     </>

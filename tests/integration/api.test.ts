@@ -75,7 +75,7 @@ describe("webhooks", () => {
     const server = createServer((req, res) => {
       let body = "";
       req.on("data", (c) => (body += c));
-      req.on("end", () => { received.push({ topic: String(req.headers["x-parnassa-topic"]), sig: String(req.headers["x-parnassa-hmac-sha256"]), body }); res.end("ok"); });
+      req.on("end", () => { received.push({ topic: String(req.headers["x-revolution-topic"]), sig: String(req.headers["x-revolution-hmac-sha256"]), body }); res.end("ok"); });
     });
     await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
     const port = (server.address() as AddressInfo).port;
