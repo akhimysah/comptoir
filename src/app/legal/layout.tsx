@@ -7,7 +7,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen bg-white text-[#303030]">
       <header className="border-b border-[#ebebeb]">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
-          <Link href="/"><Logo size={32} nameClassName="text-base text-[#303030]" /></Link>
+          <Link href="/"><Logo size={30} /></Link>
           <nav className="flex gap-4 text-sm">
             <Link href="/legal/cgu" className="hover:underline">Conditions</Link>
             <Link href="/legal/confidentialite" className="hover:underline">Confidentialité</Link>

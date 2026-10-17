@@ -18,7 +18,7 @@ export default async function Home() {
     <div className="min-h-screen bg-[#0d0730] text-white">
       <div className="bg-[radial-gradient(ellipse_at_top_left,#4c1d95_0%,transparent_55%),radial-gradient(ellipse_at_bottom_right,#3b0fa8_0%,transparent_50%)]">
         <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
-          <Link href="/"><Logo size={36} nameClassName="text-lg" /></Link>
+          <Link href="/"><Logo size={36} tone="light" /></Link>
           <nav className="flex items-center gap-2">
             {user ? (
               <Link href="/admin" className={primary.replace("px-5 py-3", "px-4 py-2")}>Mon admin</Link>
@@ -68,7 +68,7 @@ export default async function Home() {
         </div>
       </section>
       <footer className="mx-auto flex max-w-6xl items-center justify-between px-4 py-8 text-sm text-white/50">
-        <Logo size={24} nameClassName="text-white/80" />
+        <Logo size={24} tone="light" className="opacity-80" />
         <span className="flex flex-wrap gap-4">
           <Link href="/legal/cgu" className="hover:text-white">Conditions</Link>
           <Link href="/legal/confidentialite" className="hover:text-white">Confidentialité</Link>

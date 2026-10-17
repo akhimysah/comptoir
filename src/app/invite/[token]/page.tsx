@@ -17,7 +17,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   return (
     <div className="flex min-h-screen flex-col items-center bg-canvas px-4 py-12">
       <div className="mb-6 flex items-center gap-2">
-        <Logo size={36} nameClassName="text-[17px]" />
+        <Logo size={36} />
       </div>
       <div className="card flex w-full max-w-md flex-col gap-4 p-6">
         {!invite ? (
