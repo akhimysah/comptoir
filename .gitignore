@@ -11,3 +11,5 @@ next-env.d.ts
 prisma/test.db
 prisma/test.db-journal
 prisma/postgres/
+.vercel
+.env*

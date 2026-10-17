@@ -1,4 +1,5 @@
 {
+  "buildCommand": "node scripts/prisma.mjs db push --skip-generate && npm run build",
   "crons": [
     {
       "path": "/api/cron/daily-report",
