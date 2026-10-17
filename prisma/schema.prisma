@@ -68,6 +68,7 @@ model Store {
   githubBranch             String                @default("main")
   githubPath               String                @default("") // dossier du thème dans le dépôt ("" = racine)
   githubToken              String? // jeton chiffré (AES-256-GCM)
+  githubInstallationId     Int? // installation de l'application GitHub de la plateforme (connexion sans jeton)
   githubWebhookId          Int?
   githubWebhookSecret      String?
   githubLastSha            String? // dernier commit synchronisé
@@ -903,4 +904,11 @@ model InventoryLevel {
   quantity   Int      @default(0)
 
   @@unique([locationId, variantId])
+}
+
+/// Réglages de la plateforme enregistrés en base (ex. identifiants de l'application GitHub, chiffrés).
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

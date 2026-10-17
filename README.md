@@ -124,6 +124,7 @@ L'offre gratuite de Vercel (Hobby) est réservée aux projets non commerciaux. P
    - `RESEND_API_KEY` et l'adresse d'envoi pour les e-mails ;
    - `PLATFORM_ADMINS` (vos e-mails) pour la page « Erreurs » et les alertes ;
    - les informations légales `PLATFORM_*` (voir `.env.example`) ;
+   - la connexion GitHub des boutiques : une fois le site en ligne, ouvrez admin → Application GitHub → « Créer l'application » (à refaire depuis le site en ligne si vous l'aviez créée en local) ;
    - `BILLING_ENABLED=1` pour faire payer les forfaits aux marchands (14 jours d'essai, puis Essentiel, Pro ou Avancé ; la commission dépend du forfait) ;
    - pour les noms de domaine des boutiques : `VERCEL_TOKEN` et `VERCEL_PROJECT_ID` (ajout automatique du domaine et de son certificat HTTPS), et `DOMAIN_CNAME_TARGET` (`cname.vercel-dns.com` sur Vercel).
 5. Facultatif, la boutique de démonstration : lancez la commande suivante sur votre Mac, avec le mot de passe de votre choix.
