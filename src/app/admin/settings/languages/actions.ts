@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity";
 import { requireOwner, requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { readTranslations, type Translations } from "@/lib/i18n";
+import { pushThemeLater } from "@/lib/github";
 
 /** Langues de la boutique : le français reste la langue principale, l'anglais s'ajoute. */
 export async function saveLanguages(form: FormData) {
@@ -36,6 +37,7 @@ const merge = (json: string, en: Record<string, string>) => {
 export async function saveStoreTranslations(form: FormData) {
   const { store } = await requirePerm("content");
   await db.store.update({ where: { id: store.id }, data: { translations: merge(store.translations, readFields(form, 2000)) } });
+  await pushThemeLater(store.id, "Traductions de la boutique modifiées depuis l'admin");
   revalidatePath("/admin/settings/languages");
   redirect("/admin/settings/languages?tab=store&saved=1");
 }

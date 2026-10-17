@@ -63,6 +63,16 @@ model Store {
   chargeInCustomerCurrency Boolean               @default(false) // encaisser dans la devise choisie par le client (sinon affichage seulement)
   autoRates                Boolean               @default(false) // taux de change mis à jour chaque jour (BCE)
   primaryLocationName      String                @default("Entrepôt principal") // emplacement principal (stock en ligne)
+  // Thème relié à un dépôt GitHub (comme l'intégration GitHub de Shopify)
+  githubRepo               String? // « propriétaire/dépôt »
+  githubBranch             String                @default("main")
+  githubPath               String                @default("") // dossier du thème dans le dépôt ("" = racine)
+  githubToken              String? // jeton chiffré (AES-256-GCM)
+  githubWebhookId          Int?
+  githubWebhookSecret      String?
+  githubLastSha            String? // dernier commit synchronisé
+  githubSyncedAt           DateTime?
+  githubError              String                @default("")
   ratesUpdatedAt           DateTime?
   loyaltyEnabled           Boolean               @default(false) // programme de fidélité
   loyaltyPointsPerUnit     Int                   @default(1) // points gagnés par unité de devise dépensée (1 € = 1 point)
