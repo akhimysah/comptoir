@@ -4,7 +4,8 @@ import { z } from "zod";
 import { logActivity } from "@/lib/activity";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { createOrder, markOrderPaid } from "@/lib/orders";
+import { createOrder, markOrderPaid, stockMoves } from "@/lib/orders";
+import { ownLocation, PRIMARY, shipFromLocation, stockByLocation } from "@/lib/locations";
 import type { PricedCart } from "@/lib/pricing";
 import { includedTax } from "@/lib/tax";
 import { parseJson } from "@/lib/utils";
@@ -16,6 +17,7 @@ const schema = z.object({
   method: z.enum(["cash", "card"]),
   email: z.string().trim().toLowerCase().email().optional().or(z.literal("")),
   name: z.string().trim().max(80).optional().default(""),
+  locationId: z.string().max(40).optional(),
 });
 
 /** Vente au point de vente : commande payée et remise au client sur place (traitée). */
@@ -25,13 +27,18 @@ export async function posCheckout(input: z.infer<typeof schema>): Promise<{ erro
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
 
+  const location = await ownLocation(store.id, d.locationId);
+  if (!location) return { error: "Emplacement introuvable." };
   const variants = await db.variant.findMany({ where: { id: { in: d.lines.map((l) => l.variantId) }, product: { storeId: store.id } }, include: { product: true } });
   const bundles = await bundleComponents([...new Set(variants.map((v) => v.productId))]);
+  // Vente depuis un autre emplacement que le principal : c'est son stock qui compte.
+  const per = location !== PRIMARY ? await stockByLocation(store.id, [...variants, ...[...bundles.values()].flat().map((x) => ({ id: x.variantId, stock: x.stock }))]) : null;
+  const at = (id: string, total: number) => (per ? per.get(id)?.get(location) ?? 0 : total);
   const lines: PricedCart["lines"] = [];
   for (const l of d.lines) {
     const v = variants.find((x) => x.id === l.variantId);
     if (!v) return { error: "Un article du ticket n'existe plus." };
-    const stock = bundles.has(v.productId) ? bundleStock(bundles.get(v.productId)!) : v.stock;
+    const stock = bundles.has(v.productId) ? bundleStock(bundles.get(v.productId)!.map((x) => ({ quantity: x.quantity, stock: at(x.variantId, x.stock) }))) : at(v.id, v.stock);
     if (!v.product.isGiftCard && !v.product.continueSelling && l.quantity > stock) return { error: `Stock insuffisant : ${v.product.title}${v.title !== "Par défaut" ? ` (${v.title})` : ""}, ${stock} disponible${stock > 1 ? "s" : ""}.` };
     lines.push({
       variantId: v.id, baseVariantId: v.id, subscription: null, productId: v.productId, productTitle: v.product.title, productHandle: v.product.handle, variantTitle: v.title,
@@ -57,6 +64,11 @@ export async function posCheckout(input: z.infer<typeof schema>): Promise<{ erro
     await db.customer.deleteMany({ where: { id: order.customerId, orders: { none: {} } } });
   }
   await markOrderPaid(order.id);
+  // Le retrait de stock passe du principal à l'emplacement de la caisse.
+  if (location !== PRIMARY) {
+    const problem = await db.$transaction(async (tx) => shipFromLocation(tx, order.id, location, await stockMoves(tx, order.id)));
+    if (problem) await db.orderEvent.create({ data: { orderId: order.id, type: "comment", author: "Parnassa Pay", message: `⚠ ${problem} Le stock a été retiré de l'emplacement principal.` } });
+  }
   await db.$transaction([
     db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "fulfilled", fulfilledAt: new Date(), reviewRequestedAt: new Date() } }),
     db.orderEvent.create({ data: { orderId: order.id, type: "pos_sale", author: user.name, message: d.method === "cash" ? "espèces" : "carte" } }),

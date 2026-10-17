@@ -13,6 +13,7 @@ import { formatMoney } from "@/lib/money";
 import { canFulfill, FULFILLMENT_LABELS, paymentLabel, type Address } from "@/lib/orders";
 import { formatDate, formatDateTime, initials, parseJson } from "@/lib/utils";
 import { RETURN_STATUS, returnLines } from "@/lib/returns";
+import { storeLocations } from "@/lib/locations";
 
 const EVENT_TEXT: Record<string, string> = {
   fulfilled: "a expédié la commande.",
@@ -52,6 +53,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   // Commande créée dans l'admin et pas encore réglée : elle peut être payée en ligne via un lien.
   const invoiceLink = ["manual", "terms"].includes(o.paymentMethod) && invoicePayable(o) ? await payLink(o, store.slug) : null;
   const ful = FULFILLMENT_LABELS[o.fulfillmentStatus];
+  const locations = await storeLocations(store);
+  const shippedFrom = o.fulfillmentLocationId ? locations.find((l) => l.id === o.fulfillmentLocationId)?.name : null;
 
   // Les étapes automatiques (création, paiement) viennent des champs de la commande ; le reste de la table des événements.
   const timeline = [
@@ -156,7 +159,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             </div>
             {o.fulfillmentStatus === "fulfilled" && (
               <div className="mx-3 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-[#f7f7f7] px-3 py-2.5 text-[13px]">
-                <span className="font-[550]">{o.deliveryMethod === "pickup" ? "Récupérée en boutique" : "Expédiée"}{o.fulfilledAt ? ` le ${formatDateTime(o.fulfilledAt)}` : ""}</span>
+                <span className="font-[550]">{o.deliveryMethod === "pickup" ? "Récupérée en boutique" : "Expédiée"}{o.fulfilledAt ? ` le ${formatDateTime(o.fulfilledAt)}` : ""}{shippedFrom ? ` · depuis ${shippedFrom}` : ""}</span>
                 {o.deliveryMethod === "pickup" ? null : o.trackingNumber ? (
                   <>
                     <span className="text-muted">{carrierLabel(o.trackingCarrier)}</span>
@@ -207,6 +210,11 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                   <input type="hidden" name="id" value={o.id} />
                   <input type="hidden" name="value" value="fulfilled" />
                   <input type="hidden" name="hasNotify" value="1" />
+                  {locations.length > 1 && (
+                    <label className="label">Expédier depuis
+                      <select name="locationId" defaultValue="primary" className="input">{locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select>
+                    </label>
+                  )}
                   <TrackingFields />
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" name="notify" defaultChecked className="h-4 w-4 accent-[#7c3aed]" />Prévenir le client par e-mail</label>

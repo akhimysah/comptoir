@@ -5,11 +5,14 @@ import { posCheckout } from "@/app/admin/pos/actions";
 import { Thumb } from "@/components/ui";
 import { formatMoney, parseMoney } from "@/lib/money";
 
-type V = { id: string; title: string; priceCents: number; stock: number; unlimited: boolean };
+type V = { id: string; title: string; priceCents: number; stock: number; unlimited: boolean; stockAt?: Record<string, number> };
 type P = { id: string; title: string; image: string | null; hue: number; collections: string[]; variants: V[] };
 type Line = { variantId: string; quantity: number };
 
-export function PosRegister({ products, collections, customers, currency }: { products: P[]; collections: { handle: string; title: string }[]; customers: { email: string; name: string }[]; currency: string }) {
+export function PosRegister({ products: allProducts, collections, customers, currency, locations = [] }: { products: P[]; collections: { handle: string; title: string }[]; customers: { email: string; name: string }[]; currency: string; locations?: { id: string; name: string }[] }) {
+  // Plusieurs emplacements : la caisse vend le stock de l'emplacement choisi (gardé d'une session à l'autre).
+  const [loc, setLoc] = useState(() => { try { const v = localStorage.getItem("comptoir:pos:location"); return v && locations.some((l) => l.id === v) ? v : locations[0]?.id ?? ""; } catch { return locations[0]?.id ?? ""; } });
+  const products = useMemo(() => (locations.length > 1 ? allProducts.map((p) => ({ ...p, variants: p.variants.map((v) => ({ ...v, stock: v.stockAt?.[loc] ?? 0 })) })) : allProducts), [allProducts, locations.length, loc]);
   const [q, setQ] = useState("");
   const [col, setCol] = useState<string | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
@@ -40,7 +43,7 @@ export function PosRegister({ products, collections, customers, currency }: { pr
   const reset = () => { setLines([]); setDiscount(""); setEmail(""); setName(""); setPay(null); setGiven(""); setError(null); setDone(null); };
   const charge = () => start(async () => {
     setError(null);
-    const res = await posCheckout({ lines, discountCents, method: pay!, email, name });
+    const res = await posCheckout({ lines, discountCents, method: pay!, email, name, locationId: loc || undefined });
     if (res.error) setError(res.error);
     else setDone({ orderId: res.orderId!, number: res.number!, change: pay === "cash" ? Math.max(0, change) : 0, total });
   });
@@ -63,6 +66,11 @@ export function PosRegister({ products, collections, customers, currency }: { pr
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
       <section className="flex min-w-0 flex-col gap-3">
+        {locations.length > 1 && (
+          <label className="flex items-center gap-2 text-[13px]">Emplacement
+            <select value={loc} onChange={(e) => { setLoc(e.target.value); setLines([]); try { localStorage.setItem("comptoir:pos:location", e.target.value); } catch {} }} className="input h-8 w-auto py-1">{locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select>
+          </label>
+        )}
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un produit" aria-label="Rechercher un produit" className="input h-10 text-base" />
         <div className="flex flex-wrap gap-1.5">
           <button className={`btn btn-sm ${!col ? "bg-[#e3e3e3]" : ""}`} onClick={() => setCol(null)}>Tout</button>

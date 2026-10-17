@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { canFulfill, cancelUnpaidOrder, fulfillOrder, markOrderPaid, notifyOrderShipped } from "@/lib/orders";
+import { canFulfill, cancelUnpaidOrder, fulfillOrder, markOrderPaid, notifyOrderShipped, unfulfillOrder } from "@/lib/orders";
+import { ownLocation, PRIMARY } from "@/lib/locations";
 import { PAID_STATUSES, refundableCents, refundOrder } from "@/lib/refunds";
 import { decideReturn } from "@/lib/returns";
 import { carrierLabel } from "@/lib/tracking";
@@ -45,11 +46,13 @@ export async function setFulfilled(form: FormData) {
   const tracking = fulfilled ? readTracking(form) : { trackingCarrier: "", trackingNumber: "", trackingUrl: "" };
   // Mise à jour conditionnelle : un double clic n'expédie (et n'envoie l'e-mail) qu'une fois.
   if (fulfilled) {
-    if (!(await fulfillOrder(order.id, tracking, user.name, trackingText(tracking), notify))) return revalidatePath(`/admin/orders/${order.id}`);
+    const location = await ownLocation(order.storeId, String(form.get("locationId") ?? PRIMARY));
+    if (!location) redirect(`/admin/orders/${order.id}?err=${encodeURIComponent("Emplacement introuvable.")}`);
+    const r = await fulfillOrder(order.id, tracking, user.name, trackingText(tracking), notify, location);
+    if (r.error) redirect(`/admin/orders/${order.id}?err=${encodeURIComponent(r.error)}`);
+    if (!r.done) return revalidatePath(`/admin/orders/${order.id}`);
   } else {
-    const done = await db.order.updateMany({ where: { id: order.id, fulfillmentStatus: "fulfilled" }, data: { fulfillmentStatus: "unfulfilled", fulfilledAt: null, ...tracking } });
-    if (!done.count) return revalidatePath(`/admin/orders/${order.id}`);
-    await db.orderEvent.create({ data: { orderId: order.id, type: "unfulfilled", author: user.name, message: "" } });
+    if (!(await unfulfillOrder(order.id, user.name))) return revalidatePath(`/admin/orders/${order.id}`);
   }
   await logActivity(`Commande #${order.number} marquée comme ${fulfilled ? "traitée" : "non traitée"}`, `/admin/orders/${order.id}`);
   revalidatePath(`/admin/orders/${order.id}`);
@@ -94,7 +97,7 @@ export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" 
     const target = action === "fulfill" ? "fulfilled" : "unfulfilled";
     if (!canFulfill(o) || o.fulfillmentStatus === target) continue;
     if (target === "fulfilled") {
-      if (await fulfillOrder(o.id, { trackingCarrier: "", trackingNumber: "", trackingUrl: "" }, user.name, "", true)) count++;
+      if ((await fulfillOrder(o.id, { trackingCarrier: "", trackingNumber: "", trackingUrl: "" }, user.name, "", true)).done) count++;
       continue;
     }
     await db.$transaction([

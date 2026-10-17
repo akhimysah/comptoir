@@ -9,6 +9,7 @@ import { nextDate } from "./subscriptions";
 import type { PricedCart } from "./pricing";
 import { payLink } from "./invoices";
 import { emitOrder } from "./webhooks";
+import { PRIMARY, returnToLocation, shipFromLocation } from "./locations";
 import { localizeItems } from "./locale";
 
 export type Address = { line1: string; zip: string; city: string; country: string };
@@ -153,7 +154,7 @@ async function insertOrder(
 type Tx = Prisma.TransactionClient;
 
 /** Variantes réellement retirées du stock par une commande : un lot retire chacun de ses composants. */
-async function stockMoves(tx: Tx, orderId: string) {
+export async function stockMoves(tx: Tx, orderId: string) {
   const items = await tx.orderItem.findMany({ where: { orderId } });
   const moves: { variantId: string; quantity: number }[] = [];
   for (const item of items) {
@@ -280,14 +281,35 @@ async function notifyOrderPaid(orderId: string) {
  * Marque la commande comme traitée (une seule fois, même en cas de double clic), avec le suivi éventuel.
  * Renvoie false si elle l'était déjà.
  */
-export async function fulfillOrder(orderId: string, tracking: { trackingCarrier: string; trackingNumber: string; trackingUrl: string }, author: string, message: string, notify: boolean) {
-  const done = await db.order.updateMany({ where: { id: orderId, fulfillmentStatus: "unfulfilled", cancelledAt: null }, data: { fulfillmentStatus: "fulfilled", fulfilledAt: new Date(), ...tracking } });
-  if (!done.count) return false;
-  await db.orderEvent.create({ data: { orderId, type: "fulfilled", author, message } });
+export async function fulfillOrder(orderId: string, tracking: { trackingCarrier: string; trackingNumber: string; trackingUrl: string }, author: string, message: string, notify: boolean, locationId: string = PRIMARY): Promise<{ done: boolean; error?: string }> {
+  let problem: string | null = null;
+  const done = await db.$transaction(async (tx) => {
+    const r = await tx.order.updateMany({ where: { id: orderId, fulfillmentStatus: "unfulfilled", cancelledAt: null }, data: { fulfillmentStatus: "fulfilled", fulfilledAt: new Date(), ...tracking } });
+    if (!r.count) return false;
+    // Expédiée depuis un autre emplacement que le principal : le stock y est retiré (tout ou rien).
+    problem = await shipFromLocation(tx, orderId, locationId, await stockMoves(tx, orderId));
+    if (problem) throw new Error(problem);
+    await tx.orderEvent.create({ data: { orderId, type: "fulfilled", author, message } });
+    return true;
+  }).catch((e) => { if (problem) return false; throw e; });
+  if (problem) return { done: false, error: problem };
+  if (!done) return { done: false };
   const o = await db.order.findUnique({ where: { id: orderId }, select: { deliveryMethod: true } });
   if (notify && o?.deliveryMethod !== "pickup") await notifyOrderShipped(orderId);
   await emitOrder(orderId, "orders/fulfilled");
-  return true;
+  return { done: true };
+}
+
+/** Expédition annulée (« non traitée ») : les articles reviennent à l'emplacement d'où ils étaient partis. */
+export async function unfulfillOrder(orderId: string, author: string) {
+  return db.$transaction(async (tx) => {
+    const o = await tx.order.findUnique({ where: { id: orderId } });
+    const r = await tx.order.updateMany({ where: { id: orderId, fulfillmentStatus: "fulfilled" }, data: { fulfillmentStatus: "unfulfilled", fulfilledAt: null, trackingCarrier: "", trackingNumber: "", trackingUrl: "" } });
+    if (!r.count || !o) return false;
+    if (o.fulfillmentLocationId) await returnToLocation(tx, orderId, o.fulfillmentLocationId, await stockMoves(tx, orderId));
+    await tx.orderEvent.create({ data: { orderId, type: "unfulfilled", author, message: "" } });
+    return true;
+  });
 }
 
 /** E-mail d'expédition au client. */

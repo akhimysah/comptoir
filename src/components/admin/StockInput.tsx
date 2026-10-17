@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { setStock } from "@/app/admin/inventory/actions";
 
 /** Champ « Disponible » modifiable sur place ; le bouton Enregistrer apparaît quand la valeur change. */
-export function StockInput({ variantId, initial, label }: { variantId: string; initial: number; label: string }) {
+export function StockInput({ variantId, initial, label, locationId }: { variantId: string; initial: number; label: string; locationId?: string }) {
   const [saved, setSaved] = useState(initial);
   const [value, setValue] = useState(String(initial));
   const [error, setError] = useState<string | null>(null);
@@ -13,7 +13,7 @@ export function StockInput({ variantId, initial, label }: { variantId: string; i
   const dirty = value !== "" && n !== saved;
   const save = () =>
     start(async () => {
-      const res = await setStock(variantId, n);
+      const res = await setStock(variantId, n, locationId);
       if (res.error) setError(res.error);
       else { setSaved(n); setError(null); }
     });

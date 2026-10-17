@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
-import { cancelUnpaidOrder, confirmTermsOrder, createOrder, markOrderPaid, OrderError } from "@/lib/orders";
+import { cancelUnpaidOrder, confirmTermsOrder, createOrder, fulfillOrder, markOrderPaid, OrderError, unfulfillOrder } from "@/lib/orders";
+import { PRIMARY, setLocationStock, stockByLocation, transferStock } from "@/lib/locations";
 import { priceCart } from "@/lib/pricing";
 import { refundOrder } from "@/lib/refunds";
 import { addStockAlert, notifyBackInStock } from "@/lib/stock-alerts";
@@ -216,5 +217,36 @@ describe("cumul des remises", () => {
     expect(one.discountCents).toBe(200);
     expect(one.shippingCents).toBe(490); // pas de cumul : le code seul
     expect(one.shippingDiscountId).toBeNull();
+  });
+});
+
+describe("emplacements de stock", () => {
+  it("transfère, expédie depuis un emplacement, et rend le stock au principal à la suppression", async () => {
+    const shop = await db.location.create({ data: { storeId: store.id, name: "Boutique" } });
+    const at = async () => (await stockByLocation(store.id, [await db.variant.findUniqueOrThrow({ where: { id: bol.id } })])).get(bol.id)!;
+    expect(await transferStock(store.id, bol.id, PRIMARY, shop.id, 3)).toEqual({});
+    expect([...(await at())]).toEqual(expect.arrayContaining([[PRIMARY, 2], [shop.id, 3]]));
+    expect((await transferStock(store.id, bol.id, shop.id, PRIMARY, 9)).error).toBeTruthy(); // pas assez à la boutique
+    expect(await stockOf(bol.id)).toBe(5); // un transfert ne change pas le total
+
+    // Vente en ligne (retirée du total), puis expédiée depuis la boutique : le retrait passe à la boutique.
+    const order = await createOrder(store, await priceCart(store, [{ variantId: bol.id, quantity: 2 }]), buyer("loc@test.local"), "demo");
+    await markOrderPaid(order.id);
+    expect((await at()).get(PRIMARY)).toBe(0);
+    const r = await fulfillOrder(order.id, { trackingCarrier: "", trackingNumber: "", trackingUrl: "" }, "Test", "", false, shop.id);
+    expect(r.done).toBe(true);
+    expect((await at()).get(shop.id)).toBe(1);
+    expect((await at()).get(PRIMARY)).toBe(2);
+    await unfulfillOrder(order.id, "Test"); // expédition annulée : retour à la boutique
+    expect((await at()).get(shop.id)).toBe(3);
+
+    // Pas assez de stock à l'emplacement : rien ne change.
+    await setLocationStock(store.id, bol.id, shop.id, 1);
+    const fail = await fulfillOrder(order.id, { trackingCarrier: "", trackingNumber: "", trackingUrl: "" }, "Test", "", false, shop.id);
+    expect(fail.error).toMatch(/Stock insuffisant/);
+    expect((await db.order.findUniqueOrThrow({ where: { id: order.id } })).fulfillmentStatus).toBe("unfulfilled");
+
+    await db.location.delete({ where: { id: shop.id } });
+    expect([...(await at())]).toEqual([[PRIMARY, await stockOf(bol.id)]]);
   });
 });
