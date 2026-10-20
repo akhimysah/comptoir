@@ -60,7 +60,7 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
             <div className="flex items-center gap-2">
               {behind.get(current.id) && isOwner && <form action={updateFromGithub}><input type="hidden" name="id" value={current.id} /><button className="btn h-9 border-0 bg-[#cce3ff] text-[#0a3a7a] hover:bg-[#b9d7ff]">Mettre à jour</button></form>}
               <Link href={`/admin/theme/${current.id}`} className="btn h-9 border-0 bg-white text-ink hover:bg-[#f1f1f1]">Modifier le thème</Link>
-              <div className="[&_summary]:bg-white [&_summary]:text-ink"><ThemeMenu theme={current} slug={store.slug} published owner={isOwner} dropUp /></div>
+              <ThemeMenu theme={current} slug={store.slug} published owner={isOwner} buttonClassName="btn h-9 w-9 border-0 bg-white px-0 text-ink hover:bg-[#f1f1f1]" />
             </div>
           </div>
         </div>
