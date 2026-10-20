@@ -8,7 +8,7 @@ import { CUSTOM_CSS_MAX, sanitizeCss } from "@/lib/custom-css";
 import { db } from "@/lib/db";
 import { pushThemeLater } from "@/lib/github";
 import { defaultTheme } from "@/lib/theme";
-import { parseThemeJson } from "@/lib/theme-files";
+import { parseThemeJson, storeUpdateFromFiles, THEME_FILES } from "@/lib/theme-files";
 import { createTheme, duplicateTheme, ownTheme, publishTheme, saveThemeRow, themeFromPreset, uniqueThemeName } from "@/lib/themes";
 
 const refresh = (slug: string) => { revalidatePath("/admin/theme"); revalidatePath(`/s/${slug}`, "layout"); };
@@ -98,4 +98,20 @@ export async function remove(form: FormData) {
   await logActivity(`Thème « ${row!.name} » supprimé`, "/admin/theme");
   revalidatePath("/admin/theme");
   back("ok", `« ${row!.name} » supprimé.`);
+}
+
+/** « Modifier le code » : enregistre un fichier du thème (theme.json, custom.css ou locales/en.json), vérifié comme à l'import. */
+export async function saveThemeFile(themeId: string, file: string, content: string): Promise<{ error?: string; ok?: boolean }> {
+  const { store } = await requirePerm("content");
+  const theme = await ownTheme(store.id, themeId);
+  if (!theme) return { error: "Thème introuvable." };
+  if (!(Object.values(THEME_FILES) as string[]).includes(file)) return { error: "Fichier inconnu." };
+  if (content.length > 200_000) return { error: "Fichier trop long." };
+  const { data, error } = storeUpdateFromFiles(theme, { [file]: content });
+  if (error) return { error };
+  await saveThemeRow(store, themeId, data);
+  await logActivity(`Fichier ${file} du thème « ${theme.name} » modifié`, `/admin/theme/${themeId}/code`);
+  await pushThemeLater(themeId, `${file} modifié depuis l'éditeur de code`);
+  refresh(store.slug);
+  return { ok: true };
 }

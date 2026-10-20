@@ -15,6 +15,9 @@ export function parseThemeJson(json: string): { theme: Theme } | { error: string
   return { theme: parsed.data };
 }
 
+/** Version du format des fichiers de thème (affichée dans le menu du thème, comme la version d'un thème Shopify). */
+export const THEME_FORMAT_VERSION = "1.0.0";
+
 /** Fichiers du thème tels qu'ils sont rangés dans le dépôt. */
 export const THEME_FILES = { theme: "theme.json", css: "custom.css", en: "locales/en.json" } as const;
 
