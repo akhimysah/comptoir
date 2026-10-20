@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { isLocale, type Locale } from "./i18n";
 import { parseJson } from "./utils";
+import { currentMarket, marketLocale } from "./markets";
 
 export const langCookie = (storeId: string) => `lang_${storeId}`;
 
@@ -22,6 +23,8 @@ export const getLocale = cache(async (store: Pick<Store, "id" | "languages">): P
   if (available.length === 1) return available[0];
   const chosen = (await cookies()).get(langCookie(store.id))?.value;
   if (isLocale(chosen) && available.includes(chosen)) return chosen;
+  const fromMarket = marketLocale(await currentMarket(store).catch(() => null));
+  if (fromMarket && available.includes(fromMarket)) return fromMarket;
   const accept = (await headers()).get("accept-language") ?? "";
   for (const part of accept.split(",")) {
     const code = part.split(";")[0].trim().slice(0, 2).toLowerCase();

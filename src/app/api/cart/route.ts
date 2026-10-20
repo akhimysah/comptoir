@@ -4,6 +4,7 @@ import { priceCart } from "@/lib/pricing";
 import { complementaryProducts } from "@/lib/recommendations";
 import { storeAccess } from "@/lib/store-access";
 import { getCustomer } from "@/lib/customer-auth";
+import { currentMarket } from "@/lib/markets";
 import { getLocale } from "@/lib/locale";
 import { translate } from "@/lib/i18n";
 
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
   if (!(await storeAccess(store)).allowed) return NextResponse.json({ error: MSG.closed[locale] }, { status: 403 });
   const str = (v: unknown) => (typeof v === "string" ? v : null);
   const customer = await getCustomer(store.id);
-  const cart = await priceCart(store, body.items.slice(0, 100), str(body.code), { country: str(body.country), rateId: str(body.rateId) }, str(body.giftCode), { priceListId: customer?.priceListId, vatNumber: customer?.vatValid === false ? null : customer?.vatNumber, locale, customerId: customer?.id, customerEmail: customer?.email, taxExempt: customer?.taxExempt, storeCreditCents: store.storeCreditEnabled ? customer?.storeCreditCents : 0 });
+  const cart = await priceCart(store, body.items.slice(0, 100), str(body.code), { country: str(body.country), rateId: str(body.rateId) }, str(body.giftCode), { priceListId: customer?.priceListId, vatNumber: customer?.vatValid === false ? null : customer?.vatNumber, locale, customerId: customer?.id, customerEmail: customer?.email, taxExempt: customer?.taxExempt, storeCreditCents: store.storeCreditEnabled ? customer?.storeCreditCents : 0, priceAdjustBps: (await currentMarket(store, str(body.country)))?.priceAdjustBps ?? 0 });
   // Titres des produits dans la langue du visiteur (affichage seulement).
   if (locale !== "fr" && cart.lines.length) {
     const products = await db.product.findMany({ where: { id: { in: [...new Set(cart.lines.map((l) => l.productId))] } }, select: { id: true, title: true, translations: true } });

@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import type { Store } from "@prisma/client";
 import { parseJson } from "./utils";
+import { currentMarket } from "./markets";
 
 export type DisplayCurrency = { code: string; rate: number };
 export const CURRENCY_CHOICES = ["EUR", "USD", "GBP", "CHF", "CAD", "MAD", "XOF", "DZD", "TND", "AED", "SAR", "JPY"] as const;
@@ -17,7 +18,10 @@ export function storeCurrencies(store: Store): DisplayCurrency[] {
 export async function displayCurrency(store: Store): Promise<DisplayCurrency> {
   const all = storeCurrencies(store);
   const wanted = (await cookies()).get(cookieName(store.id))?.value;
-  return all.find((c) => c.code === wanted) ?? all[0];
+  if (wanted) return all.find((c) => c.code === wanted) ?? all[0];
+  // Sans choix explicite : la devise du marché du visiteur, si la boutique l'affiche.
+  const market = await currentMarket(store).catch(() => null);
+  return (market?.currency && all.find((c) => c.code === market.currency)) || all[0];
 }
 
 /**

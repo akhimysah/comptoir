@@ -10,6 +10,7 @@ import { bundleComponents, bundleStock } from "./bundles";
 import { readTheme, translateTheme } from "./theme";
 import { readTranslations, translate, type Locale } from "./i18n";
 import { getLocale } from "./locale";
+import { adjustPrice, currentMarket } from "./markets";
 import { storeAccess } from "./store-access";
 import { parseJson } from "./utils";
 import { formatMetafield } from "./metafields";
@@ -50,6 +51,8 @@ export const getStore = cache(async (slug: string) => {
 });
 
 export const getCatalog = cache(async (storeId: string, locale: Locale = "fr") => {
+  // Marché du visiteur : ses prix sont ajustés (hors cartes cadeaux). Hors requête (tests, tâches) : pas de marché.
+  const adj = (await currentMarket({ id: storeId }).catch(() => null))?.priceAdjustBps ?? 0;
   const [products, collections, ratings] = await Promise.all([
     db.product.findMany({
       where: { storeId, status: "active" },
@@ -71,9 +74,9 @@ export const getCatalog = cache(async (storeId: string, locale: Locale = "fr") =
         id: p.id,
         handle: p.handle,
         title: translate(p, locale, ["title"]).title,
-        priceCents: cheapest.priceCents,
-        maxPriceCents: Math.max(...p.variants.map((v) => v.priceCents)),
-        compareAtCents: cheapest.compareAtCents,
+        priceCents: p.isGiftCard ? cheapest.priceCents : adjustPrice(cheapest.priceCents, adj),
+        maxPriceCents: Math.max(...p.variants.map((v) => (p.isGiftCard ? v.priceCents : adjustPrice(v.priceCents, adj)))),
+        compareAtCents: cheapest.compareAtCents === null || p.isGiftCard ? cheapest.compareAtCents : adjustPrice(cheapest.compareAtCents, adj),
         image: parseJson<string[]>(p.images, [])[0] ?? null,
         hue: p.hue,
         soldOut: !p.isGiftCard && !p.continueSelling && (bundles.has(p.id) ? bundleStock(bundles.get(p.id)!) <= 0 : p.variants.every((v) => v.stock <= 0)),

@@ -170,3 +170,16 @@ describe("admissibilité des remises", () => {
     expect(discountCountries({ countries: "pas du json" })).toEqual([]);
   });
 });
+
+describe("marchés : rattachement par pays", async () => {
+  const { adjustPrice, marketForCountry } = await import("@/lib/markets");
+  const m = (id: string, countries: string[]) => ({ id, storeId: "s", name: id, countries: JSON.stringify(countries), currency: "", locale: "", priceAdjustBps: 0, enabled: true, position: 0, createdAt: new Date() });
+  it("trouve le marché d'un pays et arrondit les prix ajustés", () => {
+    const markets = [m("eu", ["Belgique", "Allemagne"]), m("ch", ["Suisse"])];
+    expect(marketForCountry(markets, "Allemagne")?.id).toBe("eu");
+    expect(marketForCountry(markets, "Canada")).toBeNull();
+    expect(adjustPrice(1999, 500)).toBe(2099);
+    expect(adjustPrice(1999, -1000)).toBe(1799);
+    expect(adjustPrice(1999, 0)).toBe(1999);
+  });
+});

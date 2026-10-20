@@ -20,6 +20,8 @@ import { dict } from "@/lib/i18n";
 import { storeLocales } from "@/lib/locale";
 import { LocaleProvider } from "@/components/store/locale";
 import { LanguageSelect } from "@/components/store/LanguageSelect";
+import { MarketSelect } from "@/components/store/MarketSelect";
+import { currentMarket, storeMarkets } from "@/lib/markets";
 import { Vitals } from "@/components/store/Vitals";
 import { Analytics } from "@/components/store/Analytics";
 import { POLICY_KEYS, POLICY_LABELS, readPolicies } from "@/lib/checkout-settings";
@@ -39,6 +41,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
   const { store, theme, locale, preview } = await getStoreUngated(slug);
   const t = T[locale];
   const locales = storeLocales(store);
+  const [markets, market] = await Promise.all([storeMarkets(store.id), currentMarket(store)]);
   const currencies = storeCurrencies(store);
   const current = await displayCurrency(store);
   const access = await storeAccess(store);
@@ -96,6 +99,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
               ),
             )}
           </nav>
+          {markets.length > 0 && <MarketSelect slug={slug} markets={markets.map((m) => ({ id: m.id, name: m.name }))} current={market?.id ?? null} defaultLabel={locale === "en" ? "Other countries" : "Autres pays"} label={locale === "en" ? "Country / region" : "Pays / région"} />}
           {locales.length > 1 && <LanguageSelect slug={slug} locales={locales} current={locale} />}
           {currencies.length > 1 && <CurrencySelect slug={slug} codes={currencies.map((c) => c.code)} current={current.code} />}
           <PredictiveSearch slug={slug} currency={current.code} rate={current.rate} />

@@ -150,6 +150,7 @@ model Store {
   storeCreditEntries       StoreCreditEntry[]
   mediaFiles               MediaFile[]
   SavedView                SavedView[]
+  Market                   Market[]
 }
 
 /// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
@@ -1105,4 +1106,21 @@ model SavedView {
   createdAt DateTime @default(now())
 
   @@index([storeId, page])
+}
+
+/// Marché (comme sur Shopify) : un groupe de pays avec sa devise, sa langue et un ajustement de prix.
+model Market {
+  id             String   @id @default(cuid())
+  storeId        String
+  store          Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name           String
+  countries      String   @default("[]") // JSON : noms de pays (voir src/lib/countries.ts)
+  currency       String   @default("") // "" = devise de la boutique ; sinon une devise affichée (Paramètres → Devises)
+  locale         String   @default("") // "" = langue principale ; sinon fr | en
+  priceAdjustBps Int      @default(0) // ajustement des prix : +500 = +5 %, −1000 = −10 %
+  enabled        Boolean  @default(true)
+  position       Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([storeId])
 }

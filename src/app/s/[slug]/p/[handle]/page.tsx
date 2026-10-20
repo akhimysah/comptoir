@@ -13,6 +13,7 @@ import { getStore } from "@/lib/storefront";
 import { bundleStock } from "@/lib/bundles";
 import { parseJson } from "@/lib/utils";
 import { deliveryWindow } from "@/lib/checkout-settings";
+import { adjustPrice, currentMarket } from "@/lib/markets";
 import { getCustomer } from "@/lib/customer-auth";
 import { loadProPricing, proPrice } from "@/lib/b2b";
 import { dict, translate, type Locale } from "@/lib/i18n";
@@ -53,6 +54,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   // Client professionnel connecté : ses prix, avec le prix public barré.
   const customer = product.isGiftCard ? null : await getCustomer(store.id);
   const pro = await loadProPricing(store.id, customer?.priceListId, product.variants.map((v) => v.id));
+  const marketAdj = (await currentMarket(store))?.priceAdjustBps ?? 0;
   const agg = await db.review.aggregate({ where: { productId: product.id, status: "published" }, _avg: { rating: true }, _count: true });
   return (
     <>
@@ -69,7 +71,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       hue={product.hue}
       rating={agg._count ? { avg: agg._avg.rating ?? 0, count: agg._count } : null}
       options={parseJson(product.options, [])}
-      variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: proPrice(v.priceCents, v.id, pro), compareAtCents: proPrice(v.priceCents, v.id, pro) < v.priceCents ? v.priceCents : v.compareAtCents, stock: product.isGiftCard ? 99 : bundleLeft ?? v.stock, image: v.image }))}
+      variants={product.variants.map((v) => { const list = product.isGiftCard ? v.priceCents : adjustPrice(v.priceCents, marketAdj); const price = proPrice(list, v.id, pro); return { id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: price, compareAtCents: price < list ? list : v.compareAtCents === null ? null : adjustPrice(v.compareAtCents, marketAdj), stock: product.isGiftCard ? 99 : bundleLeft ?? v.stock, image: v.image }; })}
       contents={contents}
       preorder={product.continueSelling}
       delivery={(() => { const w = deliveryWindow(store); return w ? { from: w.from.toISOString(), to: w.to.toISOString() } : null; })()}

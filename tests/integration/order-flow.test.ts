@@ -345,3 +345,14 @@ describe("taxes : produit non taxable et client exonéré", () => {
     expect(free.lines[0].priceCents).toBe(2000);
   });
 });
+
+describe("marchés", () => {
+  it("ajuste les prix du panier selon le marché (sauf les cartes cadeaux), sans toucher au stock ni à la TVA", async () => {
+    const cart = await priceCart(store, [{ variantId: bol.id, quantity: 2 }], null, {}, null, { priceAdjustBps: 500 });
+    expect(cart.lines[0].priceCents).toBe(2100); // 20,00 € + 5 %
+    expect(cart.lines[0].compareAtCents).toBeNull();
+    expect(cart.subtotalCents).toBe(4200);
+    const cheaper = await priceCart(store, [{ variantId: bol.id, quantity: 1 }], null, {}, null, { priceAdjustBps: -1000 });
+    expect(cheaper.lines[0].priceCents).toBe(1800);
+  });
+});

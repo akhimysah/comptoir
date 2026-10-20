@@ -6,6 +6,7 @@ import { exclVat, includedTax, reverseChargeApplies, vatRateFor } from "./tax";
 import { splitCartId, subPrice } from "./subscriptions";
 import { bundleComponents, bundleStock } from "./bundles";
 import { loadProPricing, proPrice } from "./b2b";
+import { adjustPrice } from "./markets";
 import { dict, translate, type Locale } from "./i18n";
 import { applySegment, customerStats, segmentRules, type CustomerStats } from "./segments";
 
@@ -213,6 +214,8 @@ export type PriceOpts = {
   taxExempt?: boolean | null;
   /** Crédit en magasin disponible du client connecté : appliqué automatiquement après la carte cadeau. */
   storeCreditCents?: number | null;
+  /** Marché du visiteur : ajustement des prix en points de base (+500 = +5 %), hors cartes cadeaux. */
+  priceAdjustBps?: number | null;
 };
 
 /**
@@ -267,7 +270,8 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     }
     if (quantity < wanted) notices.push(t.onlyLeft(stockOf(v), titleOf(v.product)));
     const sub = ref.subscribe && v.product.subscriptionInterval ? v.product.subscriptionInterval : null;
-    const base = v.product.isGiftCard ? v.priceCents : ex(proPrice(v.priceCents, v.id, pro));
+    const listPrice = v.product.isGiftCard ? v.priceCents : adjustPrice(v.priceCents, opts.priceAdjustBps ?? 0);
+    const base = v.product.isGiftCard ? v.priceCents : ex(proPrice(listPrice, v.id, pro));
     lines.push({
       variantId,
       baseVariantId: v.id,
@@ -277,7 +281,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       productHandle: v.product.handle,
       variantTitle: v.title,
       priceCents: sub ? subPrice(base, v.product.subscriptionDiscountBps) : base,
-      compareAtCents: v.product.isGiftCard ? v.compareAtCents : (sub && v.product.subscriptionDiscountBps) || base < ex(v.priceCents) ? ex(v.priceCents) : v.compareAtCents && ex(v.compareAtCents),
+      compareAtCents: v.product.isGiftCard ? v.compareAtCents : (sub && v.product.subscriptionDiscountBps) || base < ex(listPrice) ? ex(listPrice) : v.compareAtCents && ex(adjustPrice(v.compareAtCents, opts.priceAdjustBps ?? 0)),
       quantity,
       available: v.product.isGiftCard || v.product.continueSelling ? 99 : stockOf(v),
       image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null,

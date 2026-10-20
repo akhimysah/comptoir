@@ -6,6 +6,7 @@ import { confirmTermsOrder, createOrder, markOrderPaid, OrderError, type Address
 import { attributeOrder, SESSION_COOKIE } from "@/lib/traffic";
 import { checkoutSettingsOf, manualPaymentAt } from "@/lib/checkout-settings";
 import { getCustomer } from "@/lib/customer-auth";
+import { currentMarket } from "@/lib/markets";
 import { PICKUP_ID, priceCart } from "@/lib/pricing";
 import { storeAccess } from "@/lib/store-access";
 import { subscribe } from "@/lib/marketing";
@@ -121,7 +122,7 @@ export async function POST(req: Request) {
   if (!canSell(store)) return NextResponse.json({ error: SALES_PAUSED[locale] }, { status: 403 });
 
   const customer = await getCustomer(store.id);
-  const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode, { priceListId: customer?.priceListId, vatNumber: customer?.vatValid === false ? null : customer?.vatNumber, locale, customerId: customer?.id, customerEmail: customer?.email, taxExempt: customer?.taxExempt, storeCreditCents: store.storeCreditEnabled ? customer?.storeCreditCents : 0 });
+  const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode, { priceListId: customer?.priceListId, vatNumber: customer?.vatValid === false ? null : customer?.vatNumber, locale, customerId: customer?.id, customerEmail: customer?.email, taxExempt: customer?.taxExempt, storeCreditCents: store.storeCreditEnabled ? customer?.storeCreditCents : 0, priceAdjustBps: (await currentMarket(store, b.country))?.priceAdjustBps ?? 0 });
   // Paiement à échéance : réservé au client professionnel connecté, et la commande est à son nom.
   const terms = b.terms && cart.totalCents > 0;
   if (terms && !customer?.paymentTermsDays) return NextResponse.json({ error: t.termsOff }, { status: 400 });
