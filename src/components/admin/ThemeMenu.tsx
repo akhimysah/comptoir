@@ -11,12 +11,12 @@ const Pencil = () => <svg viewBox="0 0 20 20" className="h-4 w-4 text-[#4a4a4a]"
 const Info = () => <svg viewBox="0 0 20 20" className="h-4 w-4 text-[#4a4a4a]" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" aria-hidden><circle cx="10" cy="10" r="7.5" /><path d="M10 9v5M10 6.5v.5" /></svg>;
 
 /** Menu « ⋯ » d'un thème, comme sur Shopify : afficher, renommer, dupliquer, modifier le code, contenu par défaut, télécharger. */
-export function ThemeMenu({ theme, slug, published, owner }: { theme: StoreTheme; slug: string; published: boolean; owner: boolean }) {
+export function ThemeMenu({ theme, slug, published, owner, dropUp = false }: { theme: StoreTheme; slug: string; published: boolean; owner: boolean; dropUp?: boolean }) {
   const hidden = <input type="hidden" name="id" value={theme.id} />;
   return (
     <details className="relative">
-      <summary className="btn h-8 w-8 cursor-pointer list-none px-0 text-center" aria-label={`Actions pour ${theme.name}`}>⋯</summary>
-      <div className="absolute right-0 z-20 mt-1 w-64 rounded-xl border border-line bg-white p-1.5 text-ink shadow-[0_12px_32px_-12px_rgba(0,0,0,.3)]">
+      <summary className="btn h-8 w-8 cursor-pointer list-none px-0 text-center outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed] focus-visible:ring-offset-1" aria-label={`Actions pour ${theme.name}`}>⋯</summary>
+      <div className={`absolute right-0 z-30 w-64 rounded-xl ${dropUp ? "bottom-full mb-1" : "mt-1"} border border-line bg-white p-1.5 text-ink shadow-[0_12px_32px_-12px_rgba(0,0,0,.3)]`}>
         <a href={`/s/${slug}/preview?theme=${theme.id}`} target="_blank" className={item}><Eye />Afficher</a>
         <details className="group">
           <summary className={`${item} cursor-pointer list-none`}><Pencil />Renommer</summary>

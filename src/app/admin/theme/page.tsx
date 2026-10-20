@@ -47,8 +47,8 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
       <VitalsBar v={vitals} />
 
       {/* Thème actuel : aperçu vivant de la boutique */}
-      <section className="card overflow-hidden">
-        <div className="relative">
+      <section className="card">
+        <div className="relative overflow-hidden rounded-[inherit]">
           <ThemeThumb src={base} width={1000} height={560} className="w-full !max-w-full" />
           <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,.72))] px-5 pb-4 pt-16 text-white">
             <div className="min-w-0">
@@ -60,7 +60,7 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
             <div className="flex items-center gap-2">
               {behind.get(current.id) && isOwner && <form action={updateFromGithub}><input type="hidden" name="id" value={current.id} /><button className="btn h-9 border-0 bg-[#cce3ff] text-[#0a3a7a] hover:bg-[#b9d7ff]">Mettre à jour</button></form>}
               <Link href={`/admin/theme/${current.id}`} className="btn h-9 border-0 bg-white text-ink hover:bg-[#f1f1f1]">Modifier le thème</Link>
-              <div className="[&_summary]:bg-white [&_summary]:text-ink"><ThemeMenu theme={current} slug={store.slug} published owner={isOwner} /></div>
+              <div className="[&_summary]:bg-white [&_summary]:text-ink"><ThemeMenu theme={current} slug={store.slug} published owner={isOwner} dropUp /></div>
             </div>
           </div>
         </div>
