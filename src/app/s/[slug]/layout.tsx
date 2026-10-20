@@ -21,6 +21,7 @@ import { storeLocales } from "@/lib/locale";
 import { LocaleProvider } from "@/components/store/locale";
 import { LanguageSelect } from "@/components/store/LanguageSelect";
 import { Vitals } from "@/components/store/Vitals";
+import { Analytics } from "@/components/store/Analytics";
 
 const T = dict(
   { preview: "Boutique protégée par mot de passe : vous la voyez car vous êtes connecté à l'admin.", prefs: "Préférences", menu: "Menu principal", favorites: "Mes favoris", account: "Mon compte", footer: "Pied de page", poweredBy: "Boutique propulsée par Revolution Ecom" },
@@ -107,7 +108,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
         </nav>
       </header>
       <main className="flex-1">{children}</main>
-      {!preview && <Vitals slug={slug} />}
+      {!preview && !access.preview && <><Vitals slug={slug} /><Analytics slug={slug} /></>}
       {(store.gaId || store.metaPixelId) && <Tracking slug={slug} gaId={store.gaId} pixelId={store.metaPixelId} />}
       {store.chatEnabled && <ChatWidget slug={slug} storeName={store.name} greeting={store.chatGreeting} />}
       <footer className="border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)]">
