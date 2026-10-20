@@ -69,6 +69,14 @@ export async function installationRepos(installationId: number) {
   return r.repositories.map((x) => ({ name: x.full_name, defaultBranch: x.default_branch, private: x.private }));
 }
 
+/** Compte GitHub (utilisateur ou organisation) sur lequel l'application est installée. */
+export async function installationAccount(installationId: number) {
+  const c = await appConfig();
+  if (!c) return null;
+  const r = await call<{ account?: { login?: string; type?: string } }>(`/app/installations/${installationId}`, `Bearer ${appJwt(c)}`).catch(() => null);
+  return r?.account?.login ?? null;
+}
+
 export async function repoBranches(installationId: number, repo: string) {
   const token = await installationToken(installationId);
   return (await call<{ name: string }[]>(`/repos/${repo}/branches?per_page=100`, `Bearer ${token}`)).map((b) => b.name);

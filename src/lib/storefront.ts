@@ -1,5 +1,8 @@
 import "server-only";
 import { notFound } from "next/navigation";
+import { cookies, headers } from "next/headers";
+import type { Store } from "@prisma/client";
+import { accessibleStores, getUser } from "./auth";
 import { cache } from "react";
 import type { CardCollection, CardProduct } from "@/components/store/types";
 import { db } from "./db";
@@ -12,14 +15,31 @@ import { parseJson } from "./utils";
 import { formatMetafield } from "./metafields";
 
 /** Boutique sans contrôle d'accès : réservé à la mise en page, qui affiche elle-même la page « mot de passe ». */
+export const previewCookie = (storeId: string) => `pt_${storeId}`;
+
+/** Brouillon de thème en aperçu (équipe seulement) : paramètre ?pt=<id> (vignettes) ou cookie posé par /preview. */
+async function previewTheme(store: Store) {
+  const fromParam = (await headers()).get("x-preview-theme");
+  const id = fromParam || (await cookies()).get(previewCookie(store.id))?.value;
+  if (!id) return null;
+  const user = await getUser();
+  if (!user || !(await accessibleStores(user.id)).some((s) => s.id === store.id)) return null;
+  const row = await db.storeTheme.findFirst({ where: { id, storeId: store.id } });
+  // Vignette (?pt=) : pas de bandeau « aperçu » dans le cadre.
+  return row ? { ...row, thumb: Boolean(fromParam) } : null;
+}
+
 export const getStoreUngated = cache(async (slug: string) => {
-  const raw = await db.store.findUnique({ where: { slug } });
-  if (!raw) notFound();
+  const found = await db.store.findUnique({ where: { slug } });
+  if (!found) notFound();
+  // Aperçu d'un brouillon : ses fichiers remplacent ceux du thème publié pour ce membre de l'équipe.
+  const preview = await previewTheme(found);
+  const raw = preview ? { ...found, theme: preview.theme, customCss: preview.customCss, translations: preview.translations } : found;
   // Langue du visiteur : textes de la boutique et du thème traduits par le marchand.
   const locale = await getLocale(raw);
   const store = translate(raw, locale, ["tagline", "passwordMessage"]);
   const theme = readTheme(store.theme, store.name);
-  return { store, theme: locale === "fr" ? theme : translateTheme(theme, readTranslations(raw.translations)[locale]), locale };
+  return { store, theme: locale === "fr" ? theme : translateTheme(theme, readTranslations(raw.translations)[locale]), locale, preview: preview && !preview.thumb ? { id: preview.id, name: preview.name } : null };
 });
 
 /** Boutique pour les pages : une boutique protégée par mot de passe ne livre aucune donnée sans accès. */

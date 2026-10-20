@@ -5,10 +5,11 @@ import { saveCustomCss } from "@/app/admin/theme/actions";
 import { CUSTOM_CSS_MAX } from "@/lib/custom-css";
 import { keepOnSubmit } from "@/lib/keep-form";
 
-export function CustomCssForm({ css, slug }: { css: string; slug: string }) {
+export function CustomCssForm({ css, slug, themeId }: { css: string; slug: string; themeId: string }) {
   const [state, action, pending] = useActionState(saveCustomCss, undefined);
   return (
     <form onSubmit={keepOnSubmit(action)} className="card mt-4 flex flex-col gap-3 p-4">
+      <input type="hidden" name="themeId" value={themeId} />
       <div>
         <h2 className="text-sm font-[650]">CSS personnalisé</h2>
         <p className="text-xs text-muted">Pour aller plus loin que les réglages : s'applique à toutes les pages de la boutique. Variables disponibles : <code>--c-accent</code>, <code>--c-bg</code>, <code>--c-text</code>, <code>--c-muted</code>, <code>--c-surface</code>, <code>--t-radius</code>.</p>

@@ -1,17 +1,17 @@
 import "server-only";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
-import { open, seal } from "./secret-box";
-import { installationToken } from "./github-app";
 import { after } from "next/server";
-import type { Store } from "@prisma/client";
+import type { Store, StoreTheme } from "@prisma/client";
 import { db } from "./db";
+import { installationToken } from "./github-app";
+import { open, seal } from "./secret-box";
 import { appUrl } from "./stripe";
 import { storeUpdateFromFiles, THEME_FILES, themeFiles } from "./theme-files";
+import { createTheme, saveThemeRow, uniqueThemeName } from "./themes";
 
 /**
- * Thème relié à un dépôt GitHub (comme l'intégration GitHub de Shopify) :
- * chaque modification du thème dans l'admin devient un commit sur la branche, et chaque push sur la branche
- * met à jour la boutique (webhook GitHub, ou bouton « Récupérer depuis GitHub »).
+ * Thème relié à un dépôt GitHub (comme l'intégration GitHub de Shopify) : chaque thème de la bibliothèque peut
+ * suivre une branche. Modifier le thème dans l'admin fait un commit ; un push sur la branche met le thème à jour.
  */
 
 const API = () => (process.env.GITHUB_API_URL ?? "https://api.github.com").replace(/\/$/, "");
@@ -45,11 +45,13 @@ export const BRANCH_RE = /^(?!\/|.*\/\/|.*\.\.|.*\/$)[A-Za-z0-9._/-]{1,100}$/;
 export const PATH_RE = /^([A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]*$/;
 
 type Conn = { repo: string; branch: string; path: string; token: string };
-/** Accès au dépôt : jeton de l'installation de l'application GitHub (connexion en un clic), ou jeton collé. */
-async function conn(s: Store): Promise<Conn | null> {
-  if (!s.githubRepo) return null;
-  if (s.githubInstallationId) return { repo: s.githubRepo, branch: s.githubBranch, path: s.githubPath, token: await installationToken(s.githubInstallationId) };
-  return s.githubToken ? { repo: s.githubRepo, branch: s.githubBranch, path: s.githubPath, token: decryptToken(s.githubToken) } : null;
+/** Accès au dépôt d'un thème : jeton de l'installation de l'application GitHub, ou jeton collé. */
+async function conn(theme: StoreTheme, store: Pick<Store, "githubInstallationId">): Promise<Conn | null> {
+  if (!theme.githubRepo) return null;
+  const base = { repo: theme.githubRepo, branch: theme.githubBranch, path: theme.githubPath };
+  if (theme.githubToken) return { ...base, token: decryptToken(theme.githubToken) };
+  if (store.githubInstallationId) return { ...base, token: await installationToken(store.githubInstallationId) };
+  return null;
 }
 const full = (c: Conn, file: string) => (c.path ? `${c.path.replace(/\/$/, "")}/${file}` : file);
 /** Empreinte Git d'un fichier (comme « git hash-object ») : sert à ne rien committer quand rien n'a changé. */
@@ -73,11 +75,19 @@ async function branchHead(c: Conn): Promise<string | null> {
   }
 }
 
-/** Envoie le thème de la boutique sur la branche en un seul commit (rien si les fichiers sont identiques). */
-export async function pushTheme(store: Store, message: string): Promise<{ sha: string | null; changed: boolean }> {
-  const c = await conn(store);
-  if (!c) throw new GithubError("Aucun dépôt GitHub relié.");
-  const files = themeFiles(store);
+/** Le dépôt a-t-il des commits que le thème n'a pas encore récupérés ? (bouton « Mettre à jour ») */
+export async function isBehind(theme: StoreTheme, store: Pick<Store, "githubInstallationId">) {
+  const c = await conn(theme, store);
+  if (!c) return false;
+  const head = await branchHead(c).catch(() => null);
+  return Boolean(head && head !== theme.githubLastSha);
+}
+
+/** Envoie les fichiers du thème sur la branche en un seul commit (rien si les fichiers sont identiques). */
+export async function pushTheme(theme: StoreTheme, store: Pick<Store, "githubInstallationId">, message: string): Promise<{ sha: string | null; changed: boolean }> {
+  const c = await conn(theme, store);
+  if (!c) throw new GithubError("Ce thème n'est pas relié à GitHub.");
+  const files = themeFiles({ ...theme, name: theme.name });
   const head = await branchHead(c);
   if (!head) {
     // Dépôt vide : l'API Git n'est pas encore utilisable, le premier fichier crée la branche.
@@ -113,76 +123,75 @@ async function readFiles(c: Conn, ref: string) {
   return out;
 }
 
-/** Récupère le thème depuis la branche et l'applique à la boutique (fichiers vérifiés comme dans l'éditeur). */
-export async function pullTheme(store: Store): Promise<{ applied: string[]; sha: string | null }> {
-  const c = await conn(store);
-  if (!c) throw new GithubError("Aucun dépôt GitHub relié.");
+/** Récupère le thème depuis la branche (fichiers vérifiés comme dans l'éditeur) ; la vitrine suit s'il est publié. */
+export async function pullTheme(theme: StoreTheme, store: Pick<Store, "id" | "githubInstallationId" | "publishedThemeId">): Promise<{ applied: string[]; sha: string | null }> {
+  const c = await conn(theme, store);
+  if (!c) throw new GithubError("Ce thème n'est pas relié à GitHub.");
   const head = await branchHead(c);
   if (!head) return { applied: [], sha: null };
   const files = await readFiles(c, head);
-  const { data, error } = storeUpdateFromFiles(store, files);
+  const { data, error } = storeUpdateFromFiles(theme, files);
   if (error) throw new GithubError(error);
-  await db.store.update({ where: { id: store.id }, data: { ...data, ...(data.theme ? { themeUpdatedAt: new Date() } : {}), githubLastSha: head, githubSyncedAt: new Date(), githubError: "" } });
+  await saveThemeRow(store, theme.id, data);
+  await db.storeTheme.update({ where: { id: theme.id }, data: { githubLastSha: head, githubSyncedAt: new Date(), githubError: "" } });
   return { applied: Object.keys(files), sha: head };
 }
 
 const publicUrl = () => { const u = new URL(appUrl()); return u.protocol === "https:" && !["localhost", "127.0.0.1"].includes(u.hostname); };
 
 /**
- * Relie la boutique au dépôt. Comme sur Shopify : si la branche contient déjà un thème, il est importé ;
- * sinon le thème actuel de la boutique y est envoyé. Un webhook est ajouté pour la synchronisation automatique.
+ * « Se connecter depuis GitHub » : crée un brouillon de thème relié à la branche. Comme sur Shopify, le thème
+ * est nommé « dépôt/branche » ; si la branche contient déjà un thème il est lu, sinon le thème publié y est envoyé.
  */
-export async function connectRepo(store: Store, input: { repo: string; branch: string; path: string; token?: string; installationId?: number }): Promise<{ imported: boolean; webhook: boolean }> {
-  const viaApp = Boolean(input.installationId);
-  const token = viaApp ? await installationToken(input.installationId!) : input.token!;
-  const repo = await gh<{ full_name: string; permissions?: { push?: boolean; admin?: boolean } }>(token, `/repos/${input.repo}`);
+export async function connectRepo(store: Store, input: { repo: string; branch: string; path: string; token?: string }): Promise<StoreTheme> {
+  const viaApp = !input.token;
+  if (viaApp && !store.githubInstallationId) throw new GithubError("Connectez d'abord votre compte GitHub.");
+  const token = input.token ?? (await installationToken(store.githubInstallationId!));
+  const repo = await gh<{ full_name: string; permissions?: { push?: boolean } }>(token, `/repos/${input.repo}`);
   if (!viaApp && repo.permissions && !repo.permissions.push) throw new GithubError("Ce jeton peut lire le dépôt mais pas y écrire (permission « Contents : Read and write » nécessaire).");
   const secret = viaApp ? null : randomBytes(24).toString("hex");
-  const linked = await db.store.update({
-    where: { id: store.id },
-    data: { githubRepo: repo.full_name, githubBranch: input.branch, githubPath: input.path, githubToken: viaApp ? null : encryptToken(token), githubInstallationId: input.installationId ?? null, githubWebhookSecret: secret, githubWebhookId: null, githubLastSha: null, githubError: "" },
-  });
-  const c = (await conn(linked))!;
+  const name = await uniqueThemeName(store.id, `${repo.full_name.split("/")[1]}/${input.branch}`);
+  const draft = await createTheme(store.id, { name, theme: store.theme, customCss: store.customCss, translations: store.translations, source: "github", githubRepo: repo.full_name, githubBranch: input.branch, githubPath: input.path, githubToken: viaApp ? null : encryptToken(token), githubWebhookSecret: secret });
+  const c = (await conn(draft, store))!;
   const head = await branchHead(c);
   const existing = head ? await readFiles(c, head) : {};
-  let imported = false;
-  if (existing[THEME_FILES.theme] !== undefined) { await pullTheme(linked); imported = true; }
+  if (existing[THEME_FILES.theme] !== undefined) await pullTheme(draft, store);
   else {
-    const r = await pushTheme(linked, "Thème Revolution Ecom");
-    await db.store.update({ where: { id: store.id }, data: { githubLastSha: r.sha, githubSyncedAt: new Date() } });
+    const r = await pushTheme(draft, store, "Thème Revolution Ecom");
+    await db.storeTheme.update({ where: { id: draft.id }, data: { githubLastSha: r.sha, githubSyncedAt: new Date() } });
   }
-  // Application GitHub : son propre webhook reçoit les push de tous les dépôts installés.
-  if (viaApp) return { imported, webhook: publicUrl() };
-  // Jeton collé : webhook « push » sur le dépôt (impossible en local, GitHub ne peut pas joindre localhost).
-  let webhook = false;
-  if (publicUrl()) {
+  // Jeton collé : webhook « push » sur le dépôt (l'application GitHub a le sien). Impossible en local.
+  if (!viaApp && publicUrl()) {
     try {
       const hook = await gh<{ id: number }>(token, `/repos/${repo.full_name}/hooks`, { method: "POST", body: { name: "web", active: true, events: ["push"], config: { url: `${appUrl()}/api/github/webhook`, content_type: "json", secret } } });
-      await db.store.update({ where: { id: store.id }, data: { githubWebhookId: hook.id } });
-      webhook = true;
+      await db.storeTheme.update({ where: { id: draft.id }, data: { githubWebhookId: hook.id } });
     } catch {
-      await db.store.update({ where: { id: store.id }, data: { githubError: "Synchronisation automatique impossible : donnez au jeton la permission « Webhooks : Read and write », ou utilisez « Récupérer depuis GitHub »." } });
+      await db.storeTheme.update({ where: { id: draft.id }, data: { githubError: "Synchronisation automatique impossible : donnez au jeton la permission « Webhooks : Read and write », ou utilisez « Mettre à jour »." } });
     }
   }
-  return { imported, webhook };
+  return (await db.storeTheme.findUniqueOrThrow({ where: { id: draft.id } }));
 }
 
-export async function disconnectRepo(store: Store, keepInstallation = false) {
-  const c = store.githubToken ? await conn(store).catch(() => null) : null;
-  if (c && store.githubWebhookId) await gh(c.token, `/repos/${c.repo}/hooks/${store.githubWebhookId}`, { method: "DELETE" }).catch(() => null);
-  await db.store.update({ where: { id: store.id }, data: { githubRepo: null, githubToken: null, githubWebhookId: null, githubWebhookSecret: null, githubLastSha: null, githubSyncedAt: null, githubError: "", ...(keepInstallation ? {} : { githubInstallationId: null }) } });
+/** Déconnecte un thème de son dépôt (le thème est conservé). */
+export async function disconnectRepo(theme: StoreTheme, store: Pick<Store, "githubInstallationId">) {
+  if (theme.githubToken && theme.githubWebhookId) {
+    const c = await conn(theme, store).catch(() => null);
+    if (c) await gh(c.token, `/repos/${c.repo}/hooks/${theme.githubWebhookId}`, { method: "DELETE" }).catch(() => null);
+  }
+  await db.storeTheme.update({ where: { id: theme.id }, data: { githubRepo: null, githubToken: null, githubWebhookId: null, githubWebhookSecret: null, githubLastSha: null, githubSyncedAt: null, githubError: "" } });
 }
 
-/** Après une modification du thème dans l'admin : commit sur GitHub, sans faire attendre le marchand. */
-export async function pushThemeLater(storeId: string, message: string) {
+/** Après une modification dans l'admin : commit sur GitHub, sans faire attendre le marchand. */
+export async function pushThemeLater(themeId: string | null | undefined, message: string) {
+  if (!themeId) return;
   const run = async () => {
-    const store = await db.store.findUnique({ where: { id: storeId } });
-    if (!store?.githubRepo) return;
+    const theme = await db.storeTheme.findUnique({ where: { id: themeId }, include: { store: true } });
+    if (!theme?.githubRepo) return;
     try {
-      const r = await pushTheme(store, message);
-      await db.store.update({ where: { id: storeId }, data: { githubLastSha: r.sha, githubSyncedAt: new Date(), githubError: "" } });
+      const r = await pushTheme(theme, theme.store, message);
+      await db.storeTheme.update({ where: { id: themeId }, data: { githubLastSha: r.sha, githubSyncedAt: new Date(), githubError: "" } });
     } catch (e) {
-      await db.store.update({ where: { id: storeId }, data: { githubError: `Envoi vers GitHub impossible : ${(e as Error).message}` } });
+      await db.storeTheme.update({ where: { id: themeId }, data: { githubError: `Envoi vers GitHub impossible : ${(e as Error).message}` } });
     }
   };
   try { after(run); } catch { await run(); }

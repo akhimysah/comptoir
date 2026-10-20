@@ -11,12 +11,17 @@ const SHARED = /^\/(_next|api|print|uploads|brand)(\/|$)|^\/(icon\.png|apple-ico
 export async function proxy(req: NextRequest) {
   const rawHost = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "").split(",")[0].trim().toLowerCase();
   const host = rawHost.replace(/:\d+$/, "");
-  if (!host || isPlatformHost(host)) return NextResponse.next();
+  // Vignette d'un brouillon de thème (?pt=<id>) : transmis à la vitrine par un en-tête (vérifié là-bas : équipe seulement).
+  const headers = new Headers(req.headers);
+  const pt = req.nextUrl.searchParams.get("pt");
+  if (pt && /^[A-Za-z0-9]{1,40}$/.test(pt)) headers.set("x-preview-theme", pt);
+  else headers.delete("x-preview-theme");
+  const passthrough = () => NextResponse.next({ request: { headers } });
+  if (!host || isPlatformHost(host)) return passthrough();
   const slug = await slugForDomain(host);
-  if (!slug) return NextResponse.next();
+  if (!slug) return passthrough();
 
   const { pathname, search } = req.nextUrl;
-  const headers = new Headers(req.headers);
   headers.set("x-store-domain", host);
   const prefix = `/s/${slug}`;
   if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {

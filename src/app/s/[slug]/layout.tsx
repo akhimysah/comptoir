@@ -20,6 +20,7 @@ import { dict } from "@/lib/i18n";
 import { storeLocales } from "@/lib/locale";
 import { LocaleProvider } from "@/components/store/locale";
 import { LanguageSelect } from "@/components/store/LanguageSelect";
+import { Vitals } from "@/components/store/Vitals";
 
 const T = dict(
   { preview: "Boutique protégée par mot de passe : vous la voyez car vous êtes connecté à l'admin.", prefs: "Préférences", menu: "Menu principal", favorites: "Mes favoris", account: "Mon compte", footer: "Pied de page", poweredBy: "Boutique propulsée par Revolution Ecom" },
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function StoreLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { store, theme, locale } = await getStoreUngated(slug);
+  const { store, theme, locale, preview } = await getStoreUngated(slug);
   const t = T[locale];
   const locales = storeLocales(store);
   const currencies = storeCurrencies(store);
@@ -55,6 +56,13 @@ export default async function StoreLayout({ children, params }: { children: Reac
       {/* CSS personnalisé de la boutique : filtré à l'enregistrement et de nouveau ici (aucun « < » possible). */}
       {store.customCss && <style dangerouslySetInnerHTML={{ __html: sanitizeCss(store.customCss) }} />}
       {onDomain && <script dangerouslySetInnerHTML={{ __html: `(()=>{const p=${JSON.stringify(`/s/${slug}`)};document.addEventListener("click",e=>{const a=e.target instanceof Element&&e.target.closest("a[href]");if(!a||e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||(a.target&&a.target!=="_self"))return;const u=new URL(a.href,location.href);if(u.origin!==location.origin||!(u.pathname===p||u.pathname.startsWith(p+"/")))return;e.preventDefault();location.href=(u.pathname.slice(p.length)||"/")+u.search+u.hash;},true);})();` }} />}
+      {preview && (
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-[#7c3aed] px-4 py-2 text-center text-xs text-white">
+          <span>Aperçu du brouillon « {preview.name} » : seule votre équipe le voit.</span>
+          <a href={`/admin/theme/${preview.id}`} className="underline underline-offset-2">Modifier</a>
+          <a href={`/s/${slug}/preview?exit=1`} className="underline underline-offset-2">Quitter l'aperçu</a>
+        </div>
+      )}
       {access.preview && (
         <div className="bg-[#1a1a1a] px-4 py-2 text-center text-xs text-white">
           {t.preview} <a href="/admin/settings/preferences" className="underline underline-offset-2">{t.prefs}</a>
@@ -99,6 +107,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
         </nav>
       </header>
       <main className="flex-1">{children}</main>
+      {!preview && <Vitals slug={slug} />}
       {(store.gaId || store.metaPixelId) && <Tracking slug={slug} gaId={store.gaId} pixelId={store.metaPixelId} />}
       {store.chatEnabled && <ChatWidget slug={slug} storeName={store.name} greeting={store.chatGreeting} />}
       <footer className="border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)]">

@@ -63,17 +63,10 @@ model Store {
   chargeInCustomerCurrency Boolean               @default(false) // encaisser dans la devise choisie par le client (sinon affichage seulement)
   autoRates                Boolean               @default(false) // taux de change mis à jour chaque jour (BCE)
   primaryLocationName      String                @default("Entrepôt principal") // emplacement principal (stock en ligne)
-  // Thème relié à un dépôt GitHub (comme l'intégration GitHub de Shopify)
-  githubRepo               String? // « propriétaire/dépôt »
-  githubBranch             String                @default("main")
-  githubPath               String                @default("") // dossier du thème dans le dépôt ("" = racine)
-  githubToken              String? // jeton chiffré (AES-256-GCM)
   githubInstallationId     Int? // installation de l'application GitHub de la plateforme (connexion sans jeton)
-  githubWebhookId          Int?
-  githubWebhookSecret      String?
-  githubLastSha            String? // dernier commit synchronisé
-  githubSyncedAt           DateTime?
-  githubError              String                @default("")
+  publishedThemeId         String? // thème publié (bibliothèque de thèmes) ; ses fichiers sont copiés dans theme / customCss / translations
+  themes                   StoreTheme[]
+  webVitals                WebVital[]
   ratesUpdatedAt           DateTime?
   loyaltyEnabled           Boolean               @default(false) // programme de fidélité
   loyaltyPointsPerUnit     Int                   @default(1) // points gagnés par unité de devise dépensée (1 € = 1 point)
@@ -911,4 +904,42 @@ model PlatformSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// Bibliothèque de thèmes de la boutique (comme sur Shopify) : le thème publié et des brouillons.
+/// Les champs theme / customCss / translations de Store sont la copie du thème publié (lue par la vitrine).
+model StoreTheme {
+  id                  String    @id @default(cuid())
+  storeId             String
+  store               Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name                String
+  theme               String // JSON (même format que Store.theme)
+  customCss           String    @default("")
+  translations        String    @default("{}")
+  source              String    @default("editor") // editor | preset | zip | github | copy
+  // Dépôt GitHub relié (connexion par l'application de la plateforme, ou jeton collé)
+  githubRepo          String?
+  githubBranch        String    @default("main")
+  githubPath          String    @default("")
+  githubToken         String? // jeton chiffré, mode « jeton collé »
+  githubWebhookId     Int?
+  githubWebhookSecret String?
+  githubLastSha       String?
+  githubSyncedAt      DateTime?
+  githubError         String    @default("")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+/// Mesures de performance envoyées par les navigateurs des visiteurs (Core Web Vitals), une par chargement de page.
+model WebVital {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  lcp       Int? // ms
+  inp       Int? // ms
+  cls       Float? // valeur brute (ex. 0.05)
+  createdAt DateTime @default(now())
+
+  @@index([storeId, createdAt])
 }

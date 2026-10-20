@@ -36,8 +36,11 @@ const merge = (json: string, en: Record<string, string>) => {
 /** Textes de la boutique : slogan, message du mot de passe, bandeau d'annonce, sections du thème, menus. */
 export async function saveStoreTranslations(form: FormData) {
   const { store } = await requirePerm("content");
-  await db.store.update({ where: { id: store.id }, data: { translations: merge(store.translations, readFields(form, 2000)) } });
-  await pushThemeLater(store.id, "Traductions de la boutique modifiées depuis l'admin");
+  const translations = merge(store.translations, readFields(form, 2000));
+  await db.store.update({ where: { id: store.id }, data: { translations } });
+  // Le thème publié garde une copie des traductions (fichier locales/en.json du thème).
+  if (store.publishedThemeId) await db.storeTheme.updateMany({ where: { id: store.publishedThemeId, storeId: store.id }, data: { translations } });
+  await pushThemeLater(store.publishedThemeId, "Traductions de la boutique modifiées depuis l'admin");
   revalidatePath("/admin/settings/languages");
   redirect("/admin/settings/languages?tab=store&saved=1");
 }

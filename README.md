@@ -148,7 +148,7 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 - Paiement en devise étrangère pour les abonnements (prélevés dans la devise de la boutique).
 - Étiquettes d'expédition et tarifs transporteurs en direct (Colissimo, Mondial Relay…).
 - Boutique d'applications (des logiciels tiers se branchent déjà via l'API et les webhooks : Paramètres → API et webhooks).
-- Éditeur de code du thème : les sections, les réglages et un CSS personnalisé sont modifiables (et synchronisables avec GitHub : Thème → GitHub), pas le gabarit des pages.
+- Éditeur de code du thème : les sections, les réglages et un CSS personnalisé sont modifiables (bibliothèque de thèmes avec brouillons, import .zip et connexion GitHub comme sur Shopify), pas le gabarit des pages.
 
 ## Tests
 

@@ -18,7 +18,7 @@ const COLOR_LABELS: Record<keyof Theme["colors"], string> = {
   accentText: "Texte des boutons",
 };
 
-export function ThemeEditor({ initial, store, products, collections }: { initial: Theme; store: StoreInfo; products: CardProduct[]; collections: CardCollection[] }) {
+export function ThemeEditor({ themeId, published, initial, store, products, collections }: { themeId: string; published: boolean; initial: Theme; store: StoreInfo; products: CardProduct[]; collections: CardCollection[] }) {
   const [theme, setTheme] = useState<Theme>(initial);
   const [saved, setSaved] = useState(JSON.stringify(initial));
   const [selected, setSelected] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export function ThemeEditor({ initial, store, products, collections }: { initial
   const save = () =>
     start(async () => {
       setError(null);
-      const res = await saveTheme(JSON.stringify(theme));
+      const res = await saveTheme(themeId, JSON.stringify(theme));
       if (res.error) setError(res.error);
       else setSaved(JSON.stringify(theme));
     });
@@ -138,7 +138,7 @@ export function ThemeEditor({ initial, store, products, collections }: { initial
           <span className="text-xs text-muted">{error ? <span className="font-semibold text-red-700">{error}</span> : dirty ? "Modifications non enregistrées" : "Tout est enregistré"}</span>
           <div className="flex gap-2">
             {dirty && <button type="button" className="btn btn-sm" onClick={() => setTheme(JSON.parse(saved))}>Annuler</button>}
-            <button type="button" className="btn btn-primary btn-sm" disabled={!dirty || pending} onClick={save}>{pending ? "Publication…" : "Publier"}</button>
+            <button type="button" className="btn btn-primary btn-sm" disabled={!dirty || pending} onClick={save}>{pending ? "Enregistrement…" : published ? "Enregistrer et publier" : "Enregistrer"}</button>
           </div>
         </div>
       </aside>
