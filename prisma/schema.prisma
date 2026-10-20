@@ -128,6 +128,27 @@ model Store {
   conversations            Conversation[]
   metafieldDefinitions     MetafieldDefinition[]
   Location                 Location[]
+  // Audit Shopify : réglages supplémentaires
+  orderPrefix              String                @default("#") // préfixe du numéro de commande (#1001)
+  orderSuffix              String                @default("")
+  autoArchive              Boolean               @default(true) // commandes archivées une fois traitées et payées
+  fulfillmentDays          Int                   @default(2) // délai de traitement promis (« Traiter avant le »)
+  checkoutPhone            String                @default("optional") // hidden | optional | required
+  checkoutCompany          String                @default("hidden") // hidden | optional | required
+  checkoutAddress2         Boolean               @default(true)
+  marketingPreselect       Boolean               @default(false)
+  cartLimit                Boolean               @default(true) // limite d'ajout au panier au stock disponible
+  manualPayments           String                @default("[]") // JSON [{ key, name, instructions, enabled }] : virement, paiement à la livraison…
+  storeCreditEnabled       Boolean               @default(false)
+  deliveryMinDays          Int? // dates de livraison estimées affichées au client
+  deliveryMaxDays          Int?
+  policies                 String                @default("{}") // JSON { returns, privacy, terms, shipping, contact, legal, sale } : { body, published }
+  pageViews                PageView[]
+  liveVisitors             LiveVisitor[]
+  inventoryAdjustments     InventoryAdjustment[]
+  customerEvents           CustomerEvent[]
+  storeCreditEntries       StoreCreditEntry[]
+  mediaFiles               MediaFile[]
 }
 
 /// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
@@ -342,25 +363,35 @@ model Product {
   bundleItems             BundleItem[]        @relation("BundleItems")
   metafields              String              @default("{}") // JSON { clé: valeur } des champs personnalisés
   complementaryIds        String              @default("[]") // JSON : produits complémentaires choisis (« Souvent achetés ensemble »)
+  vendor                  String              @default("")
+  productType             String              @default("")
+  tags                    String              @default("") // balises séparées par des virgules
+  category                String              @default("")
+  taxable                 Boolean             @default(true)
 
   @@unique([storeId, handle])
 }
 
 model Variant {
-  id             String           @id @default(cuid())
+  id             String                @id @default(cuid())
   productId      String
-  product        Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product        Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
   title          String // "M / Bleu", ou "Par défaut"
-  optionValues   String           @default("[]") // JSON: string[] dans l'ordre des options
+  optionValues   String                @default("[]") // JSON: string[] dans l'ordre des options
   priceCents     Int
   compareAtCents Int?
   costCents      Int? // coût d'achat par article (marge)
   image          String? // photo de cette variante (une des photos du produit)
-  weightGrams    Int              @default(0) // poids pour les tarifs d'expédition
-  sku            String           @default("")
-  stock          Int              @default(0)
-  position       Int              @default(0)
+  weightGrams    Int                   @default(0) // poids pour les tarifs d'expédition
+  sku            String                @default("")
+  stock          Int                   @default(0)
+  position       Int                   @default(0)
   levels         InventoryLevel[]
+  barcode        String                @default("")
+  lengthMm       Int?
+  widthMm        Int?
+  heightMm       Int?
+  adjustments    InventoryAdjustment[]
 }
 
 model Collection {
@@ -390,30 +421,35 @@ model ProductCollection {
 }
 
 model Customer {
-  id                String     @id @default(cuid())
+  id                String             @id @default(cuid())
   storeId           String
-  store             Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store             Store              @relation(fields: [storeId], references: [id], onDelete: Cascade)
   email             String
   name              String
-  note              String     @default("") // note interne, visible seulement dans l'admin
-  tags              String     @default("") // étiquettes séparées par des virgules (ex. « vip, grossiste »)
-  phone             String     @default("")
-  address           String     @default("") // JSON { line1, zip, city, country } : adresse par défaut (import, commandes manuelles)
-  acceptsMarketing  Boolean    @default(false) // abonné à la newsletter
-  points            Int        @default(0) // solde de points de fidélité
-  marketingToken    String?    @unique // jeton du lien de désabonnement
+  note              String             @default("") // note interne, visible seulement dans l'admin
+  tags              String             @default("") // étiquettes séparées par des virgules (ex. « vip, grossiste »)
+  phone             String             @default("")
+  address           String             @default("") // JSON { line1, zip, city, country } : adresse par défaut (import, commandes manuelles)
+  acceptsMarketing  Boolean            @default(false) // abonné à la newsletter
+  points            Int                @default(0) // solde de points de fidélité
+  marketingToken    String?            @unique // jeton du lien de désabonnement
   subscribedAt      DateTime?
-  createdAt         DateTime   @default(now())
+  createdAt         DateTime           @default(now())
   orders            Order[]
   // B2B : client professionnel
-  company           String     @default("")
-  vatNumber         String     @default("") // numéro de TVA intracommunautaire
+  company           String             @default("")
+  vatNumber         String             @default("") // numéro de TVA intracommunautaire
   vatValid          Boolean? // résultat VIES : true valide, false invalide, null pas encore vérifié (ou VIES indisponible)
   vatCheckedAt      DateTime?
-  vatRegisteredName String     @default("") // raison sociale enregistrée auprès de VIES
+  vatRegisteredName String             @default("") // raison sociale enregistrée auprès de VIES
   priceListId       String?
-  priceList         PriceList? @relation(fields: [priceListId], references: [id], onDelete: SetNull)
-  paymentTermsDays  Int        @default(0) // 0 = paiement à la commande ; 15, 30, 45, 60 = paiement à échéance
+  priceList         PriceList?         @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  paymentTermsDays  Int                @default(0) // 0 = paiement à la commande ; 15, 30, 45, 60 = paiement à échéance
+  taxExempt         Boolean            @default(false)
+  locale            String             @default("fr")
+  storeCreditCents  Int                @default(0)
+  events            CustomerEvent[]
+  creditEntries     StoreCreditEntry[]
 
   @@unique([storeId, email])
 }
@@ -463,6 +499,10 @@ model Discount {
   oncePerCustomer      Boolean   @default(false)
   combinesWithShipping Boolean   @default(false) // remise produits cumulable avec une livraison offerte (et inversement pour une livraison offerte)
   createdAt            DateTime  @default(now())
+  minQuantity          Int       @default(0)
+  eligibility          String    @default("all") // all | segments | customers
+  eligibleIds          String    @default("[]") // JSON : segments ou clients concernés
+  countries            String    @default("[]") // livraison offerte : pays concernés ("[]" = tous)
 
   @@unique([storeId, code])
 }
@@ -522,6 +562,20 @@ model Order {
   events                OrderEvent[]
   refunds               Refund[]
   returns               ReturnRequest[]
+  // Audit Shopify
+  tags                  String          @default("") // balises séparées par des virgules
+  fulfillBy             DateTime? // « Traiter avant le »
+  deliveredAt           DateTime? // statut de la livraison : livrée
+  archivedAt            DateTime?
+  riskLevel             String          @default("") // "" | low | medium | high
+  riskNotes             String          @default("")
+  sessionId             String? // visite à l'origine de la commande (attribution)
+  referrer              String          @default("")
+  utmSource             String          @default("")
+  utmMedium             String          @default("")
+  utmCampaign           String          @default("")
+  visitsBefore          Int? // nombre de visites avant la commande
+  paymentInstructions   String          @default("") // moyen de paiement manuel choisi (virement, à la livraison) : consignes
 
   @@unique([storeId, number])
 }
@@ -942,4 +996,97 @@ model WebVital {
   createdAt DateTime @default(now())
 
   @@index([storeId, createdAt])
+}
+
+/// Visite d'une page de la vitrine (statistiques, attribution des ventes, vue en direct).
+model PageView {
+  id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  sessionId   String
+  path        String
+  referrer    String   @default("")
+  utmSource   String   @default("")
+  utmMedium   String   @default("")
+  utmCampaign String   @default("")
+  landing     Boolean  @default(false) // première page de la visite
+  device      String   @default("") // mobile | desktop | tablet
+  createdAt   DateTime @default(now())
+
+  @@index([storeId, createdAt])
+  @@index([storeId, sessionId])
+}
+
+/// Visiteur présent en ce moment (battement de cœur toutes les 30 s).
+model LiveVisitor {
+  sessionId  String   @id
+  storeId    String
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  path       String   @default("")
+  cartItems  Int      @default(0)
+  lastSeenAt DateTime @default(now())
+
+  @@index([storeId, lastSeenAt])
+}
+
+/// Historique des ajustements de stock (comme « Afficher l'historique des ajustements » sur Shopify).
+model InventoryAdjustment {
+  id         String   @id @default(cuid())
+  storeId    String
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  variantId  String
+  variant    Variant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  delta      Int
+  after      Int
+  reason     String // commande, remboursement, inventaire, transfert, réception fournisseur, API…
+  author     String   @default("")
+  locationId String?
+  createdAt  DateTime @default(now())
+
+  @@index([variantId, createdAt])
+}
+
+/// Chronologie d'un client (compte créé, commande, e-mail envoyé, note…).
+model CustomerEvent {
+  id         String   @id @default(cuid())
+  storeId    String
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type       String
+  message    String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([customerId, createdAt])
+}
+
+/// Crédit en magasin : solde utilisable au paiement (remboursement en crédit, geste commercial).
+model StoreCreditEntry {
+  id         String   @id @default(cuid())
+  storeId    String
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  deltaCents Int
+  reason     String   @default("")
+  orderId    String?
+  author     String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([customerId, createdAt])
+}
+
+/// Bibliothèque de fichiers (Contenu → Fichiers) : chaque image ou vidéo envoyée.
+model MediaFile {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  url       String
+  name      String
+  alt       String   @default("")
+  mime      String   @default("")
+  size      Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([storeId, url])
 }
