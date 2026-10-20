@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "./db";
+import { logAdjustment } from "./inventory-log";
 
 export const PO_STATUS = {
   draft: { label: "Brouillon", tone: "neutral" },
@@ -38,7 +39,7 @@ export async function setDraftLines(storeId: string, poId: string, lines: PoLine
  * Réception de marchandise : ajoute au stock ce qui est arrivé, met à jour le statut du bon
  * et, si demandé, le coût par article des produits. Les quantités ne dépassent jamais ce qui reste à recevoir.
  */
-export async function receiveItems(storeId: string, poId: string, received: { itemId: string; quantity: number }[], updateCosts: boolean): Promise<{ error?: string; count?: number }> {
+export async function receiveItems(storeId: string, poId: string, received: { itemId: string; quantity: number }[], updateCosts: boolean, author = ""): Promise<{ error?: string; count?: number }> {
   const po = await db.purchaseOrder.findFirst({ where: { id: poId, storeId }, include: { items: true } });
   if (!po) return { error: "Bon de commande introuvable." };
   if (!["ordered", "partial"].includes(po.status)) return { error: "Ce bon n'est pas en attente de réception." };
@@ -57,7 +58,8 @@ export async function receiveItems(storeId: string, poId: string, received: { it
         const r = await tx.purchaseOrderItem.updateMany({ where: { id: m.item.id, received: m.item.received }, data: { received: { increment: m.qty } } });
         if (!r.count) throw new Error("conflict");
         if (m.item.variantId && existing.has(m.item.variantId)) {
-          await tx.variant.update({ where: { id: m.item.variantId }, data: { stock: { increment: m.qty }, ...(updateCosts && m.item.costCents > 0 ? { costCents: m.item.costCents } : {}) } });
+          const v = await tx.variant.update({ where: { id: m.item.variantId }, data: { stock: { increment: m.qty }, ...(updateCosts && m.item.costCents > 0 ? { costCents: m.item.costCents } : {}) } });
+          await logAdjustment(tx, { storeId, variantId: v.id, delta: m.qty, after: v.stock, reason: `Réception fournisseur (bon n° ${po.number})`, author });
         }
       }
     });

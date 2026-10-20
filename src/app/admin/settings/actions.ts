@@ -99,3 +99,18 @@ export async function saveReturns(_: { error?: string; ok?: boolean } | undefine
   revalidatePath("/admin/settings");
   return { ok: true };
 }
+
+/** Numérotation et traitement des commandes : préfixe/suffixe du numéro, archivage automatique, délai de traitement. */
+export async function saveOrderSettings(_: { error?: string; ok?: boolean } | undefined, form: FormData) {
+  const { store } = await requireOwner();
+  const orderPrefix = String(form.get("orderPrefix") ?? "").trim().slice(0, 10);
+  const orderSuffix = String(form.get("orderSuffix") ?? "").trim().slice(0, 10);
+  if (/[<>"'\\\/]/.test(orderPrefix + orderSuffix)) return { error: "Le préfixe et le suffixe ne peuvent pas contenir < > \" ' \\ /." };
+  const fulfillmentDays = Math.floor(Number(form.get("fulfillmentDays") ?? 2));
+  if (!(fulfillmentDays >= 0 && fulfillmentDays <= 60)) return { error: "Délai de traitement : entre 0 et 60 jours." };
+  await db.store.update({ where: { id: store.id }, data: { orderPrefix, orderSuffix, autoArchive: form.get("autoArchive") === "on", fulfillmentDays } });
+  await logActivity(`Numérotation des commandes : ${orderPrefix}1001${orderSuffix}`, "/admin/settings");
+  revalidatePath("/admin", "layout");
+  revalidatePath(`/s/${store.slug}`, "layout");
+  return { ok: true };
+}

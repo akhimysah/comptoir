@@ -4,8 +4,9 @@ import { orderCurrency } from "@/lib/presentment";
 import type { Address } from "@/lib/orders";
 import { FRANCHISE_MENTION, includedTax, rateLabel, REVERSE_CHARGE_MENTION } from "@/lib/tax";
 import { parseJson } from "@/lib/utils";
+import { orderNumber } from "@/lib/checkout-settings";
 
-type FullOrder = Order & { items: OrderItem[]; customer?: { company: string; vatNumber: string } | null };
+type FullOrder = Order & { items: OrderItem[]; customer?: { company: string; vatNumber: string; taxExempt?: boolean } | null };
 const sheet = "sheet mx-auto mb-6 w-full max-w-[210mm] bg-white p-[14mm] text-[12px] leading-relaxed shadow-[0_2px_12px_rgba(0,0,0,.15)]";
 const date = (d: Date) => d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
@@ -21,9 +22,10 @@ function Seller({ store }: { store: Store }) {
 }
 
 function ShipTo({ order }: { order: FullOrder }) {
-  const a = parseJson<Address>(order.address, { line1: "", zip: "", city: "", country: "" });
+  // Champs ajoutés par la page de paiement (entreprise, complément d'adresse, téléphone) : présents selon les réglages de la boutique.
+  const a = parseJson<Address & { company?: string; line2?: string; phone?: string }>(order.address, { line1: "", zip: "", city: "", country: "" });
   if (order.deliveryMethod === "pickup") return <div>{order.name}<br /><b>Retrait en boutique</b></div>;
-  return <div>{order.name}<br />{a.line1}<br />{a.zip} {a.city}<br />{a.country}</div>;
+  return <div>{a.company && <>{a.company}<br /></>}{order.name}<br />{a.line1}<br />{a.line2 && <>{a.line2}<br /></>}{a.zip} {a.city}<br />{a.country}{a.phone && <><br />{a.phone}</>}</div>;
 }
 
 export function Invoice({ store, order }: { store: Store; order: FullOrder }) {
@@ -45,7 +47,7 @@ export function Invoice({ store, order }: { store: Store; order: FullOrder }) {
           <div className="text-[22px] font-bold">Facture</div>
           <div>N° F-{order.number}</div>
           <div className="text-[#555]">Date : {date(order.paidAt ?? order.createdAt)}</div>
-          <div className="text-[#555]">Commande #{order.number}</div>
+          <div className="text-[#555]">Commande {orderNumber(store, order.number)}</div>
           {order.dueAt && <div className="font-semibold">Échéance : {date(order.dueAt)}</div>}
         </div>
       </header>
@@ -79,7 +81,7 @@ export function Invoice({ store, order }: { store: Store; order: FullOrder }) {
         </dl>
       </div>
       <footer className="mt-12 border-t border-[#ddd] pt-3 text-[10px] text-[#777]">
-        {order.reverseCharge ? <div className="font-semibold text-[#111]">{REVERSE_CHARGE_MENTION}</div> : rate === 0 && <div className="font-semibold text-[#111]">{FRANCHISE_MENTION}</div>}
+        {order.reverseCharge ? <div className="font-semibold text-[#111]">{REVERSE_CHARGE_MENTION}</div> : order.customer?.taxExempt && order.taxRateBps === 0 ? <div className="font-semibold text-[#111]">Client exonéré de TVA : vente hors taxes.</div> : rate === 0 && <div className="font-semibold text-[#111]">{FRANCHISE_MENTION}</div>}
         {cur.foreign && <div>Montants en {cur.currency}, au taux de 1 {store.currency} = {cur.rate.toLocaleString("fr-FR", { maximumFractionDigits: 4 })} {cur.currency} appliqué à la commande.</div>}
         <div>Facture émise par {store.legalName || store.name}. {order.reverseCharge ? "Les prix s'entendent hors taxes." : "Les prix s'entendent toutes taxes comprises."}</div>
       </footer>
@@ -92,7 +94,7 @@ export function PackingSlip({ store, order }: { store: Store; order: FullOrder }
     <section className={sheet}>
       <header className="mb-8 flex justify-between gap-6">
         <div><div className="text-[18px] font-bold">{store.name}</div><div className="text-[#555]">Bon de préparation</div></div>
-        <div className="text-right"><div className="text-[22px] font-bold">#{order.number}</div><div className="text-[#555]">{date(order.createdAt)}</div>{order.shippingMethod && <div className="text-[#555]">{order.shippingMethod}</div>}</div>
+        <div className="text-right"><div className="text-[22px] font-bold">{orderNumber(store, order.number)}</div><div className="text-[#555]">{date(order.createdAt)}</div>{order.shippingMethod && <div className="text-[#555]">{order.shippingMethod}</div>}</div>
       </header>
       <div className="mb-8 grid grid-cols-2 gap-6">
         <div><div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#777]">Expédier à</div><div className="text-[14px]"><ShipTo order={order} /></div></div>

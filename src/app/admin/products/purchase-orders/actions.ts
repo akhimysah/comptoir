@@ -84,9 +84,9 @@ export async function markOrdered(form: FormData) {
 }
 
 export async function receivePurchaseOrder(form: FormData) {
-  const { store, po } = await ownPo(form);
+  const { store, user, po } = await ownPo(form);
   const lines = po.items.map((i) => ({ itemId: i.id, quantity: Number(form.get(`rec_${i.id}`) ?? 0) }));
-  const res = await receiveItems(store.id, po.id, lines, form.get("updateCosts") === "on");
+  const res = await receiveItems(store.id, po.id, lines, form.get("updateCosts") === "on", user.name);
   if (res.error) redirect(`/admin/products/purchase-orders/${po.id}?err=${encodeURIComponent(res.error)}`);
   await notifyBackInStock({ storeId: store.id, variantIds: po.items.map((i) => i.variantId).filter((v): v is string => !!v) });
   await logActivity(`${res.count} article(s) reçu(s) sur le bon n° ${po.number}`, `/admin/products/purchase-orders/${po.id}`);

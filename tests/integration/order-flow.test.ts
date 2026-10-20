@@ -250,3 +250,98 @@ describe("emplacements de stock", () => {
     expect([...(await at())]).toEqual([[PRIMARY, await stockOf(bol.id)]]);
   });
 });
+
+describe("remises comme sur Shopify : quantité minimale, admissibilité, pays", () => {
+  it("un code réservé à des clients précis est refusé aux autres et sans connexion", async () => {
+    const vip = await db.customer.create({ data: { storeId: store.id, email: "vip@test.local", name: "VIP" } });
+    const autre = await db.customer.create({ data: { storeId: store.id, email: "autre@test.local", name: "Autre" } });
+    await db.discount.create({ data: { storeId: store.id, code: "VIP20", type: "percent", value: 20, eligibility: "customers", eligibleIds: JSON.stringify([vip.id]) } });
+    const items = [{ variantId: bol.id, quantity: 1 }];
+    const anon = await priceCart(store, items, "VIP20");
+    expect(anon.discountError).toMatch(/Connectez-vous/);
+    expect(anon.discountCents).toBe(0);
+    const no = await priceCart(store, items, "VIP20", {}, null, { customerId: autre.id, customerEmail: autre.email });
+    expect(no.discountError).toMatch(/pas disponible pour votre compte/);
+    const en = await priceCart(store, items, "VIP20", {}, null, { customerId: autre.id, locale: "en" });
+    expect(en.discountError).toMatch(/isn't available/);
+    const ok = await priceCart(store, items, "VIP20", {}, null, { customerId: vip.id, customerEmail: vip.email });
+    expect(ok.discountError).toBeNull();
+    expect(ok.discountCents).toBe(400);
+    expect(ok.discountCode).toBe("VIP20");
+  });
+
+  it("une remise automatique réservée à un segment ne s'applique qu'à ses membres", async () => {
+    const fidele = await db.customer.create({ data: { storeId: store.id, email: "fidele@test.local", name: "Fidèle", tags: "vip" } });
+    const nouveau = await db.customer.create({ data: { storeId: store.id, email: "nouveau@test.local", name: "Nouveau" } });
+    const seg = await db.segment.create({ data: { storeId: store.id, name: "VIP", match: "all", rules: JSON.stringify([{ field: "tag", op: "has", value: "vip" }]) } });
+    await db.discount.create({ data: { storeId: store.id, code: "AUTO-VIP", automatic: true, title: "Offre VIP", type: "percent", value: 10, eligibility: "segments", eligibleIds: JSON.stringify([seg.id]) } });
+    const items = [{ variantId: bol.id, quantity: 1 }];
+    expect((await priceCart(store, items)).discountCents).toBe(0); // pas connecté : rien
+    expect((await priceCart(store, items, null, {}, null, { customerId: nouveau.id })).discountCents).toBe(0);
+    const member = await priceCart(store, items, null, {}, null, { customerId: fidele.id });
+    expect(member.discountCents).toBe(200);
+    expect(member.discountCode).toBe("Offre VIP");
+  });
+
+  it("exige une quantité minimale d'articles", async () => {
+    await db.discount.create({ data: { storeId: store.id, code: "LOT4", type: "percent", value: 25, minQuantity: 4 } });
+    const few = await priceCart(store, [{ variantId: bol.id, quantity: 3 }], "LOT4");
+    expect(few.discountError).toMatch(/au moins 4 articles/);
+    const enough = await priceCart(store, [{ variantId: bol.id, quantity: 4 }], "LOT4");
+    expect(enough.discountError).toBeNull();
+    expect(enough.discountCents).toBe(2000);
+  });
+
+  it("livraison offerte limitée à certains pays", async () => {
+    await db.discount.create({ data: { storeId: store.id, code: "LIVRAISONFR", type: "free_shipping", value: 0, countries: JSON.stringify(["France", "Belgique"]) } });
+    const items = [{ variantId: bol.id, quantity: 1 }];
+    const fr = await priceCart(store, items, "LIVRAISONFR", { country: "France" });
+    expect(fr.discountError).toBeNull();
+    expect(fr.shippingCents).toBe(0);
+    const ch = await priceCart(store, items, "LIVRAISONFR", { country: "Suisse" });
+    expect(ch.discountError).toMatch(/pays de livraison/);
+    expect(ch.shippingCents).toBe(490);
+    const unknown = await priceCart(store, items, "LIVRAISONFR");
+    expect(unknown.discountError).toMatch(/pays de livraison/);
+    // Sans liste de pays : partout.
+    await db.discount.create({ data: { storeId: store.id, code: "LIVRAISON", type: "free_shipping", value: 0 } });
+    expect((await priceCart(store, items, "LIVRAISON", { country: "Suisse" })).shippingCents).toBe(0);
+  });
+});
+
+describe("taxes : produit non taxable et client exonéré", () => {
+  it("exclut un produit non taxable de la base de TVA, prix TTC inchangé", async () => {
+    await db.product.update({ where: { id: (await db.variant.findUniqueOrThrow({ where: { id: rare.id } })).productId }, data: { taxable: false } });
+    const cart = await priceCart(store, [{ variantId: bol.id, quantity: 1 }, { variantId: rare.id, quantity: 1 }]);
+    expect(cart.subtotalCents).toBe(7000);
+    expect(cart.lines.find((l) => l.baseVariantId === rare.id)!.taxable).toBe(false);
+    expect(cart.lines.find((l) => l.baseVariantId === bol.id)!.taxable).toBe(true);
+    expect(cart.taxRateBps).toBe(2000);
+    expect(cart.shippingCents).toBe(0); // 70 € : au-dessus du seuil de livraison offerte
+    // TVA sur le bol seulement : 20 € TTC → 3,33 € de TVA (la pièce unique, non taxable, est exclue de la base)
+    expect(cart.taxCents).toBe(333);
+    expect(cart.totalCents).toBe(7000);
+  });
+
+  it("un client exonéré paie hors taxes, sans que ce soit une autoliquidation", async () => {
+    const items = [{ variantId: bol.id, quantity: 3 }];
+    const normal = await priceCart(store, items, null, { country: "France" });
+    const exempt = await priceCart(store, items, null, { country: "France" }, null, { taxExempt: true });
+    expect(exempt.taxExempt).toBe(true);
+    expect(exempt.reverseCharge).toBe(false);
+    expect(exempt.lines[0].priceCents).toBe(1667); // 20,00 € TTC → 16,67 € HT
+    expect(exempt.shippingCents).toBe(408);
+    expect(exempt.taxCents).toBe(0);
+    expect(exempt.taxRateBps).toBe(0);
+    expect(exempt.totalCents).toBeLessThan(normal.totalCents);
+    const order = await createOrder(store, exempt, buyer("exempt@test.local"), "demo");
+    const saved = await db.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(saved.taxCents).toBe(0);
+    expect(saved.reverseCharge).toBe(false);
+    // Boutique sans TVA (franchise) : rien ne change.
+    const s = await db.store.update({ where: { id: store.id }, data: { taxRateBps: 0 } });
+    const free = await priceCart(s, items, null, {}, null, { taxExempt: true });
+    expect(free.taxExempt).toBe(false);
+    expect(free.lines[0].priceCents).toBe(2000);
+  });
+});

@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
+import { logAdjustment } from "./inventory-log";
 
 /**
  * Stock par emplacement. Le stock total de chaque variante (Variant.stock) reste la référence pour la vente en ligne ;
@@ -47,24 +48,34 @@ export async function ownLocation(storeId: string, locationId: string | null | u
   return (await db.location.findFirst({ where: { id: locationId, storeId }, select: { id: true } }))?.id ?? null;
 }
 
-/** Saisie de la quantité d'un emplacement (inventaire) : le stock total suit. Renvoie le nouveau total. */
-export async function setLocationStock(storeId: string, variantId: string, locationId: string, qty: number) {
+/** Nom d'un emplacement pour l'historique des ajustements (le principal porte le nom choisi dans les réglages). */
+async function locationName(tx: Tx, storeId: string, locationId: string) {
+  if (locationId === PRIMARY) return (await tx.store.findUnique({ where: { id: storeId }, select: { primaryLocationName: true } }))?.primaryLocationName ?? "Emplacement principal";
+  return (await tx.location.findUnique({ where: { id: locationId }, select: { name: true } }))?.name ?? "Emplacement";
+}
+
+/** Saisie de la quantité d'un emplacement (inventaire) : le stock total suit. Renvoie le nouveau total. Tracé dans l'historique (motif « Inventaire »). */
+export async function setLocationStock(storeId: string, variantId: string, locationId: string, qty: number, trace: { reason?: string; author?: string } = {}) {
   return db.$transaction(async (tx) => {
     const v = await tx.variant.findFirst({ where: { id: variantId, product: { storeId } } });
     if (!v) throw new Error("Variante introuvable.");
+    const reason = trace.reason ?? "Inventaire";
     if (locationId === PRIMARY) {
       const total = qty + (await othersSum(tx, variantId));
       await tx.variant.update({ where: { id: variantId }, data: { stock: total } });
+      await logAdjustment(tx, { storeId, variantId, delta: total - v.stock, after: total, reason, author: trace.author, locationId: PRIMARY });
       return total;
     }
     const delta = qty - (await levelOf(tx, locationId, variantId));
     await addLevel(tx, locationId, variantId, delta);
-    return (await tx.variant.update({ where: { id: variantId }, data: { stock: { increment: delta } } })).stock;
+    const total = (await tx.variant.update({ where: { id: variantId }, data: { stock: { increment: delta } } })).stock;
+    await logAdjustment(tx, { storeId, variantId, delta, after: total, reason, author: trace.author, locationId });
+    return total;
   });
 }
 
-/** Transfert entre deux emplacements : le stock total ne change pas. */
-export async function transferStock(storeId: string, variantId: string, from: string, to: string, qty: number): Promise<{ error?: string }> {
+/** Transfert entre deux emplacements : le stock total ne change pas (une ligne d'historique par emplacement, − au départ, + à l'arrivée). */
+export async function transferStock(storeId: string, variantId: string, from: string, to: string, qty: number, author = ""): Promise<{ error?: string }> {
   if (from === to || qty <= 0) return { error: "Choisissez deux emplacements différents et une quantité." };
   return db.$transaction(async (tx) => {
     const v = await tx.variant.findFirst({ where: { id: variantId, product: { storeId } } });
@@ -73,6 +84,9 @@ export async function transferStock(storeId: string, variantId: string, from: st
     if (available < qty) return { error: `Seulement ${Math.max(0, available)} disponible(s) à l'emplacement de départ.` };
     if (from !== PRIMARY) await addLevel(tx, from, variantId, -qty);
     if (to !== PRIMARY) await addLevel(tx, to, variantId, qty);
+    const [fromName, toName] = await Promise.all([locationName(tx, storeId, from), locationName(tx, storeId, to)]);
+    await logAdjustment(tx, { storeId, variantId, delta: -qty, after: v.stock, reason: `Transfert vers ${toName}`, author, locationId: from });
+    await logAdjustment(tx, { storeId, variantId, delta: qty, after: v.stock, reason: `Transfert depuis ${fromName}`, author, locationId: to });
     return {};
   });
 }

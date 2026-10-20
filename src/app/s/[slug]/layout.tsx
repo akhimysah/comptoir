@@ -22,6 +22,7 @@ import { LocaleProvider } from "@/components/store/locale";
 import { LanguageSelect } from "@/components/store/LanguageSelect";
 import { Vitals } from "@/components/store/Vitals";
 import { Analytics } from "@/components/store/Analytics";
+import { POLICY_KEYS, POLICY_LABELS, readPolicies } from "@/lib/checkout-settings";
 
 const T = dict(
   { preview: "Boutique protégée par mot de passe : vous la voyez car vous êtes connecté à l'admin.", prefs: "Préférences", menu: "Menu principal", favorites: "Mes favoris", account: "Mon compte", footer: "Pied de page", poweredBy: "Boutique propulsée par Revolution Ecom" },
@@ -51,6 +52,9 @@ export default async function StoreLayout({ children, params }: { children: Reac
   const menus = await resolveMenus(store, locale);
   // Sur le domaine de la boutique, les liens /s/<boutique>/… sont ouverts directement à leur adresse courte (sans redirection).
   const onDomain = Boolean(store.domain && store.domainVerifiedAt && (await headers()).get("x-store-domain") === store.domain);
+  // Politiques publiées (Paramètres › Politiques) : liens dans le pied de page, à la suite du menu.
+  const policies = readPolicies(store.policies);
+  const policyLinks = POLICY_KEYS.filter((k) => policies[k].published && policies[k].body).map((k) => ({ href: `/s/${slug}/policies/${k}`, title: POLICY_LABELS[k][locale] }));
   return (
     <LocaleProvider locale={locale}>
     <div lang={locale} style={themeVars(theme) as React.CSSProperties} className={`${storeFontVars} flex min-h-screen flex-col bg-[var(--c-bg)] font-[family-name:var(--t-body)] text-[var(--c-text)]`}>
@@ -115,9 +119,10 @@ export default async function StoreLayout({ children, params }: { children: Reac
         <div className="mx-auto max-w-6xl px-4 pt-10 text-[var(--c-muted)]"><NewsletterForm slug={slug} /></div>
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-8 text-sm text-[var(--c-muted)]">
           <span>© {new Date().getFullYear()} {store.name}{store.tagline ? ` · ${store.tagline}` : ""}</span>
-          {menus.footer.length > 0 && (
+          {(menus.footer.length > 0 || policyLinks.length > 0) && (
             <nav className="flex flex-wrap gap-x-5 gap-y-1" aria-label={t.footer}>
               {menus.footer.flatMap((l) => [l, ...l.children]).map((l, i) => <a key={i} href={l.href} {...ext(l)} className="hover:opacity-70">{l.title}</a>)}
+              {policyLinks.map((l) => <a key={l.href} href={l.href} className="hover:opacity-70">{l.title}</a>)}
             </nav>
           )}
           <span className="flex gap-4">

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseMoney } from "@/lib/money";
+import { COUNTRIES } from "@/lib/countries";
 
 const schema = z.object({
   method: z.enum(["code", "automatic"]),
@@ -15,7 +16,12 @@ const schema = z.object({
   title: z.string().trim().max(60).optional().default(""),
   type: z.enum(["percent", "fixed", "free_shipping", "bxgy"]),
   value: z.string(),
+  minRequirement: z.enum(["none", "amount", "quantity"]).optional().default("none"),
   minSubtotal: z.string().optional().default(""),
+  minQuantity: z.string().optional().default(""),
+  eligibility: z.enum(["all", "segments", "customers"]).optional().default("all"),
+  eligibleIds: z.string().optional().default("[]"),
+  countries: z.string().optional().default("[]"),
   usageLimit: z.string().optional().default(""),
   startsAt: z.string().optional().default(""),
   endsAt: z.string().optional().default(""),
@@ -69,9 +75,27 @@ export async function createDiscount(_: { error?: string; ok?: boolean } | undef
     targetIds = found.map((x) => x.id);
   }
 
+  // Exigence minimale : aucune, un montant d'achat, ou une quantité d'articles (comme Shopify, une seule des deux).
+  const minSubtotalCents = d.minRequirement === "amount" ? parseMoney(d.minSubtotal) ?? 0 : 0;
+  const minQuantity = d.minRequirement === "quantity" ? Math.floor(Number(d.minQuantity)) : 0;
+  if (d.minRequirement === "amount" && !(minSubtotalCents > 0)) return { error: "Indiquez le montant d'achat minimum." };
+  if (d.minRequirement === "quantity" && !(minQuantity >= 1 && minQuantity <= 999)) return { error: "Indiquez la quantité minimale d'articles (1 à 999)." };
+  // Admissibilité : segments ou clients de cette boutique seulement.
+  const ids = (raw: string) => { try { const v = z.array(z.string().max(40)).max(500).safeParse(JSON.parse(raw)); return v.success ? v.data : []; } catch { return []; } };
+  let eligibleIds: string[] = [];
+  if (d.eligibility === "segments") {
+    eligibleIds = (await db.segment.findMany({ where: { storeId: store.id, id: { in: ids(d.eligibleIds) } }, select: { id: true } })).map((x) => x.id);
+    if (!eligibleIds.length) return { error: "Choisissez au moins un segment de clients." };
+  } else if (d.eligibility === "customers") {
+    eligibleIds = (await db.customer.findMany({ where: { storeId: store.id, id: { in: ids(d.eligibleIds) } }, select: { id: true } })).map((x) => x.id);
+    if (!eligibleIds.length) return { error: "Choisissez au moins un client." };
+  }
+  // Livraison offerte : pays concernés (vide = tous les pays).
+  const countries = d.type === "free_shipping" ? ids(d.countries).filter((c) => (COUNTRIES as readonly string[]).includes(c)) : [];
+
   try {
     await db.discount.create({
-      data: { storeId: store.id, code, automatic: d.method === "automatic", title: d.title, type: d.type, value, minSubtotalCents: parseMoney(d.minSubtotal) ?? 0, usageLimit: limit, endsAt, startsAt, appliesTo, targetIds: JSON.stringify(targetIds), buyQty, getQty, oncePerCustomer: d.method === "code" && d.oncePerCustomer === "on", combinesWithShipping: d.combinesWithShipping === "on" },
+      data: { storeId: store.id, code, automatic: d.method === "automatic", title: d.title, type: d.type, value, minSubtotalCents, minQuantity, usageLimit: limit, endsAt, startsAt, appliesTo, targetIds: JSON.stringify(targetIds), buyQty, getQty, oncePerCustomer: d.method === "code" && d.oncePerCustomer === "on", combinesWithShipping: d.combinesWithShipping === "on", eligibility: d.eligibility, eligibleIds: JSON.stringify(eligibleIds), countries: JSON.stringify(countries) },
     });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { error: `Le code ${code} existe déjà.` };

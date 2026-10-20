@@ -62,6 +62,13 @@ describe("remises", () => {
     expect(discountProblem(discount({ active: false }), 10000)).toMatch(/n'existe pas/);
     expect(discountProblem(discount({}), 10000)).toBeNull();
   });
+  it("exige une quantité minimale d'articles concernés (les autres ne comptent pas)", () => {
+    const d = discount({ minQuantity: 4, appliesTo: "products", targetIds: JSON.stringify(["bol"]) });
+    const lines = [line("bol", 2800, 2), line("assiette", 3200, 5)];
+    expect(discountProblem(d, 10000, eligibleLines(d, lines, new Map()))).toMatch(/au moins 4 articles/);
+    expect(discountProblem(d, 10000, eligibleLines(d, [line("bol", 2800, 4)], new Map()))).toBeNull();
+    expect(discountProblem(discount({ minQuantity: 2 }), 10000, [line("a", 100, 1)], "en")).toMatch(/at least 2/);
+  });
   it("explique ce qui manque pour une offre « Achetez X »", () => {
     const d = discount({ type: "bxgy", value: 100, buyQty: 2, getQty: 1 });
     expect(discountProblem(d, 5600, [line("bol", 2800, 2)])).toMatch(/Ajoutez 3 articles/);

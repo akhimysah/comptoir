@@ -7,6 +7,7 @@ import { splitCartId, subPrice } from "./subscriptions";
 import { bundleComponents, bundleStock } from "./bundles";
 import { loadProPricing, proPrice } from "./b2b";
 import { dict, translate, type Locale } from "./i18n";
+import { applySegment, customerStats, segmentRules, type CustomerStats } from "./segments";
 
 /** Messages montrés au client (panier, paiement), dans sa langue. */
 const MSG = dict(
@@ -16,6 +17,10 @@ const MSG = dict(
     expired: "Ce code promo a expiré.",
     maxUses: "Ce code promo a déjà été utilisé le nombre maximum de fois.",
     tooLow: "Le montant du panier est trop bas pour ce code.",
+    tooFew: (n: number) => `Ajoutez au moins ${n} articles concernés au panier pour profiter de ce code.`,
+    notEligible: "Ce code n'est pas disponible pour votre compte.",
+    signIn: "Connectez-vous à votre compte pour utiliser ce code.",
+    notCountry: "Ce code n'est pas valable pour votre pays de livraison.",
     noItems: "Ce code ne s'applique à aucun article de votre panier.",
     bxgy: (n: number) => `Ajoutez ${n} articles concernés au panier pour profiter de l'offre.`,
     removed: "Un article de votre panier n'est plus disponible et a été retiré.",
@@ -40,6 +45,10 @@ const MSG = dict(
     expired: "This discount code has expired.",
     maxUses: "This discount code has reached its usage limit.",
     tooLow: "Your cart total is too low for this code.",
+    tooFew: (n: number) => `Add at least ${n} eligible items to your cart to use this code.`,
+    notEligible: "This code isn't available for your account.",
+    signIn: "Sign in to your account to use this code.",
+    notCountry: "This code isn't valid for your shipping country.",
     noItems: "This code doesn't apply to any item in your cart.",
     bxgy: (n: number) => `Add ${n} eligible items to your cart to get this offer.`,
     removed: "An item in your cart is no longer available and has been removed.",
@@ -75,6 +84,8 @@ export type PricedLine = {
   image: string | null;
   hue: number;
   isGiftCard: boolean;
+  /** Produit soumis à la TVA (false : exclu de la base de calcul de la taxe, comme une carte cadeau ; absent = taxable). */
+  taxable?: boolean;
   /** Identifiant réel de la variante (variantId peut porter le suffixe d'abonnement du panier). */
   baseVariantId: string;
   subscription: string | null;
@@ -107,6 +118,8 @@ export type PricedCart = {
   pickup?: { address: string; instructions: string } | null;
   giftCardCode: string | null;
   giftCardCents: number;
+  /** Crédit en magasin du client utilisé sur ce panier. */
+  storeCreditCents?: number;
   giftCardBalanceCents: number;
   giftCardError: string | null;
   taxRateBps: number;
@@ -115,6 +128,8 @@ export type PricedCart = {
   priceListName?: string | null;
   /** Vente hors taxes à un professionnel de l'UE (autoliquidation). */
   reverseCharge?: boolean;
+  /** Client exonéré de TVA par le marchand (« Ne pas percevoir la taxe ») : panier vendu hors taxes. */
+  taxExempt?: boolean;
 };
 
 export type ShippingChoice = { country?: string | null; rateId?: string | null };
@@ -159,20 +174,61 @@ export function discountProblem(d: Discount | null, subtotalCents: number, eligi
   if (d.usageLimit !== null && d.usageCount >= d.usageLimit) return t.maxUses;
   if (subtotalCents < d.minSubtotalCents) return t.tooLow;
   if (eligible && !eligible.length && d.type !== "free_shipping") return t.noItems;
+  // Quantité minimale d'articles : seuls les articles concernés par la remise comptent.
+  if (eligible && d.minQuantity > 0 && eligible.reduce((s, l) => s + l.quantity, 0) < d.minQuantity) return t.tooFew(d.minQuantity);
   if (eligible && d.type === "bxgy" && eligible.reduce((s, l) => s + l.quantity, 0) < d.buyQty + d.getQty) return t.bxgy(d.buyQty + d.getQty);
   return null;
 }
+
+/** Livraison offerte limitée à certains pays : "[]" = tous les pays. */
+export function discountCountries(d: Pick<Discount, "countries">) {
+  return parseJson<string[]>(d.countries, []);
+}
+
+/**
+ * Admissibilité d'une remise (comme Shopify) : tous les clients, les membres de certains segments, ou des clients précis.
+ * "ok" : admissible ; "signin" : remise réservée mais aucun client connecté ; "no" : client connecté non admissible.
+ * `stats` est appelé seulement pour un segment (chiffres du client, calculés une fois par panier).
+ */
+export async function discountEligibility(d: Pick<Discount, "eligibility" | "eligibleIds" | "storeId">, customerId: string | null | undefined, stats: () => Promise<CustomerStats | null>): Promise<"ok" | "signin" | "no"> {
+  if (d.eligibility !== "segments" && d.eligibility !== "customers") return "ok";
+  if (!customerId) return "signin";
+  const ids = parseJson<string[]>(d.eligibleIds, []);
+  if (d.eligibility === "customers") return ids.includes(customerId) ? "ok" : "no";
+  if (!ids.length) return "no";
+  const me = await stats();
+  if (!me) return "no";
+  const segments = await db.segment.findMany({ where: { id: { in: ids }, storeId: d.storeId } });
+  return segments.some((s) => applySegment([me], s.match, segmentRules(s)).length > 0) ? "ok" : "no";
+}
+
+export type PriceOpts = {
+  priceListId?: string | null;
+  locale?: Locale;
+  vatNumber?: string | null;
+  /** Client connecté : décide de l'admissibilité des remises réservées à des segments ou à des clients. */
+  customerId?: string | null;
+  customerEmail?: string | null;
+  /** Client exonéré de TVA par le marchand : vente hors taxes (même calcul que l'autoliquidation). */
+  taxExempt?: boolean | null;
+  /** Crédit en magasin disponible du client connecté : appliqué automatiquement après la carte cadeau. */
+  storeCreditCents?: number | null;
+};
 
 /**
  * Recalcule toujours le panier côté serveur à partir de la base :
  * les prix envoyés par le navigateur ne sont jamais utilisés.
  */
-export async function priceCart(store: Store, items: CartInput, code?: string | null, ship: ShippingChoice = {}, giftCode?: string | null, opts: { priceListId?: string | null; locale?: Locale; vatNumber?: string | null } = {}): Promise<PricedCart> {
+export async function priceCart(store: Store, items: CartInput, code?: string | null, ship: ShippingChoice = {}, giftCode?: string | null, opts: PriceOpts = {}): Promise<PricedCart> {
   const locale = opts.locale ?? "fr";
   const t = MSG[locale];
   // Professionnel d'un autre pays de l'UE avec numéro de TVA : vente hors taxes (autoliquidation), jamais en retrait.
   const reverseCharge = ship.rateId !== PICKUP_ID && reverseChargeApplies(store, opts.vatNumber, ship.country);
-  const ex = (c: number) => (reverseCharge ? exclVat(c, store.taxRateBps) : c);
+  // Client exonéré de TVA (« Ne pas percevoir la taxe » sur sa fiche) : même calcul hors taxes, mais ce n'est pas une autoliquidation
+  // (la facture ne porte pas la mention intracommunautaire) ; le retrait en boutique reste possible.
+  const taxExempt = Boolean(opts.taxExempt) && store.taxRateBps > 0;
+  const noVat = reverseCharge || taxExempt;
+  const ex = (c: number) => (noVat ? exclVat(c, store.taxRateBps) : c);
   // Titre du produit dans la langue du client (messages seulement : les lignes gardent le titre d'origine).
   const titleOf = (p: { title: string; translations?: string }) => translate(p, locale, ["title"]).title;
   const qty = new Map<string, number>();
@@ -227,6 +283,7 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
       image: (v.image ?? parseJson<string[]>(v.product.images, [])[0]) ?? null,
       hue: v.product.hue,
       isGiftCard: v.product.isGiftCard,
+      taxable: v.product.taxable,
     });
   }
 
@@ -279,9 +336,24 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     }
     return collectionsOf;
   };
+  // Chiffres du client connecté (pour les remises réservées à un segment), calculés une seule fois.
+  let myStats: Promise<CustomerStats | null> | null = null;
+  const statsOfCustomer = () => (myStats ??= opts.customerId ? customerStats(store.id).then((all) => all.find((c) => c.id === opts.customerId) ?? null) : Promise.resolve(null));
   const evaluate = async (d: Discount) => {
     const eligible = eligibleLines(d, lines, d.appliesTo === "collections" ? await membership() : new Map());
-    return { eligible, problem: discountProblem(d, discountable, eligible, locale), amount: discountAmount(d, eligible) };
+    let problem = discountProblem(d, discountable, eligible, locale);
+    if (!problem) {
+      // Remise réservée à des segments ou à des clients : le client connecté doit en faire partie.
+      const who = await discountEligibility(d, opts.customerId, statsOfCustomer);
+      if (who === "signin") problem = t.signIn;
+      else if (who === "no") problem = t.notEligible;
+    }
+    // Livraison offerte limitée à certains pays : seulement si le pays de livraison choisi en fait partie.
+    if (!problem && d.type === "free_shipping") {
+      const countries = discountCountries(d);
+      if (countries.length && !(ship.country && countries.includes(ship.country))) problem = t.notCountry;
+    }
+    return { eligible, problem, amount: discountAmount(d, eligible) };
   };
   const normalized = code?.trim().toUpperCase();
   let codeDiscount: Discount | null = null;
@@ -341,13 +413,15 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     shipping.shippingCents = 0;
     shipping.shippingOptions = shipping.shippingOptions.map((o) => ({ ...o, priceCents: 0 }));
   }
-  if (reverseCharge) {
+  if (noVat) {
     shipping.shippingCents = ex(shipping.shippingCents);
-    shipping.shippingOptions = shipping.shippingOptions.filter((o) => o.id !== PICKUP_ID).map((o) => ({ ...o, priceCents: ex(o.priceCents) }));
+    shipping.shippingOptions = shipping.shippingOptions.filter((o) => !reverseCharge || o.id !== PICKUP_ID).map((o) => ({ ...o, priceCents: ex(o.priceCents) }));
   }
   const due = afterDiscount + shipping.shippingCents;
-  // TVA : celle du pays de livraison si la boutique l'a choisi (retrait en boutique : pays de la boutique) ; aucune en autoliquidation.
-  const vatBps = reverseCharge ? 0 : !needsShipping || shipping.shippingRateId === PICKUP_ID ? store.taxRateBps : vatRateFor(store, ship.country);
+  // TVA : celle du pays de livraison si la boutique l'a choisi (retrait en boutique : pays de la boutique) ; aucune en autoliquidation ou pour un client exonéré.
+  const vatBps = noVat ? 0 : !needsShipping || shipping.shippingRateId === PICKUP_ID ? store.taxRateBps : vatRateFor(store, ship.country);
+  // Produits non soumis à la taxe (« Facturer la taxe sur ce produit » décoché) : exclus de la base de TVA, comme les cartes cadeaux vendues.
+  const nonTaxableCents = lines.filter((l) => !l.isGiftCard && l.taxable === false).reduce((s, l) => s + l.priceCents * l.quantity, 0);
 
   // Carte cadeau : elle paie tout ou partie du total, livraison comprise.
   let giftCardCode: string | null = null, giftCardCents = 0, giftCardBalanceCents = 0, giftCardError: string | null = null;
@@ -360,6 +434,9 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     else { giftCardCode = card.code; giftCardBalanceCents = card.balanceCents; giftCardCents = Math.min(card.balanceCents, due); }
   }
 
+  // Crédit en magasin : ce qu'il reste à payer après la carte cadeau, dans la limite du solde du client.
+  const storeCreditCents = Math.max(0, Math.min(Math.floor(opts.storeCreditCents ?? 0), due - giftCardCents));
+
   return {
     lines,
     subtotalCents,
@@ -371,17 +448,19 @@ export async function priceCart(store: Store, items: CartInput, code?: string | 
     ...shipping,
     giftCardCode,
     giftCardCents,
+    storeCreditCents,
     giftCardBalanceCents,
     giftCardError,
     taxRateBps: vatBps,
-    // La vente d'une carte cadeau n'est pas soumise à la TVA : elle l'est quand la carte est utilisée.
-    taxCents: includedTax(due - giftItemsCents, vatBps),
-    totalCents: due - giftCardCents,
+    // La vente d'une carte cadeau n'est pas soumise à la TVA : elle l'est quand la carte est utilisée. Les produits non taxables non plus.
+    taxCents: includedTax(Math.max(0, due - giftItemsCents - nonTaxableCents), vatBps),
+    totalCents: due - giftCardCents - storeCreditCents,
     freeShippingFromCents: store.freeShippingFromCents,
     weightGrams,
     notices,
     priceListName: pro?.name ?? null,
     reverseCharge,
+    taxExempt,
     pickup: store.pickupEnabled && store.pickupAddress.trim() && needsShipping ? { address: store.pickupAddress, instructions: store.pickupInstructions } : null,
   };
 }

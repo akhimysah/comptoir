@@ -7,6 +7,7 @@ import { formatMoney } from "@/lib/money";
 import { countryLabel } from "@/lib/countries";
 import { presentmentTotal } from "@/lib/presentment";
 import type { PricedCart } from "@/lib/pricing";
+import { deliveryWindow, type CheckoutSettings } from "@/lib/checkout-settings";
 import type { Suggestion } from "@/lib/recommendations";
 import { useCart } from "./cart";
 import { useLocale } from "./locale";
@@ -31,6 +32,8 @@ const T = dict(
     discount: "Code promo",
     apply: "Appliquer",
     giftCard: "Carte cadeau",
+    storeCredit: "Crédit en magasin",
+    taxExempt: "Prix hors taxes : votre compte est exonéré de TVA.",
     useGift: "Utiliser",
     priceList: (name: string) => `Vos prix professionnels sont appliqués (${name}).`,
     reverseCharge: "Prix hors taxes : livraison intracommunautaire à un professionnel, TVA autoliquidée par vos soins.",
@@ -75,6 +78,13 @@ const T = dict(
     pay: (total: string) => `Payer ${total}`,
     demo: "Boutique en démonstration : aucun paiement ne sera demandé.",
     secure: "Paiement sécurisé par Stripe : carte, Apple Pay, Google Pay.",
+    company: "Nom de l'entreprise",
+    line2: "Complément d'adresse (appartement, bâtiment…)",
+    phone: "Numéro de téléphone",
+    optional: " (optionnel)",
+    payCard: "Payer maintenant par carte",
+    manualNote: "Vous recevrez les consignes de paiement juste après la validation de votre commande.",
+    delivery: (from: string, to: string) => `Livraison estimée entre le ${from} et le ${to}.`,
   },
   {
     orderFailed: "Your order could not be created. Please try again.",
@@ -95,6 +105,8 @@ const T = dict(
     discount: "Discount code",
     apply: "Apply",
     giftCard: "Gift card",
+    storeCredit: "Store credit",
+    taxExempt: "Prices exclude VAT: your account is tax-exempt.",
     useGift: "Apply",
     priceList: (name: string) => `Your trade prices have been applied (${name}).`,
     reverseCharge: "Prices exclude VAT: intra-EU supply to a business, VAT is reverse-charged to you.",
@@ -139,6 +151,13 @@ const T = dict(
     pay: (total: string) => `Pay ${total}`,
     demo: "Demo shop: no payment will be taken.",
     secure: "Secure payment by Stripe: card, Apple Pay, Google Pay.",
+    company: "Company name",
+    line2: "Address line 2 (apartment, building…)",
+    phone: "Phone number",
+    optional: " (optional)",
+    payCard: "Pay now by card",
+    manualNote: "You'll receive the payment instructions right after placing your order.",
+    delivery: (from: string, to: string) => `Estimated delivery between ${from} and ${to}.`,
   },
 );
 
@@ -146,7 +165,7 @@ const field = "w-full rounded-[var(--t-radius)] border border-[color-mix(in_srgb
 
 type Recovered = { items: { variantId: string; quantity: number }[]; email: string; name: string; token: string } | null;
 
-export function CartView({ slug, currency, display, chargeDisplay = false, loyalty, cancelled, demo, recovered, customer }: { slug: string; currency: string; display?: { code: string; rate: number }; chargeDisplay?: boolean; loyalty?: { perUnit: number } | null; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null }) {
+export function CartView({ slug, currency, display, chargeDisplay = false, loyalty, cancelled, demo, recovered, customer, checkout: co }: { slug: string; currency: string; display?: { code: string; rate: number }; chargeDisplay?: boolean; loyalty?: { perUnit: number } | null; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null; checkout?: CheckoutSettings }) {
   const { items, ready, setQuantity, replace, add } = useCart(slug);
   const locale = useLocale();
   const t = T[locale];
@@ -162,7 +181,12 @@ export function CartView({ slug, currency, display, chargeDisplay = false, loyal
   const [restored, setRestored] = useState(false);
   const [giftInput, setGiftInput] = useState("");
   const [gift, setGift] = useState("");
-  const [marketing, setMarketing] = useState(false);
+  const [marketing, setMarketing] = useState(co?.marketingPreselect ?? false);
+  // Moyen de paiement manuel choisi (index dans Paramètres › Paiements), null = carte.
+  const [manual, setManual] = useState<number | null>(null);
+  const manualMethods = co?.manual ?? [];
+  const eta = co ? deliveryWindow(co) : null;
+  const fmtDay = (d: Date) => d.toLocaleDateString(loc, { weekday: "long", day: "numeric", month: "long" });
 
   // Lien « Reprendre ma commande » reçu par e-mail : on remet le panier mémorisé.
   useEffect(() => {
@@ -208,7 +232,7 @@ export function CartView({ slug, currency, display, chargeDisplay = false, loyal
     setBusy(true);
     setError(null);
     const data = Object.fromEntries(new FormData(e.currentTarget));
-    const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, country, rateId: cart?.shippingRateId ?? rateId, giftCode: gift, marketing, slug, items, code: applied, terms: payLater && Boolean(cart?.paymentTermsDays) }) });
+    const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, country, rateId: cart?.shippingRateId ?? rateId, giftCode: gift, marketing, slug, items, code: applied, terms: payLater && Boolean(cart?.paymentTermsDays), manual: payLater ? null : manual }) });
     const json = await res.json().catch(() => ({}));
     if (res.ok && json.url) { window.location.href = json.url; return; }
     setError(json.error ?? t.orderFailed);
@@ -293,12 +317,14 @@ export function CartView({ slug, currency, display, chargeDisplay = false, loyal
             {gift && cart?.giftCardError && <p className="text-sm text-red-600">{cart.giftCardError}</p>}
             {cart?.priceListName && <p className="text-sm font-medium">{t.priceList(cart.priceListName)}</p>}
             {cart?.reverseCharge && <p className="text-sm font-medium">{t.reverseCharge}</p>}
+            {cart?.taxExempt && <p className="text-sm font-medium">{t.taxExempt}</p>}
             {cart && (
               <dl className="grid grid-cols-[1fr_auto] gap-y-1.5 text-sm tabular-nums">
                 <dt className="text-[var(--c-muted)]">{t.subtotal}</dt><dd className="text-right">{m(cart.subtotalCents)}</dd>
                 {cart.discountCents > 0 && <><dt className="text-[var(--c-muted)]">{t.code(cart.discountCode ?? "")} <button type="button" className="underline" onClick={() => { setApplied(""); setCode(""); }}>{t.removeLower}</button></dt><dd className="text-right">−{m(cart.discountCents)}</dd></>}
                 <dt className="text-[var(--c-muted)]">{cart.shippingMethod || t.shipping}</dt><dd className="text-right">{cart.shippingError ? "—" : cart.shippingCents ? m(cart.shippingCents) : t.freeShipping}</dd>
                 {cart.taxRateBps > 0 && <><dt className="text-xs text-[var(--c-muted)]">{t.vat((cart.taxRateBps / 100).toLocaleString(loc))}</dt><dd className="text-right text-xs text-[var(--c-muted)]">{m(cart.taxCents)}</dd></>}
+                {(cart.storeCreditCents ?? 0) > 0 && <><dt className="text-[var(--c-muted)]">{t.storeCredit}</dt><dd className="text-right">−{m(cart.storeCreditCents!)}</dd></>}
                 {cart.giftCardCents > 0 && <><dt className="text-[var(--c-muted)]">{t.giftCard} ····{cart.giftCardCode?.slice(-4)} <button type="button" className="underline" onClick={() => { setGift(""); setGiftInput(""); }}>{t.removeLower}</button><span className="block text-xs">{t.giftBalance}{m(cart.giftCardBalanceCents - cart.giftCardCents)}</span></dt><dd className="text-right">−{m(cart.giftCardCents)}</dd></>}
                 <dt className="mt-2 border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-2 text-base font-semibold">{t.total}</dt>
                 <dd className="mt-2 border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-2 text-right text-base font-semibold">{charged ? toPay(cart) : m(cart.totalCents)}</dd>
@@ -316,6 +342,8 @@ export function CartView({ slug, currency, display, chargeDisplay = false, loyal
             <h2 className="font-[family-name:var(--t-display)] text-xl font-semibold">{cart?.pickup ? t.pickupTitle : t.shipping}</h2>
             <input id="co-email" name="email" type="email" required autoComplete="email" placeholder={t.email} aria-label={t.email} defaultValue={recovered?.email ?? customer?.email} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
             <input id="co-name" name="name" required autoComplete="name" placeholder={t.name} aria-label={t.name} defaultValue={recovered?.name ?? customer?.name} onBlur={(e) => saveCheckout(e.currentTarget.form)} className={field} />
+            {co && co.company !== "hidden" && <input id="co-company" name="company" required={co.company === "required"} autoComplete="organization" maxLength={120} placeholder={`${t.company}${co.company === "optional" ? t.optional : ""}`} aria-label={t.company} className={field} />}
+            {co && co.phone !== "hidden" && <input id="co-phone" name="phone" type="tel" required={co.phone === "required"} autoComplete="tel" maxLength={30} placeholder={`${t.phone}${co.phone === "optional" ? t.optional : ""}`} aria-label={t.phone} className={field} />}
             {cart?.pickup && (
               <fieldset className="grid grid-cols-2 gap-2">
                 <legend className="sr-only">{t.deliveryMode}</legend>
@@ -340,6 +368,7 @@ export function CartView({ slug, currency, display, chargeDisplay = false, loyal
             ) : (!cart || cart.lines.some((l) => !l.isGiftCard)) ? (
               <>
             <input id="co-line1" name="line1" required autoComplete="street-address" placeholder={t.address} aria-label={t.address} className={field} />
+            {(!co || co.address2) && <input id="co-line2" name="line2" autoComplete="address-line2" maxLength={140} placeholder={t.line2} aria-label={t.line2} className={field} />}
             <div className="grid grid-cols-[1fr_1.6fr] gap-3">
               <input id="co-zip" name="zip" required autoComplete="postal-code" placeholder={t.zip} aria-label={t.zip} className={field} />
               <input id="co-city" name="city" required autoComplete="address-level2" placeholder={t.city} aria-label={t.city} className={field} />
@@ -369,24 +398,29 @@ export function CartView({ slug, currency, display, chargeDisplay = false, loyal
               <p className="text-sm text-[var(--c-muted)]">{t.giftByEmail}</p>
             )}
             {cart?.shippingError && <p className="text-sm text-red-600">{cart.shippingError}</p>}
+            {eta && cart && cart.shippingRateId !== "pickup" && cart.lines.some((l) => !l.isGiftCard) && <p className="text-sm text-[var(--c-muted)]">{t.delivery(fmtDay(eta.from), fmtDay(eta.to))}</p>}
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} />{t.marketing}</label>
             <textarea id="co-note" name="note" maxLength={500} placeholder={t.notePlaceholder} aria-label={t.note} className={`${field} min-h-[70px]`} />
-            {cart?.paymentTermsDays && cart.totalCents > 0 ? (
+            {cart && cart.totalCents > 0 && (cart.paymentTermsDays || manualMethods.length > 0) ? (
               <fieldset className="flex flex-col gap-2">
                 <legend className="mb-1 text-sm font-semibold">{t.payment}</legend>
-                {([[false, t.payNow], [true, t.payLater(cart.paymentTermsDays)]] as const).map(([later, label]) => (
-                  <label key={label} className={`flex cursor-pointer items-center gap-3 rounded-[var(--t-radius)] border px-3 py-2.5 ${payLater === later ? "border-[var(--c-text)]" : "border-[color-mix(in_srgb,var(--c-text)_22%,transparent)]"}`}>
-                    <input type="radio" name="payment" checked={payLater === later} onChange={() => setPayLater(later)} />
-                    <span className="flex-1">{label}</span>
+                {([
+                  { id: "card", label: manualMethods.length ? t.payCard : t.payNow, on: !payLater && manual === null, pick: () => { setPayLater(false); setManual(null); } },
+                  ...manualMethods.map((m) => ({ id: `manual-${m.index}`, label: m.name, on: !payLater && manual === m.index, pick: () => { setPayLater(false); setManual(m.index); } })),
+                  ...(cart.paymentTermsDays ? [{ id: "terms", label: t.payLater(cart.paymentTermsDays), on: payLater, pick: () => { setPayLater(true); setManual(null); } }] : []),
+                ]).map((o) => (
+                  <label key={o.id} className={`flex cursor-pointer items-center gap-3 rounded-[var(--t-radius)] border px-3 py-2.5 ${o.on ? "border-[var(--c-text)]" : "border-[color-mix(in_srgb,var(--c-text)_22%,transparent)]"}`}>
+                    <input type="radio" name="payment" checked={o.on} onChange={o.pick} />
+                    <span className="flex-1">{o.label}</span>
                   </label>
                 ))}
               </fieldset>
             ) : null}
             {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
             <button disabled={busy || !cart?.lines.length || Boolean(cart?.shippingError)} className="h-12 rounded-[var(--t-radius)] bg-[var(--c-accent)] font-semibold text-[var(--c-accent-text)] transition hover:opacity-90 disabled:opacity-40">
-              {busy ? t.wait : payLater && cart?.paymentTermsDays ? t.orderTerms(cart.paymentTermsDays) : demo ? t.placeOrder(cart ? toPay(cart) : "") : t.pay(cart ? toPay(cart) : "")}
+              {busy ? t.wait : payLater && cart?.paymentTermsDays ? t.orderTerms(cart.paymentTermsDays) : demo || manual !== null ? t.placeOrder(cart ? toPay(cart) : "") : t.pay(cart ? toPay(cart) : "")}
             </button>
-            <p className="text-center text-xs text-[var(--c-muted)]">{demo ? t.demo : t.secure}</p>
+            <p className="text-center text-xs text-[var(--c-muted)]">{manual !== null && !payLater ? t.manualNote : demo ? t.demo : t.secure}</p>
           </form>
         </div>
       </div>

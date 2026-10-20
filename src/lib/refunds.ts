@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { formatMoney } from "./money";
 import { sendMail } from "./mail";
@@ -6,6 +7,8 @@ import { getStripe } from "./stripe";
 import { orderLocale, refundEmail } from "./emails";
 import { revokePoints } from "./loyalty";
 import { presentmentRefund } from "./presentment";
+import { adjustStoreCredit } from "./store-credit";
+import { adjustStock } from "./inventory-log";
 
 export const PAID_STATUSES = ["paid", "partially_refunded"];
 
@@ -27,6 +30,8 @@ export function suggestedItemRefund(o: { subtotalCents: number; discountCents: n
 export async function refundOrder(args: {
   orderId: string; storeId: string; lines: RefundLine[]; shippingCents: number; amountCents: number;
   restock: boolean; reason: string; author: string; cancel?: boolean; notify?: boolean;
+  /** Rembourser en crédit en magasin plutôt que sur le moyen de paiement. */
+  toStoreCredit?: boolean;
 }): Promise<{ error?: string }> {
   const order = await db.order.findFirst({ where: { id: args.orderId, storeId: args.storeId }, include: { items: true, store: true } });
   if (!order) return { error: "Commande introuvable." };
@@ -62,7 +67,10 @@ export async function refundOrder(args: {
   // Montant dans la devise réellement payée par le client (identique sans paiement en devise étrangère).
   const paidAmount = presentmentRefund(order, amount);
   let stripeRefundId: string | null = null;
-  if (amount > 0 && order.paymentMethod === "stripe") {
+  if (amount > 0 && args.toStoreCredit) {
+    if (!order.customerId) { await db.order.update({ where: { id: order.id }, data: { refundedCents: { decrement: amount } } }); return { error: "Cette commande n'est rattachée à aucun client : impossible de créditer un compte." }; }
+    await adjustStoreCredit(order.storeId, order.customerId, amount, `Remboursement de la commande #${order.number} en crédit`, args.author, order.id);
+  } else if (amount > 0 && order.paymentMethod === "stripe") {
     const stripe = getStripe();
     const undo = () => db.order.update({ where: { id: order.id }, data: { refundedCents: { decrement: amount } } });
     if (!stripe) { await undo(); return { error: "Stripe n'est pas configuré : impossible de rembourser la carte du client." }; }
@@ -82,23 +90,24 @@ export async function refundOrder(args: {
   const fully = refunded >= order.totalCents;
   const status = fully || (args.cancel && amount === max) ? "refunded" : refunded > 0 ? "partially_refunded" : order.paymentStatus;
 
-  await db.$transaction([
-    db.refund.create({ data: { orderId: order.id, amountCents: amount, shippingCents: args.shippingCents, items: JSON.stringify(lines), restock: args.restock, reason: args.reason, stripeRefundId, author: args.author } }),
-    db.order.update({ where: { id: order.id }, data: { paymentStatus: status, ...(args.cancel ? { cancelledAt: new Date() } : {}) } }),
-    ...lines.map((l) => db.orderItem.update({ where: { id: l.orderItemId }, data: { refundedQuantity: { increment: l.quantity } } })),
-    ...(args.restock ? await restockMoves(order.items, lines) : []),
-    ...(giftCardsToDisable.length ? [db.giftCard.updateMany({ where: { id: { in: giftCardsToDisable } }, data: { disabled: true, balanceCents: 0 } })] : []),
+  await db.$transaction(async (tx) => {
+    await tx.refund.create({ data: { orderId: order.id, amountCents: amount, shippingCents: args.shippingCents, items: JSON.stringify(lines), restock: args.restock, reason: args.reason, stripeRefundId, author: args.author } });
+    await tx.order.update({ where: { id: order.id }, data: { paymentStatus: status, ...(args.cancel ? { cancelledAt: new Date() } : {}) } });
+    for (const l of lines) await tx.orderItem.update({ where: { id: l.orderItemId }, data: { refundedQuantity: { increment: l.quantity } } });
+    if (args.restock) await restock(tx, order, lines, args.author);
+    if (giftCardsToDisable.length) await tx.giftCard.updateMany({ where: { id: { in: giftCardsToDisable } }, data: { disabled: true, balanceCents: 0 } });
     // À l'annulation, la part payée par carte cadeau retourne sur la carte du client.
-    ...(args.cancel && order.giftCardCode && order.giftCardCents > 0 ? [db.giftCard.updateMany({ where: { storeId: order.storeId, code: order.giftCardCode }, data: { balanceCents: { increment: order.giftCardCents } } })] : []),
-    db.orderEvent.create({
+    if (args.cancel && order.giftCardCode && order.giftCardCents > 0) await tx.giftCard.updateMany({ where: { storeId: order.storeId, code: order.giftCardCode }, data: { balanceCents: { increment: order.giftCardCents } } });
+    await tx.orderEvent.create({
       data: {
         orderId: order.id,
         type: args.cancel ? "cancelled_refund" : "refund",
+        // (en crédit en magasin : précisé dans le message)
         author: args.author,
-        message: `${formatMoney(amount, order.store.currency)}${lines.length ? ` · ${lines.reduce((s, l) => s + l.quantity, 0)} article(s)${args.restock ? " remis en stock" : ""}` : ""}${args.cancel && order.giftCardCents ? ` · ${formatMoney(order.giftCardCents, order.store.currency)} recrédités sur la carte cadeau` : ""}${args.reason ? ` · ${args.reason}` : ""}`,
+        message: `${formatMoney(amount, order.store.currency)}${args.toStoreCredit ? " en crédit en magasin" : ""}${lines.length ? ` · ${lines.reduce((s, l) => s + l.quantity, 0)} article(s)${args.restock ? " remis en stock" : ""}` : ""}${args.cancel && order.giftCardCents ? ` · ${formatMoney(order.giftCardCents, order.store.currency)} recrédités sur la carte cadeau` : ""}${args.reason ? ` · ${args.reason}` : ""}`,
       },
-    }),
-  ]);
+    });
+  });
 
   if (amount > 0) await revokePoints(order.id, amount);
   if (args.cancel) await (await import("./webhooks")).emitOrder(order.id, "orders/cancelled");
@@ -113,18 +122,17 @@ export async function refundOrder(args: {
   return {};
 }
 
-/** Remise en stock : un lot rend leurs pièces à ses composants, une carte cadeau ne revient pas en stock. */
-async function restockMoves(items: { id: string; variantId: string | null; isGiftCard: boolean }[], lines: RefundLine[]) {
-  const ops = [];
+/** Remise en stock : un lot rend leurs pièces à ses composants, une carte cadeau ne revient pas en stock. Chaque retour est tracé dans l'historique des ajustements. */
+async function restock(tx: Prisma.TransactionClient, order: { storeId: string; number: number; items: { id: string; variantId: string | null; isGiftCard: boolean }[] }, lines: RefundLine[], author: string) {
+  const reason = `Remboursement / retour (commande #${order.number})`;
   for (const l of lines) {
-    const item = items.find((i) => i.id === l.orderItemId);
+    const item = order.items.find((i) => i.id === l.orderItemId);
     if (!item?.variantId || item.isGiftCard) continue;
-    const v = await db.variant.findUnique({ where: { id: item.variantId }, select: { productId: true } });
-    const parts = v ? await db.bundleItem.findMany({ where: { bundleId: v.productId } }) : [];
-    if (parts.length) for (const p of parts) ops.push(db.variant.updateMany({ where: { id: p.variantId }, data: { stock: { increment: p.quantity * l.quantity } } }));
-    else ops.push(db.variant.updateMany({ where: { id: item.variantId }, data: { stock: { increment: l.quantity } } }));
+    const v = await tx.variant.findUnique({ where: { id: item.variantId }, select: { productId: true } });
+    const parts = v ? await tx.bundleItem.findMany({ where: { bundleId: v.productId } }) : [];
+    if (parts.length) for (const p of parts) await adjustStock(tx, order.storeId, p.variantId, p.quantity * l.quantity, reason, author);
+    else await adjustStock(tx, order.storeId, item.variantId, l.quantity, reason, author);
   }
-  return ops;
 }
 
 /** Paiement Stripe d'une commande : enregistré à la commande, sinon retrouvé via la session ou la facture (abonnements). */

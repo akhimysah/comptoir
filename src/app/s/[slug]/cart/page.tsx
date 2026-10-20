@@ -7,6 +7,7 @@ import { CHARGEABLE_CURRENCIES } from "@/lib/presentment";
 import { getStore } from "@/lib/storefront";
 import { stripeConfigured } from "@/lib/stripe";
 import { dict } from "@/lib/i18n";
+import { checkoutSettingsOf } from "@/lib/checkout-settings";
 
 const T = dict({ title: "Panier" }, { title: "Cart" });
 
@@ -23,5 +24,5 @@ export default async function CartPage({ params, searchParams }: { params: Promi
   const recovered = saved ? { items: parseJson<{ variantId: string; quantity: number }[]>(saved.items, []), email: saved.email, name: saved.name, token: saved.token } : null;
   const cur = await displayCurrency(store);
   const demo = !(stripeConfigured() && store.stripeChargesEnabled);
-  return <CartView slug={slug} currency={store.currency} display={cur} chargeDisplay={store.chargeInCustomerCurrency && CHARGEABLE_CURRENCIES.has(cur.code)} loyalty={store.loyaltyEnabled ? { perUnit: store.loyaltyPointsPerUnit } : null} cancelled={Boolean(cancelled)} demo={demo} recovered={recovered} customer={customer ? { email: customer.email, name: customer.name } : null} />;
+  return <CartView slug={slug} currency={store.currency} display={cur} chargeDisplay={store.chargeInCustomerCurrency && CHARGEABLE_CURRENCIES.has(cur.code)} loyalty={store.loyaltyEnabled ? { perUnit: store.loyaltyPointsPerUnit } : null} cancelled={Boolean(cancelled)} demo={demo} recovered={recovered} customer={customer ? { email: customer.email, name: customer.name } : null} checkout={checkoutSettingsOf(store)} />;
 }

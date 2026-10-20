@@ -25,6 +25,7 @@ export default async function RefundPage({ params, searchParams }: { params: Pro
         refundable={refundableCents(o)}
         shippingPaid={o.shippingCents}
         stripe={o.paymentMethod === "stripe"}
+        storeCredit={store.storeCreditEnabled && Boolean(o.customerId)}
         returnId={ret?.id}
         initialQty={ret ? initialQty : undefined}
         initialReason={ret ? `Retour : ${[...new Set(lines.map((l) => l.reason))].join(", ")}`.slice(0, 300) : undefined}

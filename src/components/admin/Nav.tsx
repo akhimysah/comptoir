@@ -81,7 +81,7 @@ export function AdminNav({ toShip, returnsToHandle = 0, unreadMessages = 0, stor
     { href: "/admin/products", label: "Produits", icon: "products", match: ["/admin/products", "/admin/collections", "/admin/inventory", "/admin/reviews", "/admin/gift-cards"], children: [{ href: "/admin/collections", label: "Collections" }, { href: "/admin/inventory", label: "Stock" }, { href: "/admin/products/purchase-orders", label: "Bons de commande" }, { href: "/admin/gift-cards", label: "Cartes cadeaux" }, { href: "/admin/reviews", label: "Avis" }] },
     { href: "/admin/customers", label: "Clients", icon: "customers", children: [{ href: "/admin/customers/segments", label: "Segments" }, { href: "/admin/customers/price-lists", label: "Prix pro (B2B)" }] },
     { href: "/admin/inbox", label: "Messagerie", icon: "chat", badge: unreadMessages },
-    { href: "/admin/analytics", label: "Statistiques", icon: "chart", children: [{ href: "/admin/analytics/reports", label: "Rapports" }] },
+    { href: "/admin/analytics", label: "Statistiques", icon: "chart", children: [{ href: "/admin/analytics/reports", label: "Rapports" }, { href: "/admin/analytics/live", label: "Vue en direct" }] },
     { href: "/admin/marketing", label: "Marketing", icon: "marketing" },
     { href: "/admin/discounts", label: "Remises", icon: "discounts" },
   ];
@@ -97,7 +97,7 @@ export function AdminNav({ toShip, returnsToHandle = 0, unreadMessages = 0, stor
       {perms.includes("content") && <div>
         <div className="mb-1 flex items-center justify-between px-2 text-xs font-[550] text-muted">Canaux de vente</div>
         <ul className="flex flex-col gap-0.5">
-          <NavLink item={{ href: "/admin/theme", label: "Boutique en ligne", icon: "store", match: ["/admin/theme", "/admin/pages", "/admin/blog", "/admin/navigation"], children: [{ href: "/admin/theme", label: "Thèmes" }, { href: "/admin/pages", label: "Pages" }, { href: "/admin/blog", label: "Articles de blog" }, { href: "/admin/navigation", label: "Navigation" }] }} path={path} />
+          <NavLink item={{ href: "/admin/theme", label: "Boutique en ligne", icon: "store", match: ["/admin/theme", "/admin/pages", "/admin/blog", "/admin/navigation", "/admin/content"], children: [{ href: "/admin/theme", label: "Thèmes" }, { href: "/admin/pages", label: "Pages" }, { href: "/admin/blog", label: "Articles de blog" }, { href: "/admin/navigation", label: "Navigation" }, { href: "/admin/content/files", label: "Fichiers" }] }} path={path} />
           <NavLink item={{ href: "/admin/channels", label: "Google et réseaux", icon: "channels" }} path={path} />
           {perms.includes("orders") && <NavLink item={{ href: "/admin/pos", label: "Point de vente", icon: "pos" }} path={path} />}
         </ul>

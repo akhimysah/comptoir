@@ -10,13 +10,15 @@ import { parseMoney } from "@/lib/money";
 import { parseJson, slugify } from "@/lib/utils";
 import { fetchShopifyImage } from "@/lib/image-store";
 import { convertShopify, isShopifyCsv, type ShopifyImages } from "@/lib/shopify-import";
+import { joinTags } from "@/lib/api";
+import { logAdjustment } from "@/lib/inventory-log";
 
 export type ImportResult = { created: number; updated: number; errors: string[]; images?: number; shopify?: boolean } | { error: string } | undefined;
 
 type Row = Record<(typeof PRODUCT_COLUMNS)[number], string> & { line: number };
 
 export async function importProducts(_: ImportResult, form: FormData): Promise<ImportResult> {
-  const { store } = await requirePerm("products");
+  const { store, user } = await requirePerm("products");
   const file = form.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choisissez un fichier CSV." };
   if (file.size > 10 * 1024 * 1024) return { error: "Le fichier dépasse 10 Mo." };
@@ -96,7 +98,7 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
     const head = g[0];
     if (!head.Titre && !head.Identifiant) { errors.push(`Ligne ${head.line} : titre manquant.`); continue; }
     const optionNames = [head["Option1 nom"], head["Option2 nom"], head["Option3 nom"]].filter(Boolean);
-    const variants: { title: string; optionValues: string; priceCents: number; compareAtCents: number | null; sku: string; stock: number; position: number; weightGrams?: number }[] = [];
+    const variants: { title: string; optionValues: string; priceCents: number; compareAtCents: number | null; sku: string; stock: number; position: number; weightGrams?: number; barcode?: string }[] = [];
     let bad = false;
     for (const [i, r] of g.entries()) {
       const price = parseMoney(r.Prix);
@@ -115,6 +117,7 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
         position: i,
         // Colonne absente : le poids existant n'est pas effacé.
         ...(r["Poids (g)"] && Number.isFinite(Number(r["Poids (g)"].replace(",", "."))) ? { weightGrams: Math.max(0, Math.round(Number(r["Poids (g)"].replace(",", ".")))) } : {}),
+        ...(r["Code-barres"] ? { barcode: r["Code-barres"].slice(0, 40) } : {}),
       });
     }
     if (bad) continue;
@@ -124,6 +127,14 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
     const existing = await db.product.findUnique({ where: { storeId_handle: { storeId: store.id, handle } }, include: { variants: true } });
     const colIds = head.Collections ? await Promise.all(head.Collections.split(/[,|]/).map((t) => t.trim()).filter(Boolean).map(collectionId)) : null;
     const status = /^brouillon|draft/i.test(head.Statut) ? "draft" : head.Statut ? "active" : undefined;
+    // Organisation du produit : une cellule vide laisse la valeur existante.
+    const organisation = {
+      ...(head["Catégorie"] ? { category: head["Catégorie"].slice(0, 100) } : {}),
+      ...(head["Type de produit"] ? { productType: head["Type de produit"].slice(0, 100) } : {}),
+      ...(head.Fournisseur ? { vendor: head.Fournisseur.slice(0, 100) } : {}),
+      ...(head.Balises ? { tags: joinTags(head.Balises.split(",")).slice(0, 1000) } : {}),
+    };
+    const importReason = `Import ${shopifyImages ? "Shopify" : "CSV"}`;
 
     if (existing) {
       // Les variantes existantes (mêmes valeurs d'options) gardent leur identifiant, pour ne pas casser les paniers en cours.
@@ -132,8 +143,14 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
       await db.$transaction(async (tx) => {
         for (const v of variants) {
           const hit = byKey.get(v.optionValues);
-          if (hit) { keep.add(hit.id); await tx.variant.update({ where: { id: hit.id }, data: v }); }
-          else await tx.variant.create({ data: { ...v, productId: existing.id } });
+          if (hit) {
+            keep.add(hit.id);
+            await tx.variant.update({ where: { id: hit.id }, data: v });
+            await logAdjustment(tx, { storeId: store.id, variantId: hit.id, delta: v.stock - hit.stock, after: v.stock, reason: importReason, author: user.name });
+          } else {
+            const created = await tx.variant.create({ data: { ...v, productId: existing.id } });
+            await logAdjustment(tx, { storeId: store.id, variantId: created.id, delta: v.stock, after: v.stock, reason: importReason, author: user.name });
+          }
         }
         await tx.variant.deleteMany({ where: { productId: existing.id, id: { notIn: [...keep] }, NOT: { optionValues: { in: variants.map((v) => v.optionValues) } } } });
         await tx.product.update({
@@ -142,6 +159,7 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
             ...(head.Titre ? { title: head.Titre } : {}),
             ...(head.Description ? { description: head.Description } : {}),
             ...(status ? { status } : {}),
+            ...organisation,
             options: JSON.stringify(options),
           },
         });
@@ -157,11 +175,13 @@ export async function importProducts(_: ImportResult, form: FormData): Promise<I
       const product = await db.product.create({
         data: {
           storeId: store.id, handle, title: head.Titre, description: head.Description, status: status ?? "active",
-          hue: Math.floor(Math.random() * 360), options: JSON.stringify(options),
+          hue: Math.floor(Math.random() * 360), options: JSON.stringify(options), ...organisation,
           variants: { create: variants },
           ...(colIds ? { collections: { create: colIds.map((collectionId) => ({ collectionId })) } } : {}),
         },
+        include: { variants: true },
       });
+      for (const v of product.variants) await logAdjustment(db, { storeId: store.id, variantId: v.id, delta: v.stock, after: v.stock, reason: importReason, author: user.name });
       await attachImages(product.id, head.Identifiant);
       created++;
     }

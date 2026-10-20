@@ -14,6 +14,8 @@ import { carrierLabel } from "@/lib/tracking";
 import { sendInvoice } from "@/lib/invoices";
 import { pickupReadyEmail } from "@/lib/emails";
 import { sendMail } from "@/lib/mail";
+import { emitOrder } from "@/lib/webhooks";
+import { splitOrderTags } from "@/components/admin/OrderSummary";
 
 async function ownOrder(form: FormData) {
   const { user, store } = await requirePerm("orders");
@@ -79,12 +81,84 @@ export async function cancelOrder(form: FormData): Promise<void> {
   revalidatePath("/admin", "layout");
 }
 
-/** Actions groupées depuis la liste des commandes. Renvoie le nombre de commandes modifiées. */
-export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" | "markPaid"): Promise<{ count: number }> {
+/** Marque la commande comme livrée (une seule fois) : date, chronologie, webhook « orders/delivered ». */
+async function deliverOrder(o: { id: string; fulfillmentStatus: string; cancelledAt: Date | null }, author: string) {
+  if (o.fulfillmentStatus !== "fulfilled" || o.cancelledAt) return false;
+  const r = await db.order.updateMany({ where: { id: o.id, deliveredAt: null }, data: { deliveredAt: new Date() } });
+  if (!r.count) return false;
+  await db.orderEvent.create({ data: { orderId: o.id, type: "delivered", author } });
+  await emitOrder(o.id, "orders/delivered");
+  return true;
+}
+
+export async function markDelivered(form: FormData) {
+  const { user, order } = await ownOrder(form);
+  if (!(await deliverOrder(order, user.name))) return revalidatePath(`/admin/orders/${order.id}`);
+  await logActivity(`Commande #${order.number} marquée comme livrée`, `/admin/orders/${order.id}`);
+  revalidatePath(`/admin/orders/${order.id}`);
+  revalidatePath("/admin", "layout");
+}
+
+/** Archive ou désarchive la commande (elle quitte ou rejoint l'onglet « Toutes »). */
+export async function toggleArchive(form: FormData) {
+  const { user, order } = await ownOrder(form);
+  const archive = !order.archivedAt;
+  await db.order.update({ where: { id: order.id }, data: { archivedAt: archive ? new Date() : null } });
+  await db.orderEvent.create({ data: { orderId: order.id, type: archive ? "archived" : "unarchived", author: user.name } });
+  await logActivity(`Commande #${order.number} ${archive ? "archivée" : "désarchivée"}`, `/admin/orders/${order.id}`);
+  revalidatePath(`/admin/orders/${order.id}`);
+  revalidatePath("/admin/orders");
+}
+
+/** Balises de la commande (20 au plus, 30 caractères chacune). Renvoie la liste enregistrée. */
+export async function updateOrderTags(id: string, tags: string[]): Promise<{ tags: string[] }> {
   const { user, store } = await requirePerm("orders");
-  const own = await db.order.findMany({ where: { id: { in: ids.slice(0, 500) }, storeId: store.id, cancelledAt: null } });
+  const order = await db.order.findFirst({ where: { id, storeId: store.id } });
+  if (!order) throw new Error("Commande introuvable.");
+  const clean = splitOrderTags(tags.map((t) => String(t).slice(0, 30)).join(",")).slice(0, 20);
+  const before = splitOrderTags(order.tags);
+  if (clean.join(",") !== before.join(",")) {
+    await db.order.update({ where: { id: order.id }, data: { tags: clean.join(", ") } });
+    const added = clean.filter((t) => !before.includes(t));
+    const removed = before.filter((t) => !clean.includes(t));
+    const parts = [added.length ? `ajouté ${added.join(", ")}` : "", removed.length ? `retiré ${removed.join(", ")}` : ""].filter(Boolean);
+    await db.orderEvent.create({ data: { orderId: order.id, type: "tags_updated", author: user.name, message: parts.join(" · ") } });
+  }
+  revalidatePath(`/admin/orders/${order.id}`);
+  revalidatePath("/admin/orders");
+  return { tags: clean };
+}
+
+/**
+ * Archivage automatique (réglage de la boutique) : les commandes payées et traitées, ou entièrement remboursées,
+ * ou annulées, sont archivées sans action du marchand. Appelé à l'ouverture de la liste et d'une fiche.
+ */
+export async function archiveFinishedOrders(): Promise<number> {
+  const { store } = await requirePerm("orders");
+  if (!store.autoArchive) return 0;
+  const r = await db.order.updateMany({
+    where: { storeId: store.id, archivedAt: null, OR: [{ paymentStatus: "paid", fulfillmentStatus: "fulfilled" }, { paymentStatus: "refunded" }, { cancelledAt: { not: null } }] },
+    data: { archivedAt: new Date() },
+  });
+  return r.count;
+}
+
+/** Actions groupées depuis la liste des commandes. Renvoie le nombre de commandes modifiées. */
+export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" | "markPaid" | "deliver" | "archive"): Promise<{ count: number }> {
+  const { user, store } = await requirePerm("orders");
+  const own = await db.order.findMany({ where: { id: { in: ids.slice(0, 500) }, storeId: store.id, ...(action === "archive" ? {} : { cancelledAt: null }) } });
   let count = 0;
+  if (action === "archive") {
+    const r = await db.order.updateMany({ where: { id: { in: own.map((o) => o.id) }, archivedAt: null }, data: { archivedAt: new Date() } });
+    if (r.count) await logActivity(`${r.count} commande(s) archivées`);
+    revalidatePath("/admin", "layout");
+    return { count: r.count };
+  }
   for (const o of own) {
+    if (action === "deliver") {
+      if (await deliverOrder(o, user.name)) count++;
+      continue;
+    }
     if (action === "markPaid") {
       // Paiements hors ligne uniquement : un paiement Stripe se confirme par Stripe.
       if (o.paymentStatus !== "pending" || o.paymentMethod === "stripe") continue;
@@ -106,7 +180,7 @@ export async function bulkOrders(ids: string[], action: "fulfill" | "unfulfill" 
     ]);
     count++;
   }
-  if (count) await logActivity(`${count} commande(s) : ${action === "fulfill" ? "marquées traitées" : action === "unfulfill" ? "marquées non traitées" : "marquées payées"}`);
+  if (count) await logActivity(`${count} commande(s) : ${action === "fulfill" ? "marquées traitées" : action === "unfulfill" ? "marquées non traitées" : action === "deliver" ? "marquées livrées" : "marquées payées"}`);
   revalidatePath("/admin", "layout");
   return { count };
 }

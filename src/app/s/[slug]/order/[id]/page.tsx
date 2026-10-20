@@ -12,6 +12,7 @@ import { payLink } from "@/lib/invoices";
 import { getStripe } from "@/lib/stripe";
 import { carrierLabel, trackingLink } from "@/lib/tracking";
 import { dict, intlLocale } from "@/lib/i18n";
+import { orderNumber } from "@/lib/checkout-settings";
 
 const T = dict(
   {
@@ -32,6 +33,8 @@ const T = dict(
     track: "Suivre mon colis",
     totalDue: "Total à payer",
     totalPaid: "Total payé",
+    manualTitle: "Comment régler votre commande",
+    manualNote: "Votre commande est enregistrée : elle sera expédiée dès réception de votre paiement.",
     invoice: "Télécharger la facture",
     back: "Retour à la boutique",
   },
@@ -53,6 +56,8 @@ const T = dict(
     track: "Track my parcel",
     totalDue: "Total due",
     totalPaid: "Total paid",
+    manualTitle: "How to pay for your order",
+    manualNote: "Your order is recorded: it will ship as soon as we receive your payment.",
     invoice: "Download invoice",
     back: "Back to store",
   },
@@ -84,7 +89,9 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
   const items = await localizeItems(order.items, locale);
   // Client professionnel à échéance : la commande est confirmée, le paiement viendra avant la date limite.
   const onTerms = order.paymentStatus === "pending" && Boolean(order.dueAt) && !order.cancelledAt;
-  const confirmed = paid || onTerms;
+  // Paiement manuel (virement, à la livraison) : commande confirmée, le client suit les consignes données.
+  const manual = order.paymentStatus === "pending" && order.paymentMethod === "manual" && !order.cancelledAt && Boolean(order.paymentInstructions);
+  const confirmed = paid || onTerms || manual;
   const payUrl = onTerms && order.totalCents > 0 ? await payLink(order, slug) : null;
   // Montants dans la devise payée par le client.
   const cur = orderCurrency(order, store.currency);
@@ -100,7 +107,7 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
         <h1 className="font-[family-name:var(--t-display)] text-3xl font-semibold">{confirmed ? t.thanks(order.name.split(" ")[0]) : t.pending}</h1>
         <p className="text-[var(--c-muted)]">
           {confirmed
-            ? <>{t.confirmed1}<b className="tabular-nums">#{order.number}</b>{t.confirmed2(order.email)}</>
+            ? <>{t.confirmed1}<b className="tabular-nums">{orderNumber(store, order.number)}</b>{t.confirmed2(order.email)}</>
             : t.waiting}
         </p>
       </div>
@@ -111,6 +118,13 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
             <span className="block text-sm text-[var(--c-muted)]">{t.terms}</span>
           </span>
           {payUrl && <a href={payUrl} className="rounded-[var(--t-radius)] bg-[var(--c-accent)] px-4 py-2 text-sm font-semibold text-[var(--c-accent-text)]">{t.payNow}</a>}
+        </div>
+      )}
+      {manual && (
+        <div className="rounded-[var(--t-radius)] border border-[var(--c-accent)] p-4">
+          <p className="font-semibold">{t.manualTitle}</p>
+          <p className="mt-1 whitespace-pre-line text-sm">{order.paymentInstructions}</p>
+          <p className="mt-2 text-sm text-[var(--c-muted)]">{t.manualNote}</p>
         </div>
       )}
       {confirmed && order.deliveryMethod === "pickup" && (
@@ -141,7 +155,7 @@ export default async function OrderConfirmation({ params }: { params: Promise<{ 
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex justify-between border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-3 font-semibold tabular-nums"><span>{onTerms ? t.totalDue : t.totalPaid}</span><span>{formatMoney(cur.total, cur.currency, intlLocale(locale))}</span></div>
+        <div className="mt-4 flex justify-between border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)] pt-3 font-semibold tabular-nums"><span>{onTerms || manual ? t.totalDue : t.totalPaid}</span><span>{formatMoney(cur.total, cur.currency, intlLocale(locale))}</span></div>
       </div>
       <div className="flex flex-wrap justify-center gap-3">
         {confirmed && <a href={`/print/invoice/${order.id}`} target="_blank" className="rounded-[var(--t-radius)] border border-[var(--c-text)] px-6 py-3 font-semibold">{t.invoice}</a>}

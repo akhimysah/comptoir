@@ -29,6 +29,11 @@ export async function GET() {
         v.sku,
         v.stock,
         v.weightGrams || "",
+        i === 0 ? p.category : "",
+        i === 0 ? p.productType : "",
+        i === 0 ? p.vendor : "",
+        i === 0 ? p.tags : "",
+        v.barcode,
       ]);
     });
   }

@@ -144,6 +144,7 @@ Pour Stripe en ligne, ajoutez `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` dan
 - Textes légaux de la plateforme : brouillons en place (/legal/cgu, /legal/confidentialite, /legal/mentions-legales), à compléter (variables PLATFORM_* du .env) et à faire valider par un professionnel du droit (puis LEGAL_VALIDATED=1).
 
 **Fonctionnalités Shopify absentes**
+- Sidekick (assistant IA de l'admin), Flow (automatisations personnalisées), Marchés (prix et langues par pays groupés), métaobjets.
 - Langues autres que le français et l'anglais ; traduction automatique (aujourd'hui le marchand saisit l'anglais dans Paramètres → Langues).
 - Paiement en devise étrangère pour les abonnements (prélevés dans la devise de la boutique).
 - Étiquettes d'expédition et tarifs transporteurs en direct (Colissimo, Mondial Relay…).

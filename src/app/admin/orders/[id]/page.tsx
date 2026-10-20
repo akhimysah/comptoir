@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addOrderComment, cancelOrder, markPaid, markPickupReady, returnDecision, sendInvoiceAction, setFulfilled, updateTracking } from "../actions";
+import { addOrderComment, archiveFinishedOrders, cancelOrder, markDelivered, markPaid, markPickupReady, returnDecision, sendInvoiceAction, setFulfilled, toggleArchive, updateTracking } from "../actions";
 import { CopyField } from "@/components/admin/CopyField";
+import { ConversionSummary } from "@/components/admin/ConversionSummary";
+import { OrderRiskCard } from "@/components/admin/OrderRiskCard";
+import { CHANNELS, fulfillByLabel, fulfillByOf, orderChannel, splitOrderTags } from "@/components/admin/OrderSummary";
+import { OrderTags } from "@/components/admin/OrderTags";
+import { assessRisk, isRiskLevel, type RiskLevel } from "@/lib/risk";
 import { invoicePayable, payLink } from "@/lib/invoices";
 import { TrackingFields } from "@/components/admin/TrackingFields";
 import { carrierLabel, trackingLink } from "@/lib/tracking";
@@ -36,17 +41,64 @@ const EVENT_TEXT: Record<string, string> = {
   return_received: "a reçu les articles retournés.",
   return_reopened: "a rouvert la demande de retour.",
   return_refunded: "a remboursé le retour.",
+  delivered: "a marqué la commande comme livrée.",
+  archived: "a archivé la commande.",
+  unarchived: "a désarchivé la commande.",
+  tags_updated: "a modifié les balises :",
 };
+
+/** Pays de la boutique pour l'analyse du risque : dernière ligne de l'adresse légale, sinon la France. */
+function storeCountry(legalAddress: string) {
+  const last = legalAddress.split("\n").map((l) => l.trim()).filter(Boolean).pop() ?? "";
+  return /^[A-Za-zÀ-ÿ\s-]{3,}$/.test(last) ? last : "France";
+}
 
 export default async function OrderPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ err?: string }> }) {
   const [{ id }, { err }] = await Promise.all([params, searchParams]);
   const { user, store } = await requirePerm("orders");
+  await archiveFinishedOrders();
   const o = await db.order.findFirst({
     where: { id, storeId: store.id },
     include: { items: true, returns: { orderBy: { createdAt: "desc" } }, events: { orderBy: { createdAt: "desc" } }, customer: { include: { _count: { select: { orders: true } } } } },
   });
   if (!o) notFound();
   const a = parseJson<Address>(o.address, { line1: "", zip: "", city: "", country: "" });
+
+  // Analyse du risque : calculée à la première ouverture de la fiche, puis conservée.
+  let risk: { level: RiskLevel; notes: string[] };
+  if (isRiskLevel(o.riskLevel)) {
+    risk = { level: o.riskLevel, notes: parseJson<string[]>(o.riskNotes, []) };
+  } else {
+    const dayMs = 86_400_000;
+    const [previousOrders, avg, ordersLast24h, cancelledOrRefunded] = await Promise.all([
+      db.order.count({ where: { storeId: store.id, email: o.email, createdAt: { lt: o.createdAt }, id: { not: o.id } } }),
+      db.order.aggregate({ where: { storeId: store.id, paymentStatus: { in: ["paid", "partially_refunded", "refunded"] }, id: { not: o.id } }, _avg: { totalCents: true } }),
+      db.order.count({ where: { storeId: store.id, email: o.email, createdAt: { gte: new Date(o.createdAt.getTime() - dayMs), lte: o.createdAt } } }),
+      db.order.count({ where: { storeId: store.id, email: o.email, id: { not: o.id }, OR: [{ cancelledAt: { not: null } }, { paymentStatus: "refunded" }] } }),
+    ]);
+    risk = assessRisk(o, { previousOrders, averageOrderCents: Math.round(avg._avg.totalCents ?? 0), storeCountry: storeCountry(store.legalAddress), ordersLast24h, cancelledOrRefunded });
+    await db.order.updateMany({ where: { id: o.id, riskLevel: "" }, data: { riskLevel: risk.level, riskNotes: JSON.stringify(risk.notes) } });
+  }
+
+  // E-mails envoyés au client pour cette commande : sujet mentionnant son numéro, ou envoi dans les 2 minutes suivant la création ou le paiement.
+  const windows = [o.createdAt, o.paidAt].filter((d): d is Date => Boolean(d)).map((d) => ({ createdAt: { gte: d, lte: new Date(d.getTime() + 120_000) } }));
+  const mails = (await db.mailLog.findMany({
+    where: { storeId: store.id, to: o.email, OR: [{ subject: { contains: `#${o.number}` } }, ...windows] },
+    select: { id: true, subject: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  })).filter((ml) => new RegExp(`#${o.number}(\\D|$)`).test(ml.subject) || windows.some((w) => ml.createdAt >= w.createdAt.gte && ml.createdAt <= w.createdAt.lte));
+
+  // Balises déjà utilisées dans la boutique (suggestions) et nombre de commandes de ce client (par e-mail).
+  const [tagged, orderCount] = await Promise.all([
+    db.order.findMany({ where: { storeId: store.id, tags: { not: "" } }, select: { tags: true }, orderBy: { createdAt: "desc" }, take: 300 }),
+    db.order.count({ where: { storeId: store.id, email: o.email, cancelledAt: null } }),
+  ]);
+  const customerPhone = o.customer?.phone ?? "";
+  const tagSuggestions = [...new Set(tagged.flatMap((t) => splitOrderTags(t.tags)))].sort();
+  const fulfillBy = fulfillByOf(o, store.fulfillmentDays);
+  const fulfillByText = fulfillBy ? fulfillByLabel(fulfillBy) : null;
+  const mapUrl = o.deliveryMethod === "pickup" ? null : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([a.line1, a.zip, a.city, a.country].filter(Boolean).join(", "))}`;
   const m = (c: number) => formatMoney(c, store.currency);
   const qty = o.items.reduce((s, i) => s + i.quantity, 0);
   const pay = paymentLabel(o);
@@ -61,6 +113,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
     ...o.events.map((e) => ({ at: e.createdAt, kind: e.type, text: e.type === "comment" ? e.message : `${e.author || "Quelqu'un"} ${EVENT_TEXT[e.type] ?? e.type}${e.message && e.type !== "comment" ? ` ${e.message}` : ""}`, author: e.author })),
     ...(o.paidAt && !o.events.some((e) => e.type === "paid_manual") ? [{ at: o.paidAt, kind: "paid", text: `Paiement de ${m(o.totalCents)} reçu${o.paymentMethod === "stripe" ? " par carte (Stripe)" : o.paymentMethod === "manual" ? " (paiement hors ligne)" : o.paymentMethod === "pos_cash" ? " en espèces" : o.paymentMethod === "pos_card" ? " par carte (terminal)" : " (démonstration)"}.`, author: "" }] : []),
     ...(o.paymentMethod === "manual" || o.paymentMethod.startsWith("pos") ? [] : [{ at: o.createdAt, kind: "created", text: `${o.name} a passé cette commande sur la boutique en ligne.`, author: "" }]),
+    ...mails.map((ml) => ({ at: ml.createdAt, kind: "mail", text: `L'e-mail « ${ml.subject} » a été envoyé à ${o.email}.`, author: "", mailId: ml.id })),
   ].sort((x, y) => y.at.getTime() - x.at.getTime());
 
   return (
@@ -68,10 +121,14 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
       <PageHeader
         back="/admin/orders"
         title={`#${o.number}`}
-        subtitle={`${formatDateTime(o.createdAt)} · ${o.paymentMethod === "manual" ? "Créée dans l'admin" : o.paymentMethod.startsWith("pos") ? "Point de vente" : "Boutique en ligne"}${o.dueAt ? ` · paiement à échéance (${formatDate(o.dueAt)})` : ""}`}
+        subtitle={`${formatDateTime(o.createdAt)} · ${CHANNELS[orderChannel(o)]}${o.dueAt ? ` · paiement à échéance (${formatDate(o.dueAt)})` : ""}${o.archivedAt ? ` · archivée le ${formatDate(o.archivedAt)}` : ""}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {!o.cancelledAt && o.fulfillmentStatus !== "fulfilled" && !o.paymentMethod.startsWith("pos") && <Link href={`/admin/orders/${o.id}/edit`} className="btn h-8">Modifier</Link>}
+            <form action={toggleArchive}>
+              <input type="hidden" name="id" value={o.id} />
+              <button className="btn h-8">{o.archivedAt ? "Désarchiver" : "Archiver"}</button>
+            </form>
             <a href={`/print/packing?ids=${o.id}`} target="_blank" className="btn h-8">Bon de préparation</a>
             {(o.paymentStatus !== "pending" || o.dueAt) && <a href={`/print/invoice/${o.id}`} target="_blank" className="btn h-8">Facture</a>}
             {o.cancelledAt ? <Pill>Annulée</Pill> : <><Pill tone={pay.tone}>{pay.label}</Pill><Pill tone={ful.tone}>{ful.label}</Pill></>}
@@ -138,8 +195,10 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             );
           })}
           <section className="card overflow-hidden">
-            <div className="flex items-center gap-2 px-4 pt-4">
+            <div className="flex flex-wrap items-center gap-2 px-4 pt-4">
               {o.cancelledAt ? <Pill>Annulée</Pill> : <Pill tone={ful.tone}>{ful.label} ({qty})</Pill>}
+              {o.deliveredAt && <Pill tone="ok">Livrée</Pill>}
+              {fulfillByText && <span className={`text-[13px] ${fulfillByText.overdue ? "font-[550] text-[#8e0b21]" : "text-muted"}`}>Traiter avant le : {fulfillByText.overdue ? `${formatDate(fulfillBy!)} (${fulfillByText.label.toLowerCase()})` : fulfillByText.label}</span>}
             </div>
             <div className="m-3 rounded-lg border border-line">
               <ul>
@@ -166,6 +225,14 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                     {trackingLink(o) ? <a href={trackingLink(o)!} target="_blank" rel="noopener noreferrer" className="font-mono text-pine hover:underline">{o.trackingNumber}</a> : <span className="font-mono">{o.trackingNumber}</span>}
                   </>
                 ) : <span className="text-muted">sans numéro de suivi</span>}
+                {o.deliveredAt ? (
+                  <span className="ml-auto text-muted">Livrée le {formatDateTime(o.deliveredAt)}</span>
+                ) : !o.cancelledAt && o.deliveryMethod !== "pickup" ? (
+                  <form action={markDelivered} className="ml-auto">
+                    <input type="hidden" name="id" value={o.id} />
+                    <button className="btn btn-sm">Marquer comme livrée</button>
+                  </form>
+                ) : null}
               </div>
             )}
             {canFulfill(o) && o.deliveryMethod === "pickup" && o.fulfillmentStatus !== "fulfilled" && (
@@ -232,9 +299,10 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
               {o.discountCents > 0 && <><dt>Remise</dt><dd className="text-muted">{o.discountCode ?? "Remise manuelle"}</dd><dd className="num text-right">−{m(o.discountCents)}</dd></>}
               <dt>Expédition</dt><dd className="text-muted">{o.shippingMethod || "Livraison standard"}</dd><dd className="num text-right">{o.shippingCents ? m(o.shippingCents) : "Offerte"}</dd>
               {o.giftCardCents > 0 && <><dt>Carte cadeau</dt><dd className="text-muted">····{o.giftCardCode?.slice(-4)}</dd><dd className="num text-right">−{m(o.giftCardCents)}</dd></>}
+              {o.storeCreditCents > 0 && <><dt>Crédit en magasin</dt><dd className="text-muted">solde du client</dd><dd className="num text-right">−{m(o.storeCreditCents)}</dd></>}
               {o.reverseCharge && <><dt className="text-xs text-muted">TVA</dt><dd className="text-xs text-muted">Autoliquidation (client UE)</dd><dd className="num text-right text-xs text-muted">{m(0)}</dd></>}
               {o.taxCents > 0 && <><dt className="text-xs text-muted">dont TVA</dt><dd className="text-xs text-muted">{(o.taxRateBps / 100).toLocaleString("fr-FR")} %</dd><dd className="num text-right text-xs text-muted">{m(o.taxCents)}</dd></>}
-              <dt className="font-[650]">{o.giftCardCents > 0 ? "Reste à payer" : "Total"}</dt><dd /><dd className="num text-right font-[650]">{m(o.totalCents)}</dd>
+              <dt className="font-[650]">{o.giftCardCents > 0 || o.storeCreditCents > 0 ? "Reste à payer" : "Total"}</dt><dd /><dd className="num text-right font-[650]">{m(o.totalCents)}</dd>
               <dt className="col-span-3 my-1 border-t border-line" />
               <dt>Payé par le client</dt><dd className="text-muted">{o.presentmentCurrency && o.paymentStatus !== "pending" ? `${formatMoney(o.presentmentTotalCents ?? 0, o.presentmentCurrency)} (1 ${store.currency} = ${o.presentmentRate.toLocaleString("fr-FR", { maximumFractionDigits: 4 })} ${o.presentmentCurrency})` : ""}</dd><dd className="num text-right">{o.paymentStatus === "pending" ? m(0) : m(o.totalCents)}</dd>
               {o.refundedCents > 0 && <><dt>Remboursé</dt><dd /><dd className="num text-right">−{m(o.refundedCents)}</dd><dt className="font-[650]">Net</dt><dd /><dd className="num text-right font-[650]">{m(o.totalCents - o.refundedCents)}</dd></>}
@@ -291,7 +359,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                     {t.kind === "comment" ? (
                       <div className="card max-w-full px-3 py-2"><div className="text-xs font-[550] text-muted">{t.author}</div><p className="whitespace-pre-line">{t.text}</p></div>
                     ) : (
-                      <span>{t.text}</span>
+                      <span>{t.text}{"mailId" in t && <> <Link href={`/admin/orders/${o.id}/emails/${t.mailId}`} className="text-pine hover:underline">Afficher l'e-mail</Link></>}</span>
                     )}
                     <time className="text-xs text-muted">{formatDateTime(t.at)}</time>
                   </div>
@@ -315,12 +383,23 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             <div>
               <h3 className="mb-1 text-[13px] font-[650]">Coordonnées</h3>
               <div className="break-all text-pine">{o.email}</div>
+              {customerPhone ? <a href={`tel:${customerPhone.replace(/\s+/g, "")}`} className="text-pine hover:underline">{customerPhone}</a> : <div className="text-muted">Aucun numéro de téléphone</div>}
             </div>
             <div>
               <h3 className="mb-1 text-[13px] font-[650]">{o.deliveryMethod === "pickup" ? "Mode de réception" : "Adresse d'expédition"}</h3>
               {o.deliveryMethod === "pickup" ? <div><Pill tone="info" dot={false}>Retrait en boutique</Pill><div className="mt-1 whitespace-pre-line text-muted">{store.pickupAddress}</div></div> : <address className="not-italic">{o.name}<br />{a.line1}<br />{a.zip} {a.city}<br />{a.country}</address>}
+              {mapUrl && <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[13px] text-pine hover:underline">Afficher la carte</a>}
+            </div>
+            <div>
+              <h3 className="mb-1 text-[13px] font-[650]">Conversion</h3>
+              <ConversionSummary order={o} orderCount={orderCount} />
             </div>
           </section>
+          <section className="card flex flex-col gap-2 p-4">
+            <h2 className="text-sm font-[650]">Balises</h2>
+            <OrderTags orderId={o.id} tags={splitOrderTags(o.tags)} suggestions={tagSuggestions} />
+          </section>
+          <OrderRiskCard level={risk.level} notes={risk.notes} />
         </aside>
       </div>
     </>

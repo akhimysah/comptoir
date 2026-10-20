@@ -35,6 +35,8 @@ const T = dict(
     discover: "Découvrir les produits",
     loyalty: "Ma fidélité",
     points: "points",
+    credit: "Crédit en magasin",
+    creditHint: "Déduit automatiquement de votre prochaine commande.",
     earn: (per: number, unit: string, reward: number, amount: string) => `${per} point${per > 1 ? "s" : ""} par ${unit === "EUR" ? "euro" : unit} dépensé. ${reward} points = un bon de ${amount}.`,
     voucher: "Votre bon : ",
     voucherHint: ", à saisir dans le panier.",
@@ -71,6 +73,8 @@ const T = dict(
     discover: "Browse products",
     loyalty: "My rewards",
     points: "points",
+    credit: "Store credit",
+    creditHint: "Automatically applied to your next order.",
     earn: (per: number, unit: string, reward: number, amount: string) => `${per} point${per > 1 ? "s" : ""} per ${unit === "EUR" ? "euro" : unit} spent. ${reward} points = a ${amount} voucher.`,
     voucher: "Your voucher: ",
     voucherHint: ", to enter in your cart.",
@@ -175,6 +179,13 @@ export default async function AccountPage({ params, searchParams }: { params: Pr
           </div>
         </section>
         <aside className="flex flex-col gap-8">
+          {store.storeCreditEnabled && customer.storeCreditCents > 0 && (
+            <section className="flex flex-col gap-2 rounded-[var(--t-radius)] bg-[var(--c-surface)] p-5">
+              <h2 className="font-[family-name:var(--t-display)] text-xl font-semibold">{t.credit}</h2>
+              <div className="text-3xl font-semibold tabular-nums">{formatMoney(customer.storeCreditCents, store.currency, intlLocale(locale))}</div>
+              <p className="text-sm text-[var(--c-muted)]">{t.creditHint}</p>
+            </section>
+          )}
           {store.loyaltyEnabled && (
             <section className="flex flex-col gap-3 rounded-[var(--t-radius)] bg-[var(--c-surface)] p-5">
               <h2 className="font-[family-name:var(--t-display)] text-xl font-semibold">{t.loyalty}</h2>

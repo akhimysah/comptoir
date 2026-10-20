@@ -14,9 +14,13 @@ import { uploadImage } from "./upload";
 type Option = { name: string; values: string[] };
 type VariantRow = ProductPayload["variants"][number];
 
-export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle" | "subscriptionInterval" | "subscriptionDiscountPct" | "metafields" | "complementaryIds"> & { metafields?: Record<string, string>; complementaryIds?: string[]; id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[]; subscriptionInterval?: "" | "week" | "month"; subscriptionDiscountPct?: number };
+export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle" | "subscriptionInterval" | "subscriptionDiscountPct" | "metafields" | "complementaryIds" | "category" | "productType" | "vendor" | "tags" | "taxable"> & { metafields?: Record<string, string>; complementaryIds?: string[]; id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[]; subscriptionInterval?: "" | "week" | "month"; subscriptionDiscountPct?: number; category?: string; productType?: string; vendor?: string; tags?: string[]; taxable?: boolean };
 export type BundleChoice = { id: string; label: string; stock: number };
 
+/** Catégories proposées dans la liste déroulante (saisie libre possible). */
+const CATEGORY_SUGGESTIONS = ["Vêtements", "Accessoires", "Maison", "Beauté", "Alimentation", "Sport", "Autre"];
+/** Rangée de variante vide (nouvelle combinaison d'options). */
+const emptyVariant = (vals: string[], from?: VariantRow): VariantRow => ({ optionValues: vals, price: from?.price ?? "", compareAt: from?.compareAt ?? "", cost: from?.cost ?? "", weight: from?.weight ?? "", sku: "", barcode: "", lengthCm: from?.lengthCm ?? "", widthCm: from?.widthCm ?? "", heightCm: from?.heightCm ?? "", stock: 0 });
 const key = (vals: string[]) => vals.join("\u0000");
 
 function cartesian(options: Option[]): string[][] {
@@ -44,6 +48,11 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
   const [bundle, setBundle] = useState(initial.bundle ?? []);
   const [subInterval, setSubInterval] = useState<"" | "week" | "month">(initial.subscriptionInterval ?? "");
   const [subPct, setSubPct] = useState(initial.subscriptionDiscountPct ?? 0);
+  const [category, setCategory] = useState(initial.category ?? "");
+  const [productType, setProductType] = useState(initial.productType ?? "");
+  const [vendor, setVendor] = useState(initial.vendor ?? "");
+  const [tags, setTags] = useState<string[]>(initial.tags ?? []);
+  const [taxable, setTaxable] = useState(initial.taxable ?? true);
   const [bundleQ, setBundleQ] = useState("");
   const isBundle = bundle.length > 0;
   const [seo, setSeo] = useState({ seoTitle: initial.seoTitle ?? "", seoDescription: initial.seoDescription ?? "" });
@@ -54,9 +63,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
 
   const combos = useMemo(() => cartesian(options), [options]);
   const firstRow = Object.values(rows)[0];
-  const variants: VariantRow[] = combos.map(
-    (vals) => rows[key(vals)] ?? { optionValues: vals, price: firstRow?.price ?? "", compareAt: firstRow?.compareAt ?? "", cost: firstRow?.cost ?? "", weight: firstRow?.weight ?? "", sku: "", stock: 0 },
-  );
+  const variants: VariantRow[] = combos.map((vals) => rows[key(vals)] ?? emptyVariant(vals, firstRow));
   // Une seule variante sans option garde son id même quand on retire les options.
   if (combos.length === 1 && combos[0].length === 0 && !rows[key([])] && firstRow) variants[0] = { ...firstRow, optionValues: [] };
 
@@ -83,7 +90,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
     }
   }
 
-  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle, subscriptionInterval: subInterval, subscriptionDiscountPct: subPct, metafields, complementaryIds };
+  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle, subscriptionInterval: subInterval, subscriptionDiscountPct: subPct, metafields, complementaryIds, category, productType, vendor, tags, taxable };
   const hasOptions = combos[0].length > 0;
   const [initialJson] = useState(() => JSON.stringify(payload));
   const dirty = !initial.id || JSON.stringify(payload) !== initialJson;
@@ -172,7 +179,11 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
                 {isBundle ? <p className="text-[13px] text-muted">Le stock d'un lot se calcule à partir de celui de ses composants : rien à saisir ici.</p> : <div className="grid gap-3 sm:grid-cols-2">
                   <label className="label">SKU (référence)<input id="sku" className="input" maxLength={60} value={single.sku} onChange={(e) => setRow([], { sku: e.target.value })} /></label>
                   <label className="label">Quantité<input id="stock" className="input num" type="number" min={0} value={single.stock} onChange={(e) => setRow([], { stock: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} /></label>
+                  <label className="label">Code-barres (ISBN, UPC, GTIN, etc.)<input id="barcode" className="input" maxLength={40} value={single.barcode} onChange={(e) => setRow([], { barcode: e.target.value })} placeholder="3760123456789" /></label>
                   <label className="label">Poids (kg) <span className="hint">Pour les tarifs d'expédition au poids.</span><input id="weight" className="input num" inputMode="decimal" value={single.weight} onChange={(e) => setRow([], { weight: e.target.value })} placeholder="0,45" /></label>
+                  <div className="label">Taille du produit emballé (cm) <span className="hint">Longueur × largeur × hauteur, pour les étiquettes et transporteurs.</span>
+                    <DimensionsInput row={single} onChange={(patch) => setRow([], patch)} />
+                  </div>
                 </div>}
               </section>
             </>
@@ -241,8 +252,8 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
                   </div>
                 )}
                 <div className="overflow-x-auto border-t border-line">
-                  <table className="w-full min-w-[560px]">
-                    <thead><tr><th className="th">Variante</th>{images.length > 0 && <th className="th">Photo</th>}<th className="th">Prix</th><th className="th">Prix avant réduction</th><th className="th">Coût</th><th className="th">Poids (kg)</th><th className="th">Disponible</th><th className="th">SKU</th></tr></thead>
+                  <table className="w-full min-w-[760px]">
+                    <thead><tr><th className="th">Variante</th>{images.length > 0 && <th className="th">Photo</th>}<th className="th">Prix</th><th className="th">Prix avant réduction</th><th className="th">Coût</th><th className="th">Poids (kg)</th><th className="th">Disponible</th><th className="th">SKU</th><th className="th">Code-barres</th><th className="th">L × l × H (cm)</th></tr></thead>
                     <tbody>
                       {variants.map((v) => (
                         <tr key={key(v.optionValues)}>
@@ -265,6 +276,8 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
                           <td className="td"><input aria-label={`Poids ${v.optionValues.join(" / ")}`} className="input num w-20" inputMode="decimal" value={v.weight} onChange={(e) => setRow(v.optionValues, { weight: e.target.value })} placeholder="0,45" /></td>
                           <td className="td"><input aria-label={`Disponible ${v.optionValues.join(" / ")}`} className="input num w-20" type="number" min={0} value={v.stock} onChange={(e) => setRow(v.optionValues, { stock: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} /></td>
                           <td className="td"><input aria-label={`SKU ${v.optionValues.join(" / ")}`} className="input w-28" value={v.sku} maxLength={60} onChange={(e) => setRow(v.optionValues, { sku: e.target.value })} /></td>
+                          <td className="td"><input aria-label={`Code-barres ${v.optionValues.join(" / ")}`} className="input w-32" value={v.barcode} maxLength={40} onChange={(e) => setRow(v.optionValues, { barcode: e.target.value })} /></td>
+                          <td className="td"><DimensionsInput row={v} compact onChange={(patch) => setRow(v.optionValues, patch)} /></td>
                         </tr>
                       ))}
                     </tbody>
@@ -360,8 +373,19 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
               <p className="text-xs text-muted">Le client choisit entre achat unique et abonnement ; une commande est créée à chaque échéance.</p>
             </section>
           )}
-          <section className="card flex flex-col gap-2 p-4">
+          <section className="card flex flex-col gap-3 p-4">
             <h2 className="text-sm font-[650]">Organisation du produit</h2>
+            <label className="label">Catégorie
+              <input id="category" className="input" list="product-categories" maxLength={100} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Vêtements, Maison…" />
+              <datalist id="product-categories">{CATEGORY_SUGGESTIONS.map((c) => <option key={c} value={c} />)}</datalist>
+            </label>
+            <label className="label">Type de produit<input id="product-type" className="input" maxLength={100} value={productType} onChange={(e) => setProductType(e.target.value)} placeholder="T-shirt, Bougie…" /></label>
+            <label className="label">Fournisseur<input id="vendor" className="input" maxLength={100} value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Marque ou fabricant" /></label>
+            <TagsInput tags={tags} onChange={setTags} />
+            <label className="flex items-start gap-2 border-t border-line pt-3 text-[13px]">
+              <input type="checkbox" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#7c3aed]" />
+              <span>Facturer la taxe sur ce produit<span className="block text-xs text-muted">Décochez pour un produit exonéré : aucune TVA n'est ajoutée sur ses lignes.</span></span>
+            </label>
             <label className="flex items-start gap-2 text-[13px]">
               <input type="checkbox" checked={continueSelling} onChange={(e) => setContinueSelling(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#7c3aed]" />
               <span>Continuer à vendre en cas de rupture<span className="block text-xs text-muted">Précommande : le client peut acheter même sans stock, le bouton devient « Précommander ».</span></span>
@@ -423,6 +447,54 @@ function OptionEditor({ option, onChange, onRemove }: { option: Option; onChange
           onBlur={add}
         />
       </div>
+    </div>
+  );
+}
+
+/** Balises séparées par des virgules, affichées en pastilles (Entrée ou virgule pour ajouter). */
+function TagsInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
+  const [draft, setDraft] = useState("");
+  const add = () => {
+    const vals = draft.split(",").map((v) => v.trim().slice(0, 50)).filter(Boolean).filter((v) => !tags.includes(v));
+    if (vals.length) onChange([...tags, ...vals].slice(0, 50));
+    setDraft("");
+  };
+  return (
+    <div className="label">Balises <span className="hint">Pour retrouver et filtrer vos produits (ex. été, promo, nouveauté).</span>
+      <div className="flex flex-wrap gap-1.5">
+        {tags.map((t) => (
+          <span key={t} className="inline-flex items-center gap-1 rounded-full bg-[#ebebeb] py-0.5 pl-2.5 pr-1 text-xs">
+            {t}
+            <button type="button" aria-label={`Retirer la balise ${t}`} className="grid h-4 w-4 place-items-center rounded-full hover:bg-white" onClick={() => onChange(tags.filter((x) => x !== t))}>✕</button>
+          </span>
+        ))}
+      </div>
+      <input
+        id="tags"
+        aria-label="Ajouter des balises"
+        className="input"
+        placeholder="été, promo puis Entrée"
+        value={draft}
+        maxLength={200}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(); } }}
+        onBlur={add}
+      />
+    </div>
+  );
+}
+
+/** Taille du produit emballé : longueur × largeur × hauteur en cm (gardée en mm côté serveur). */
+function DimensionsInput({ row, onChange, compact = false }: { row: VariantRow; onChange: (patch: Partial<VariantRow>) => void; compact?: boolean }) {
+  const name = row.optionValues.join(" / ") || "produit";
+  const w = compact ? "w-14" : "w-full";
+  return (
+    <div className="flex items-center gap-1">
+      <input aria-label={`Longueur (cm) ${name}`} className={`input num ${w}`} inputMode="decimal" value={row.lengthCm} onChange={(e) => onChange({ lengthCm: e.target.value })} placeholder="L" />
+      <span className="text-muted">×</span>
+      <input aria-label={`Largeur (cm) ${name}`} className={`input num ${w}`} inputMode="decimal" value={row.widthCm} onChange={(e) => onChange({ widthCm: e.target.value })} placeholder="l" />
+      <span className="text-muted">×</span>
+      <input aria-label={`Hauteur (cm) ${name}`} className={`input num ${w}`} inputMode="decimal" value={row.heightCm} onChange={(e) => onChange({ heightCm: e.target.value })} placeholder="H" />
     </div>
   );
 }

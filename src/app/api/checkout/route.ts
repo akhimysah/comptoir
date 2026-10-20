@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { confirmTermsOrder, createOrder, markOrderPaid, OrderError } from "@/lib/orders";
+import { confirmTermsOrder, createOrder, markOrderPaid, OrderError, type Address } from "@/lib/orders";
+import { attributeOrder, SESSION_COOKIE } from "@/lib/traffic";
+import { checkoutSettingsOf, manualPaymentAt } from "@/lib/checkout-settings";
 import { getCustomer } from "@/lib/customer-auth";
 import { PICKUP_ID, priceCart } from "@/lib/pricing";
 import { storeAccess } from "@/lib/store-access";
@@ -32,6 +35,10 @@ const MSG = dict(
     subTerms: "Les abonnements se paient à la commande : retirez-les ou choisissez le paiement immédiat.",
     tooSmall: "Le montant restant est trop faible pour un paiement par carte (50 centimes minimum).",
     paymentsOff: "Le paiement en ligne n'est pas encore activé pour cette boutique.",
+    phone: "Indiquez votre numéro de téléphone.",
+    company: "Indiquez le nom de votre entreprise.",
+    manualOff: "Ce moyen de paiement n'est plus proposé. Rechargez la page.",
+    manualSub: "Les abonnements se paient par carte : retirez-les ou choisissez le paiement par carte.",
     giftCard: "Carte cadeau",
     reduction: "Réduction",
     shipping: "Livraison",
@@ -52,6 +59,10 @@ const MSG = dict(
     subTerms: "Subscriptions are paid at checkout: remove them or choose to pay now.",
     tooSmall: "The remaining amount is too low for a card payment (0.50 minimum).",
     paymentsOff: "Online payment isn't enabled for this store yet.",
+    phone: "Enter your phone number.",
+    company: "Enter your company name.",
+    manualOff: "This payment method is no longer offered. Please reload the page.",
+    manualSub: "Subscriptions are paid by card: remove them or choose card payment.",
     giftCard: "Gift card",
     reduction: "Discount",
     shipping: "Shipping",
@@ -72,6 +83,9 @@ const schemaFor = (t: (typeof MSG)[Locale]) => z.object({
   email: z.string().trim().email(t.email),
   name: z.string().trim().min(2, t.name).max(80),
   line1: z.string().trim().max(140).optional().default(""),
+  line2: z.string().trim().max(140).optional().default(""),
+  company: z.string().trim().max(120).optional().default(""),
+  phone: z.string().trim().max(30).optional().default(""),
   zip: z.string().trim().max(12).optional().default(""),
   city: z.string().trim().max(60).optional().default(""),
   country: z.string().trim().max(60).optional().default(""),
@@ -81,7 +95,14 @@ const schemaFor = (t: (typeof MSG)[Locale]) => z.object({
   marketing: z.boolean().optional().default(false),
   /** Client professionnel : payer à échéance plutôt qu'à la commande. */
   terms: z.boolean().optional().default(false),
+  /** Moyen de paiement manuel choisi (index dans Paramètres › Paiements), ou absent pour la carte. */
+  manual: z.number().int().min(0).max(10).optional().nullable(),
 });
+
+/** Session de visite du client (mesure d'audience), pour attribuer la commande à sa source. */
+async function sessionId() {
+  try { return (await cookies()).get(SESSION_COOKIE)?.value ?? null; } catch { return null; }
+}
 
 export async function POST(req: Request) {
   const raw = await req.json().catch(() => null);
@@ -100,7 +121,7 @@ export async function POST(req: Request) {
   if (!canSell(store)) return NextResponse.json({ error: SALES_PAUSED[locale] }, { status: 403 });
 
   const customer = await getCustomer(store.id);
-  const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode, { priceListId: customer?.priceListId, vatNumber: customer?.vatValid === false ? null : customer?.vatNumber, locale });
+  const cart = await priceCart(store, b.items, b.code, { country: b.country, rateId: b.rateId }, b.giftCode, { priceListId: customer?.priceListId, vatNumber: customer?.vatValid === false ? null : customer?.vatNumber, locale, customerId: customer?.id, customerEmail: customer?.email, taxExempt: customer?.taxExempt, storeCreditCents: store.storeCreditEnabled ? customer?.storeCreditCents : 0 });
   // Paiement à échéance : réservé au client professionnel connecté, et la commande est à son nom.
   const terms = b.terms && cart.totalCents > 0;
   if (terms && !customer?.paymentTermsDays) return NextResponse.json({ error: t.termsOff }, { status: 400 });
@@ -113,6 +134,11 @@ export async function POST(req: Request) {
     if (b.zip.length < 2) return NextResponse.json({ error: t.zip }, { status: 400 });
     if (!b.city) return NextResponse.json({ error: t.city }, { status: 400 });
   }
+  // Champs du processus de paiement réglés par le marchand (Paramètres › Page de paiement).
+  const co = checkoutSettingsOf(store);
+  if (co.phone === "required" && b.phone.length < 6) return NextResponse.json({ error: t.phone }, { status: 400 });
+  if (co.company === "required" && b.company.length < 2) return NextResponse.json({ error: t.company }, { status: 400 });
+  const address: Address = { line1: b.line1, zip: b.zip, city: b.city, country: b.country, ...(co.address2 && b.line2 ? { line2: b.line2 } : {}), ...(co.company !== "hidden" && b.company ? { company: b.company } : {}), ...(co.phone !== "hidden" && b.phone ? { phone: b.phone } : {}) };
   if (!cart.lines.length) return NextResponse.json({ error: t.empty }, { status: 400 });
   if (b.code && cart.discountError) return NextResponse.json({ error: cart.discountError }, { status: 400 });
   // Code saisi par le client (le libellé affiché peut réunir plusieurs remises cumulées).
@@ -133,15 +159,34 @@ export async function POST(req: Request) {
     if (subIntervals.length) return NextResponse.json({ error: t.subTerms }, { status: 400 });
     let order;
     try {
-      order = await createOrder(store, cart, { email: b.email, name: b.name, address: { line1: b.line1, zip: b.zip, city: b.city, country: b.country }, note: b.note }, "terms");
+      order = await createOrder(store, cart, { email: b.email, name: b.name, address, note: b.note }, "terms");
     } catch (e) {
       if (e instanceof OrderError) return NextResponse.json({ error: orderError(e.message, locale), refresh: true }, { status: 409 });
       throw e;
     }
     // Langue du client : les e-mails de la commande seront envoyés dans cette langue.
     await db.order.update({ where: { id: order.id }, data: { locale, ...(pickup ? { deliveryMethod: "pickup" } : {}) } });
+    await attributeOrder(store.id, order.id, await sessionId());
     if (b.marketing) await subscribe(store.id, b.email, b.name);
     await confirmTermsOrder(order.id, customer!.paymentTermsDays);
+    return NextResponse.json({ url: `${storeBase(store)}/order/${order.id}` });
+  }
+
+  // Moyen de paiement manuel (virement, à la livraison…) : commande confirmée en attente de paiement, consignes au client.
+  if (b.manual != null && cart.totalCents > 0) {
+    const method = manualPaymentAt(store.manualPayments, b.manual);
+    if (!method) return NextResponse.json({ error: t.manualOff }, { status: 400 });
+    if (subIntervals.length) return NextResponse.json({ error: t.manualSub }, { status: 400 });
+    let order;
+    try {
+      order = await createOrder(store, cart, { email: b.email, name: b.name, address, note: b.note }, "manual");
+    } catch (e) {
+      if (e instanceof OrderError) return NextResponse.json({ error: orderError(e.message, locale), refresh: true }, { status: 409 });
+      throw e;
+    }
+    await db.order.update({ where: { id: order.id }, data: { locale, paymentInstructions: `${method.name}\n${method.instructions}`.trim(), ...(pickup ? { deliveryMethod: "pickup" } : {}) } });
+    await attributeOrder(store.id, order.id, await sessionId());
+    if (b.marketing) await subscribe(store.id, b.email, b.name);
     return NextResponse.json({ url: `${storeBase(store)}/order/${order.id}` });
   }
 
@@ -157,7 +202,7 @@ export async function POST(req: Request) {
     order = await createOrder(
       store,
       cart,
-      { email: b.email, name: b.name, address: { line1: b.line1, zip: b.zip, city: b.city, country: b.country }, note: b.note },
+      { email: b.email, name: b.name, address, note: b.note },
       useStripe ? "stripe" : "demo",
     );
   } catch (e) {
@@ -173,6 +218,7 @@ export async function POST(req: Request) {
   const payTotal = foreign ? presentmentTotal(cart, rate) : cart.totalCents;
   // Langue du client : les e-mails de la commande seront envoyés dans cette langue.
   await db.order.update({ where: { id: order.id }, data: { locale, ...(pickup ? { deliveryMethod: "pickup" } : {}), ...(foreign ? { presentmentCurrency: foreign.code, presentmentRate: rate, presentmentTotalCents: payTotal } : {}) } });
+  await attributeOrder(store.id, order.id, await sessionId());
   if (b.marketing) await subscribe(store.id, b.email, b.name);
   const thanks = `${storeBase(store)}/order/${order.id}`;
 

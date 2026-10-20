@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError, authenticate, invalid, body, productJson } from "@/lib/api";
+import { apiError, authenticate, invalid, body, joinTags, productJson } from "@/lib/api";
 import { db } from "@/lib/db";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -19,9 +19,14 @@ const patch = z.object({
   description: z.string().max(20_000).optional(),
   status: z.enum(["active", "draft"]).optional(),
   images: z.array(z.string().url().max(2000)).max(20).optional(),
+  vendor: z.string().trim().max(100).optional(),
+  productType: z.string().trim().max(100).optional(),
+  category: z.string().trim().max(100).optional(),
+  tags: z.array(z.string().trim().min(1).max(50)).max(50).optional(),
+  taxable: z.boolean().optional(),
 }).strict();
 
-/** Modifie le titre, la description, le statut ou les photos. Les prix et le stock se modifient par variante. */
+/** Modifie le titre, la description, le statut, les photos ou l'organisation (fournisseur, type, catégorie, balises, taxe). Les prix et le stock se modifient par variante. */
 export async function PATCH(req: Request, { params }: Ctx) {
   const auth = await authenticate(req, "write_products");
   if ("response" in auth) return auth.response;
@@ -30,7 +35,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   if (!parsed.success) return invalid(parsed.error);
   const p = await db.product.findFirst({ where: { id, storeId: auth.store.id } });
   if (!p) return apiError(404, "not_found", "Produit introuvable.");
-  const { images, ...rest } = parsed.data;
-  const updated = await db.product.update({ where: { id }, data: { ...rest, ...(images ? { images: JSON.stringify(images) } : {}) }, include: { variants: true } });
+  const { images, tags, ...rest } = parsed.data;
+  const updated = await db.product.update({ where: { id }, data: { ...rest, ...(images ? { images: JSON.stringify(images) } : {}), ...(tags ? { tags: joinTags(tags) } : {}) }, include: { variants: true } });
   return NextResponse.json({ data: productJson(updated, auth.store) });
 }

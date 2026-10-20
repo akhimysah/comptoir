@@ -36,11 +36,19 @@ export async function attributeOrder(storeId: string, orderId: string, sessionId
   await db.order.update({ where: { id: orderId }, data: { sessionId, referrer: landing.referrer, utmSource: landing.utmSource, utmMedium: landing.utmMedium, utmCampaign: landing.utmCampaign, visitsBefore: Math.max(1, visits) } });
 }
 
+/** Date de la première visite mesurée : avant, le taux de conversion n'a pas de sens (pas de visites comptées). */
+export async function measurementStart(storeId: string) {
+  return (await db.pageView.findFirst({ where: { storeId }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }))?.createdAt ?? null;
+}
+
 /** Visites (sessions) et pages vues sur une période. */
 export async function visitStats(storeId: string, from: Date, to: Date) {
   const views = await db.pageView.findMany({ where: { storeId, createdAt: { gte: from, lt: to } }, select: { sessionId: true, landing: true, referrer: true, utmSource: true, utmMedium: true, utmCampaign: true, createdAt: true, device: true } });
-  const sessions = new Set(views.map((v) => v.sessionId));
-  return { pageViews: views.length, visits: sessions.size || new Set(views.filter((v) => v.landing).map((v) => v.sessionId)).size, views };
+  // Une visite = une session ; sa page de destination est sa première page vue (même si deux envois se sont croisés).
+  const firstBySession = new Map<string, (typeof views)[number]>();
+  for (const v of views) if (!firstBySession.has(v.sessionId)) firstBySession.set(v.sessionId, v);
+  const landings = [...firstBySession.values()];
+  return { pageViews: views.length, visits: landings.length, views, landings };
 }
 
 /** Visiteurs présents (battement de cœur dans les 5 dernières minutes). */

@@ -37,6 +37,8 @@ export const PRODUCT_COLUMNS = [
   "Identifiant", "Titre", "Description", "Statut", "Collections",
   "Option1 nom", "Option1 valeur", "Option2 nom", "Option2 valeur", "Option3 nom", "Option3 valeur",
   "Prix", "Prix avant réduction", "SKU", "Stock", "Poids (g)",
+  // Organisation du produit (colonnes facultatives à l'import : absentes = valeurs inchangées).
+  "Catégorie", "Type de produit", "Fournisseur", "Balises", "Code-barres",
 ] as const;
 
 export function csvResponse(csv: string, filename: string) {

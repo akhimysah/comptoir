@@ -6,6 +6,9 @@ import { cleanMetafields, formatMetafield } from "@/lib/metafields";
 import { editBlocker } from "@/lib/order-edit";
 import { convertShopify, htmlToText, isShopifyCsv } from "@/lib/shopify-import";
 import { trackingLink } from "@/lib/tracking";
+import { discountCountries, discountEligibility } from "@/lib/pricing";
+import { assessRisk, isDisposableEmail } from "@/lib/risk";
+import { deliveryStatus, fulfillByLabel, fulfillByOf, orderChannel, splitOrderTags } from "@/components/admin/OrderSummary";
 
 describe("e-mails personnalisés", () => {
   it("remplace les variables en gardant la ponctuation française", () => {
@@ -66,6 +69,20 @@ describe("import Shopify", () => {
     expect(get(table[3], "Statut")).toBe("brouillon");
     expect(images.product.get("tshirt")).toEqual(["https://cdn.shopify.com/a.png", "https://cdn.shopify.com/b.png"]);
   });
+  it("reprend fournisseur, type, balises et code-barres de Shopify", () => {
+    const header = ["Handle", "Title", "Vendor", "Product Category", "Type", "Tags", "Published", "Option1 Name", "Option1 Value", "Variant SKU", "Variant Barcode", "Variant Price", "Status"];
+    const { table } = convertShopify([
+      header,
+      ["bougie", "Bougie", "Maison Cire", "Maison & Jardin > Décoration", "Bougie", "été, parfumée", "TRUE", "Title", "Default Title", "B-1", "3760000000001", "19.00", "active"],
+    ]);
+    const get = (row: string[], c: string) => row[table[0].indexOf(c)];
+    expect(get(table[1], "Fournisseur")).toBe("Maison Cire");
+    expect(get(table[1], "Type de produit")).toBe("Bougie");
+    expect(get(table[1], "Catégorie")).toBe("Maison & Jardin > Décoration");
+    expect(get(table[1], "Balises")).toBe("été, parfumée");
+    expect(get(table[1], "Code-barres")).toBe("3760000000001");
+    expect(get(table[1], "Collections")).toBe("Bougie"); // le type Shopify sert toujours de collection
+  });
   it("transforme le HTML en texte lisible", () => {
     expect(htmlToText("<ul><li>Lin</li><li>30 &deg;C</li></ul>")).toContain("- Lin");
   });
@@ -91,5 +108,65 @@ describe("divers", () => {
     expect(editBlocker({ ...base, paymentStatus: "paid" })).toBe("paid");
     expect(editBlocker({ ...base, paymentMethod: "stripe" })).toMatch(/en ligne/);
     expect(editBlocker({ ...base, giftCardCents: 500 })).toMatch(/carte cadeau/);
+  });
+});
+
+describe("analyse du risque d'une commande", () => {
+  const order = (extra: Partial<Parameters<typeof assessRisk>[0]> = {}) => ({ email: "client@exemple.fr", totalCents: 4000, paymentMethod: "stripe", stripePaymentIntentId: "pi_1", address: JSON.stringify({ country: "France" }), ...extra });
+  const ctx = (extra: Partial<Parameters<typeof assessRisk>[1]> = {}) => ({ previousOrders: 2, averageOrderCents: 5000, storeCountry: "France", ordersLast24h: 1, cancelledOrRefunded: 0, ...extra });
+  it("est faible pour un client connu qui paie par carte", () => {
+    const r = assessRisk(order(), ctx());
+    expect(r.level).toBe("low");
+    expect(r.notes.some((n) => n.includes("Stripe"))).toBe(true);
+  });
+  it("monte d'un cran par indice : première commande très élevée, autre pays, adresse jetable, rafale de commandes", () => {
+    expect(assessRisk(order({ totalCents: 20000 }), ctx({ previousOrders: 0 })).level).toBe("medium");
+    expect(assessRisk(order({ address: JSON.stringify({ country: "Belgique" }) }), ctx()).level).toBe("medium");
+    expect(assessRisk(order({ address: JSON.stringify({ country: "FR" }) }), ctx()).level).toBe("low"); // « FR » = France
+    const high = assessRisk(order({ email: "x@yopmail.com", totalCents: 20000 }), ctx({ previousOrders: 0, ordersLast24h: 3 }));
+    expect(high.level).toBe("high");
+    expect(high.notes.length).toBeGreaterThanOrEqual(3);
+  });
+  it("un historique d'annulations déjà traitées rassure", () => {
+    expect(assessRisk(order({ address: JSON.stringify({ country: "Espagne" }) }), ctx({ cancelledOrRefunded: 1 })).level).toBe("low");
+    expect(isDisposableEmail("a@mailinator.com")).toBe(true);
+    expect(isDisposableEmail("a@gmail.com")).toBe(false);
+  });
+});
+
+describe("colonnes de la liste des commandes", () => {
+  const base = { paidAt: new Date("2026-10-10T10:00:00Z"), paymentStatus: "paid", fulfillmentStatus: "unfulfilled", cancelledAt: null };
+  it("« Traiter avant le » : paiement + délai, en retard en jours", () => {
+    const by = fulfillByOf(base, 2)!;
+    expect(by.toISOString()).toBe("2026-10-12T10:00:00.000Z");
+    expect(fulfillByLabel(by, new Date("2026-10-16T08:00:00Z"))).toEqual({ label: "Il y a 4 jours", overdue: true });
+    expect(fulfillByLabel(by, new Date("2026-10-12T20:00:00Z"))).toEqual({ label: "Aujourd'hui", overdue: false });
+    expect(fulfillByOf({ ...base, fulfillmentStatus: "fulfilled" }, 2)).toBeNull();
+    expect(fulfillByOf({ ...base, paymentStatus: "pending" }, 2)).toBeNull();
+  });
+  it("canal, statut de livraison et balises", () => {
+    expect(orderChannel({ paymentMethod: "pos_card" })).toBe("pos");
+    expect(orderChannel({ paymentMethod: "terms" })).toBe("admin");
+    expect(orderChannel({ paymentMethod: "stripe" })).toBe("online");
+    const d = { fulfillmentStatus: "fulfilled", deliveredAt: null, trackingNumber: "", deliveryMethod: "shipping", cancelledAt: null };
+    expect(deliveryStatus(d)?.label).toBe("Expédiée");
+    expect(deliveryStatus({ ...d, trackingNumber: "8L123" })?.label).toBe("Suivi ajouté");
+    expect(deliveryStatus({ ...d, deliveredAt: new Date() })?.label).toBe("Livrée");
+    expect(deliveryStatus({ ...d, fulfillmentStatus: "unfulfilled" })).toBeNull();
+    expect(splitOrderTags("VIP, urgent,, vip ")).toEqual(["vip", "urgent"]);
+  });
+});
+
+describe("admissibilité des remises", () => {
+  const none = async () => null;
+  it("tous les clients, clients précis (connecté ou non), et pays de la livraison offerte", async () => {
+    expect(await discountEligibility({ storeId: "s", eligibility: "all", eligibleIds: "[]" }, null, none)).toBe("ok");
+    const some = { storeId: "s", eligibility: "customers", eligibleIds: JSON.stringify(["c1", "c2"]) };
+    expect(await discountEligibility(some, null, none)).toBe("signin");
+    expect(await discountEligibility(some, "c2", none)).toBe("ok");
+    expect(await discountEligibility(some, "c3", none)).toBe("no");
+    expect(discountCountries({ countries: "[]" })).toEqual([]);
+    expect(discountCountries({ countries: JSON.stringify(["France", "Belgique"]) })).toEqual(["France", "Belgique"]);
+    expect(discountCountries({ countries: "pas du json" })).toEqual([]);
   });
 });

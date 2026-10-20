@@ -7,12 +7,13 @@ import { centsToInput, formatMoney, parseMoney } from "@/lib/money";
 
 type Item = { id: string; title: string; variant: string; priceCents: number; remaining: number; suggestedUnit: number; image: string | null; hue: number };
 
-export function RefundForm({ orderId, items, currency, refundable, shippingPaid, stripe, returnId, initialQty, initialReason }: { orderId: string; items: Item[]; currency: string; refundable: number; shippingPaid: number; stripe: boolean; returnId?: string; initialQty?: Record<string, number>; initialReason?: string }) {
+export function RefundForm({ orderId, items, currency, refundable, shippingPaid, stripe, storeCredit = false, returnId, initialQty, initialReason }: { orderId: string; items: Item[]; currency: string; refundable: number; shippingPaid: number; stripe: boolean; storeCredit?: boolean; returnId?: string; initialQty?: Record<string, number>; initialReason?: string }) {
   const [qty, setQty] = useState<Record<string, number>>(initialQty ?? {});
   const [shipping, setShipping] = useState("0");
   const [custom, setCustom] = useState<string | null>(null);
   const [restock, setRestock] = useState(true);
   const [notify, setNotify] = useState(true);
+  const [toCredit, setToCredit] = useState(false);
   const [reason, setReason] = useState(initialReason ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -25,7 +26,7 @@ export function RefundForm({ orderId, items, currency, refundable, shippingPaid,
 
   const submit = () => start(async () => {
     setError(null);
-    const res = await processRefund({ orderId, lines: items.map((i) => ({ orderItemId: i.id, quantity: qty[i.id] ?? 0 })), shipping, amount: amountStr, restock, notify, reason, returnId });
+    const res = await processRefund({ orderId, lines: items.map((i) => ({ orderItemId: i.id, quantity: qty[i.id] ?? 0 })), shipping, amount: amountStr, restock, notify, toStoreCredit: toCredit, reason, returnId });
     if (res?.error) setError(res.error);
   });
 
@@ -77,7 +78,10 @@ export function RefundForm({ orderId, items, currency, refundable, shippingPaid,
           <label className="label">Montant du remboursement
             <input inputMode="decimal" value={amountStr} onChange={(e) => setCustom(e.target.value)} className="input num text-base font-[650]" aria-label="Montant du remboursement" />
           </label>
-          <p className="text-xs text-muted">{stripe ? "Le montant sera recrédité sur la carte du client via Stripe." : "Paiement hors Stripe : remboursez le client vous-même (virement, espèces). La commande sera mise à jour."}</p>
+          {storeCredit && (
+            <label className="flex items-start gap-2 text-[13px]"><input type="checkbox" checked={toCredit} onChange={(e) => setToCredit(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#7c3aed]" /><span>Rembourser en crédit en magasin<span className="block text-xs text-muted">Le montant est ajouté au solde du client, utilisable sur sa prochaine commande (rien ne repart sur sa carte).</span></span></label>
+          )}
+          <p className="text-xs text-muted">{toCredit ? "Le client verra son crédit dans « Mon compte » et il sera déduit automatiquement de sa prochaine commande." : stripe ? "Le montant sera recrédité sur la carte du client via Stripe." : "Paiement hors Stripe : remboursez le client vous-même (virement, espèces). La commande sera mise à jour."}</p>
           <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="h-4 w-4 accent-[#7c3aed]" />Prévenir le client par e-mail</label>
           {error && <p role="alert" className="text-[13px] text-[#8e0b21]">{error}</p>}
           <button className="btn btn-primary h-9" disabled={pending || (amount <= 0 && count === 0)} onClick={submit}>{pending ? "Remboursement…" : `Rembourser ${m(amount)}`}</button>

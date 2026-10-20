@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PageHeader, Thumb } from "@/components/ui";
+import { channelOf, measurementStart, visitStats } from "@/lib/traffic";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -85,7 +86,16 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const favProducts = await db.product.findMany({ where: { id: { in: favCounts.map((f) => f.productId) } }, select: { id: true, title: true, images: true, hue: true } });
   const topFavorites = favCounts.flatMap((f) => { const p = favProducts.find((x) => x.id === f.productId); return p ? [{ id: p.id, title: p.title, hue: p.hue, image: parseJson<string[]>(p.images, [])[0] ?? null, count: f._count }] : []; });
 
+  // Trafic : visites, conversion, appareils et origines (mesure propre à la boutique).
+  const [traffic, prevTraffic, measuredFrom] = await Promise.all([visitStats(store.id, since, new Date()), visitStats(store.id, prevSince, since), measurementStart(store.id)]);
+  const measuredOrders = measuredFrom ? orders.filter((o) => o.createdAt >= measuredFrom).length : 0;
+  const conversion = traffic.visits ? Math.round((measuredOrders / traffic.visits) * 10000) / 100 : null;
+  const prevConversion = prevTraffic.visits ? (prev.length / prevTraffic.visits) * 100 : 0;
+  const byDevice = ["mobile", "desktop", "tablet"].map((d) => [d === "mobile" ? "Mobile" : d === "desktop" ? "Ordinateur" : "Tablette", new Set(traffic.views.filter((v) => v.device === d).map((v) => v.sessionId)).size] as const).filter((x) => x[1] > 0);
+  const byChannel = [...traffic.landings.reduce((map, v) => map.set(channelOf(v), (map.get(channelOf(v)) ?? 0) + 1), new Map<string, number>())].sort((a, b) => b[1] - a[1]).slice(0, 8);
   const cards = [
+    { label: "Visites", value: traffic.visits.toLocaleString("fr-FR"), delta: pct(traffic.visits, prevTraffic.visits) },
+    { label: "Taux de conversion", value: conversion === null ? "—" : `${conversion.toLocaleString("fr-FR")} %`, delta: conversion !== null && prevConversion ? Math.round(((conversion - prevConversion) / prevConversion) * 100) : null },
     { label: "Ventes totales", value: m(revenue), delta: pct(revenue, prevRevenue) },
     { label: "Commandes", value: String(orders.length), delta: pct(orders.length, prev.length) },
     { label: "Valeur moyenne des commandes", value: m(aov), delta: null },
@@ -96,7 +106,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <PageHeader title="Statistiques" actions={<Link href="/admin/analytics/reports" className="btn">Rapports détaillés</Link>} />
+      <PageHeader title="Statistiques" actions={<><Link href="/admin/analytics/live" className="btn">Vue en direct</Link><Link href="/admin/analytics/reports" className="btn">Rapports détaillés</Link></>} />
       <div className="flex flex-wrap gap-1.5">
         {(Object.keys(PERIODS) as Period[]).map((k) => (
           <Link key={k} href={`/admin/analytics?p=${k}`} className={cx("btn", period === k && "bg-[#e3e3e3]")}>{PERIODS[k]}</Link>
@@ -170,6 +180,16 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           </ul>
         </section>
       )}
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="card overflow-hidden">
+          <div className="card-h"><h2 className="text-sm font-[650]">Visites par origine</h2></div>
+          {byChannel.length ? <ul>{byChannel.map(([k, n]) => <li key={k} className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 text-[13px] last:border-0"><span>{k}</span><span className="num text-muted">{n.toLocaleString("fr-FR")}</span></li>)}</ul> : <p className="px-4 py-6 text-center text-[13px] text-muted">Pas encore de visite mesurée sur cette période.</p>}
+        </section>
+        <section className="card overflow-hidden">
+          <div className="card-h"><h2 className="text-sm font-[650]">Visites par type d'appareil</h2></div>
+          {byDevice.length ? <ul>{byDevice.map(([k, n]) => <li key={k} className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 text-[13px] last:border-0"><span>{k}</span><span className="num text-muted">{n.toLocaleString("fr-FR")} · {Math.round((n / Math.max(1, traffic.visits)) * 100)} %</span></li>)}</ul> : <p className="px-4 py-6 text-center text-[13px] text-muted">Pas encore de visite mesurée sur cette période.</p>}
+        </section>
+      </div>
     </>
   );
 }

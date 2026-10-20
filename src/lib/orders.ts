@@ -9,8 +9,10 @@ import { nextDate } from "./subscriptions";
 import type { PricedCart } from "./pricing";
 import { payLink } from "./invoices";
 import { emitOrder } from "./webhooks";
+import { releaseStoreCredit, reserveStoreCredit } from "./store-credit";
 import { PRIMARY, returnToLocation, shipFromLocation } from "./locations";
 import { localizeItems } from "./locale";
+import { adjustStock, logAdjustment } from "./inventory-log";
 
 export type Address = { line1: string; zip: string; city: string; country: string };
 
@@ -28,10 +30,19 @@ export async function createOrder(
   });
 
   await reserve(store.id, cart);
+  // Crédit en magasin : réservé comme le solde d'une carte cadeau (atomique), rendu si la commande n'aboutit pas.
+  const credit = cart.storeCreditCents ?? 0;
+  if (credit > 0 && !(await reserveStoreCredit(store.id, customer.id, credit, "nouvelle commande"))) {
+    await release(store.id, cart.giftCardCode, cart.giftCardCents, [cart.discountId, cart.shippingDiscountId ?? null]);
+    throw new OrderError("Votre crédit en magasin a changé. Rechargez votre panier.");
+  }
   try {
-    return await insertOrder(store, cart, customer.id, email, buyer, paymentMethod);
+    const order = await insertOrder(store, cart, customer.id, email, buyer, paymentMethod);
+    if (credit > 0) await db.storeCreditEntry.updateMany({ where: { customerId: customer.id, orderId: "nouvelle commande" }, data: { orderId: order.id, reason: `Utilisé sur la commande #${order.number}` } });
+    return order;
   } catch (e) {
     await release(store.id, cart.giftCardCode, cart.giftCardCents, [cart.discountId, cart.shippingDiscountId ?? null]);
+    if (credit > 0) await releaseStoreCredit(store.id, customer.id, credit, "nouvelle commande");
     throw e;
   }
 }
@@ -75,9 +86,10 @@ export async function cancelUnpaidOrder(orderId: string, author = "") {
   const r = await db.order.updateMany({ where: { id: o.id, paymentStatus: "pending", cancelledAt: null }, data: { cancelledAt: new Date() } });
   if (!r.count) return false;
   await release(o.storeId, o.giftCardCode, o.giftCardCents, [o.discountId, o.shippingDiscountId]);
-  // Commande à échéance : son stock avait été retiré à la commande, il revient en vente.
+  if (o.storeCreditCents > 0 && o.customerId) await releaseStoreCredit(o.storeId, o.customerId, o.storeCreditCents, o.id);
+  // Commande à échéance : son stock avait été retiré à la commande, il revient en vente (tracé dans l'historique des ajustements).
   if (o.stockCommittedAt) await db.$transaction(async (tx) => {
-    for (const m of await stockMoves(tx, o.id)) await tx.variant.updateMany({ where: { id: m.variantId }, data: { stock: { increment: m.quantity } } });
+    for (const m of await stockMoves(tx, o.id)) await adjustStock(tx, o.storeId, m.variantId, m.quantity, `Commande #${o.number} annulée`, author);
   });
   await db.orderEvent.create({ data: { orderId: o.id, type: "cancelled", author } });
   await emitOrder(o.id, "orders/cancelled");
@@ -112,6 +124,7 @@ async function insertOrder(
           discountCode: cart.discountCode,
           giftCardCode: cart.giftCardCode,
           giftCardCents: cart.giftCardCents,
+          storeCreditCents: cart.storeCreditCents ?? 0,
           discountId: cart.discountId,
           shippingDiscountId: cart.shippingDiscountId ?? null,
           taxRateBps: cart.taxRateBps,
@@ -173,6 +186,8 @@ type StockReport = { lowStock: { title: string; stock: number }[]; oversold: str
 async function commitStock(tx: Tx, orderId: string, report: StockReport) {
   const first = await tx.order.updateMany({ where: { id: orderId, stockCommittedAt: null }, data: { stockCommittedAt: new Date() } });
   if (!first.count) return;
+  const order = await tx.order.findUnique({ where: { id: orderId }, select: { number: true, dueAt: true } });
+  const reason = order?.dueAt ? `Commande #${order?.number} à échéance` : `Commande #${order?.number} payée`;
   for (const item of await stockMoves(tx, orderId)) {
     const v = await tx.variant.findUnique({ where: { id: item.variantId }, include: { product: { include: { store: true } } } });
     if (!v) continue;
@@ -181,6 +196,7 @@ async function commitStock(tx: Tx, orderId: string, report: StockReport) {
     // Survente (paiement validé après qu'un autre client a pris le dernier exemplaire) : on la signale au marchand.
     if (!v.product.continueSelling && v.stock < item.quantity) report.oversold.push(`${v.product.title}${v.title !== "Par défaut" ? ` (${v.title})` : ""} : ${item.quantity - Math.max(0, v.stock)} manquant(s)`);
     await tx.variant.update({ where: { id: v.id }, data: { stock: after } });
+    await logAdjustment(tx, { storeId: v.product.storeId, variantId: v.id, delta: after - v.stock, after, reason });
     const threshold = v.product.store.lowStockThreshold;
     if (threshold > 0 && v.stock > threshold && after <= threshold) report.lowStock.push({ title: v.title === "Par défaut" ? v.product.title : `${v.product.title} (${v.title})`, stock: after });
   }

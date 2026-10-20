@@ -16,6 +16,7 @@ const schema = z.object({
   amount: z.string(),
   restock: z.boolean(),
   notify: z.boolean(),
+  toStoreCredit: z.boolean().optional(),
   reason: z.string().max(300),
   returnId: z.string().optional(),
 });
@@ -29,7 +30,7 @@ export async function processRefund(input: z.infer<typeof schema>): Promise<{ er
   if (amount === null) return { error: "Montant invalide." };
   const res = await refundOrder({
     orderId: d.orderId, storeId: store.id, author: user.name, lines: d.lines, shippingCents: parseMoney(d.shipping) ?? 0,
-    amountCents: amount, restock: d.restock, notify: d.notify, reason: d.reason.trim(),
+    amountCents: amount, restock: d.restock, notify: d.notify, toStoreCredit: d.toStoreCredit, reason: d.reason.trim(),
   });
   if (res.error) return res;
   // Remboursement lancé depuis un retour : le retour est clos.

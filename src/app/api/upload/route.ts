@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { getUser, storesWithPerm } from "@/lib/auth";
+import { cookies } from "next/headers";
+import { getUser, STORE_COOKIE, storesWithPerm } from "@/lib/auth";
 import { MAX_IMAGE_BYTES as MAX, saveImage, sniffImage } from "@/lib/image-store";
+import { registerMediaFile } from "@/lib/media-files";
 
 const TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
 
@@ -8,8 +10,11 @@ const TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png",
 export async function POST(req: Request) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Connectez-vous pour envoyer des images." }, { status: 401 });
-  if (!(await storesWithPerm(user.id, "products")).length && !(await storesWithPerm(user.id, "content")).length)
-    return NextResponse.json({ error: "Vous n'avez pas le droit d'envoyer des images." }, { status: 403 });
+  const stores = [...(await storesWithPerm(user.id, "products")), ...(await storesWithPerm(user.id, "content"))];
+  if (!stores.length) return NextResponse.json({ error: "Vous n'avez pas le droit d'envoyer des images." }, { status: 403 });
+  // Boutique active (menu du haut) : le fichier est rangé dans sa bibliothèque Contenu › Fichiers.
+  const wanted = (await cookies()).get(STORE_COOKIE)?.value;
+  const store = stores.find((s) => s.id === wanted) ?? stores[0];
   const form = await req.formData();
   const file = form.get("file");
   if (!(file instanceof File)) return NextResponse.json({ error: "Aucun fichier reçu." }, { status: 400 });
@@ -21,5 +26,6 @@ export async function POST(req: Request) {
   if (sniffImage(bytes) !== ext) return NextResponse.json({ error: "Ce fichier n'est pas une image valide." }, { status: 400 });
   const url = await saveImage(bytes);
   if (!url) return NextResponse.json({ error: "Ce fichier n'est pas une image valide." }, { status: 400 });
+  try { await registerMediaFile(store.id, { url, name: file.name, mime: file.type, size: file.size }); } catch {}
   return NextResponse.json({ url });
 }

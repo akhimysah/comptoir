@@ -7,6 +7,7 @@ import { formatMoney } from "@/lib/money";
 import { FULFILLMENT_LABELS, PAYMENT_LABELS } from "@/lib/orders";
 import { stripeConfigured } from "@/lib/stripe";
 import { cx, formatDateTime } from "@/lib/utils";
+import { liveVisitors, measurementStart, visitStats } from "@/lib/traffic";
 
 const DAYS = 30;
 
@@ -27,6 +28,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     db.product.count({ where: { storeId: store.id } }),
   ]);
 
+  // Trafic de la vitrine (mesuré par la boutique elle-même, voir src/lib/traffic.ts).
+  const [traffic, prevTraffic, live, measuredFrom] = await Promise.all([visitStats(store.id, since, new Date()), visitStats(store.id, prevSince, since), liveVisitors(store.id), measurementStart(store.id)]);
   const revenue = paid.reduce((s, o) => s + o.totalCents - o.refundedCents, 0);
   const prevRevenue = prevPaid.reduce((s, o) => s + o.totalCents - o.refundedCents, 0);
   const aov = paid.length ? Math.round(revenue / paid.length) : 0;
@@ -44,11 +47,20 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const m = (c: number) => formatMoney(c, store.currency);
   const delta = prevRevenue ? Math.round(((revenue - prevRevenue) / prevRevenue) * 100) : null;
 
+  const visitsPerDay = days.map((d) => traffic.landings.filter((v) => v.createdAt >= d.d && v.createdAt < new Date(d.d.getTime() + 86400_000)).length);
+  // Taux de conversion : commandes passées depuis que les visites sont mesurées, divisées par les visites.
+  const measuredOrders = measuredFrom ? paid.filter((o) => o.createdAt >= measuredFrom).length : 0;
+  const conversion = traffic.visits ? Math.round((measuredOrders / traffic.visits) * 10000) / 100 : null;
+  const prevConversion = prevTraffic.visits ? (prevPaid.length / prevTraffic.visits) * 100 : null;
+  const pct = (a: number, b: number) => (b ? Math.round(((a - b) / b) * 100) : null);
   const metrics = [
-    { label: "Ventes totales", value: m(revenue), series: days.map((d) => d.v), delta },
-    { label: "Commandes", value: String(paid.length), series: days.map((d) => d.n), delta: null },
-    { label: "Valeur moyenne des commandes", value: m(aov), series: days.map((d) => (d.n ? d.v / d.n : 0)), delta: null },
-    { label: "Commandes traitées", value: String(fulfilled), series: days.map((d) => d.n), delta: null },
+    { label: "Visites", value: traffic.visits.toLocaleString("fr-FR"), series: visitsPerDay, delta: pct(traffic.visits, prevTraffic.visits), hint: "Sessions de visiteurs sur la boutique (30 derniers jours)." },
+    { label: "Ventes totales", value: m(revenue), series: days.map((d) => d.v), delta, hint: "Commandes payées, remboursements déduits." },
+    { label: "Commandes", value: String(paid.length), series: days.map((d) => d.n), delta: pct(paid.length, prevPaid.length), hint: "" },
+    { label: "Taux de conversion", value: conversion === null ? "—" : `${conversion.toLocaleString("fr-FR")} %`, series: days.map((d, i) => (visitsPerDay[i] ? (d.n / visitsPerDay[i]) * 100 : 0)), delta: conversion !== null && prevConversion ? Math.round(((conversion - prevConversion) / prevConversion) * 100) : null, hint: "Commandes payées divisées par les visites." },
+    { label: "Visiteurs en direct", value: String(live.length), series: [], delta: null, hint: "Visiteurs actifs dans les 5 dernières minutes.", href: "/admin/analytics/live" },
+    { label: "Valeur moyenne des commandes", value: m(aov), series: days.map((d) => (d.n ? d.v / d.n : 0)), delta: null, hint: "" },
+    { label: "Commandes traitées", value: String(fulfilled), series: days.map((d) => d.n), delta: null, hint: "" },
   ];
 
   const todo = [
@@ -99,11 +111,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       {perms.includes("analytics") && <section className="card overflow-hidden">
         <div className="grid grid-cols-2 border-b border-line lg:grid-cols-4">
           {metrics.map((mt, i) => (
-            <div key={mt.label} className={cx("flex flex-col gap-1 p-4", i % 2 === 1 && "border-l border-line", i === 2 && "lg:border-l", i >= 2 && "border-t border-line lg:border-t-0")}>
-              <span className="w-fit border-b border-dashed border-[#b5b5b5] text-xs font-[550] text-muted">{mt.label}</span>
+            <div key={mt.label} className={cx("flex flex-col gap-1 p-4", i % 2 === 1 && "border-l border-line", i >= 2 && "border-t border-line", i % 4 !== 0 && "lg:border-l", i >= 4 ? "lg:border-t" : "lg:border-t-0")}>
+              <span className="w-fit border-b border-dashed border-[#b5b5b5] text-xs font-[550] text-muted" title={mt.hint || undefined}>{mt.href ? <Link href={mt.href} className="hover:text-ink">{mt.label}</Link> : mt.label}</span>
               <div className="flex items-end justify-between gap-2">
                 <span className="text-lg font-bold tabular-nums">{mt.value}</span>
-                <Spark values={mt.series} />
+                {mt.series.length ? <Spark values={mt.series} /> : mt.href ? <Link href={mt.href} className="text-xs text-pine hover:underline">Vue en direct →</Link> : null}
               </div>
               {mt.delta !== null && <span className={cx("text-xs font-[550]", mt.delta >= 0 ? "text-[#0c5132]" : "text-[#8e0b21]")}>{mt.delta >= 0 ? "↗" : "↘"} {Math.abs(mt.delta)} %</span>}
             </div>

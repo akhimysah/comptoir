@@ -13,6 +13,8 @@ import { notifyBackInStock } from "@/lib/stock-alerts";
 import { uniqueHandle } from "@/lib/handles";
 import { cleanMetafields } from "@/lib/metafields";
 import { parseMoney } from "@/lib/money";
+import { PRIMARY } from "@/lib/locations";
+import { logAdjustment } from "@/lib/inventory-log";
 
 const payloadSchema = z.object({
   id: z.string().optional(),
@@ -35,6 +37,11 @@ const payloadSchema = z.object({
         image: z.string().max(500).nullable().optional(),
         weight: z.string().max(20).optional().default(""),
         sku: z.string().max(60),
+        barcode: z.string().trim().max(40, "Le code-barres ne peut pas dépasser 40 caractères.").optional().default(""),
+        // Taille du produit emballé, saisie en cm (gardée en mm).
+        lengthCm: z.string().max(10).optional().default(""),
+        widthCm: z.string().max(10).optional().default(""),
+        heightCm: z.string().max(10).optional().default(""),
         stock: z.number().int().min(0).max(1_000_000),
       }),
     )
@@ -50,12 +57,28 @@ const payloadSchema = z.object({
   bundle: z.array(z.object({ variantId: z.string(), quantity: z.number().int().min(1).max(99) })).max(30).optional().default([]),
   metafields: z.record(z.string().max(2000)).optional().default({}),
   complementaryIds: z.array(z.string().max(40)).max(6).optional().default([]),
+  // Organisation du produit (comme Shopify) : catégorie, type, fournisseur, balises, taxe.
+  category: z.string().trim().max(100, "La catégorie ne peut pas dépasser 100 caractères.").optional().default(""),
+  productType: z.string().trim().max(100, "Le type de produit ne peut pas dépasser 100 caractères.").optional().default(""),
+  vendor: z.string().trim().max(100, "Le nom du fournisseur ne peut pas dépasser 100 caractères.").optional().default(""),
+  tags: z.array(z.string().trim().min(1).max(50, "Une balise ne peut pas dépasser 50 caractères.")).max(50, "50 balises maximum.").optional().default([]),
+  taxable: z.boolean().optional().default(true),
 });
+
+/** Dimension saisie en cm → millimètres (null si vide) ; undefined si invalide ou hors limites (0 à 500 cm). */
+function toMm(cm: string): number | null | undefined {
+  if (!cm.trim()) return null;
+  const n = Number(cm.replace(",", "."));
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  const mm = Math.round(n * 10);
+  return mm > 5000 ? undefined : mm;
+}
+
 export type ProductPayload = z.infer<typeof payloadSchema>;
 export type SaveState = { error?: string } | undefined;
 
 export async function saveProduct(_: SaveState, form: FormData): Promise<SaveState> {
-  const { store } = await requirePerm("products");
+  const { store, user } = await requirePerm("products");
   let raw: unknown;
   try {
     raw = JSON.parse(String(form.get("payload")));
@@ -79,6 +102,8 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
     const compareAtCents = parseMoney(v.compareAt);
     const costCents = v.cost.trim() ? parseMoney(v.cost) : null;
     if (v.cost.trim() && costCents === null) return { error: `Coût par article invalide${p.variants.length > 1 ? ` pour ${v.optionValues.join(" / ")}` : ""}.` };
+    const [lengthMm, widthMm, heightMm] = [toMm(v.lengthCm), toMm(v.widthCm), toMm(v.heightCm)];
+    if (lengthMm === undefined || widthMm === undefined || heightMm === undefined) return { error: `Taille du produit emballé invalide${p.variants.length > 1 ? ` pour ${v.optionValues.join(" / ")}` : ""} : indiquez des dimensions en cm, entre 0 et 500.` };
     variants.push({
       id: v.id,
       title: v.optionValues.length ? v.optionValues.join(" / ") : "Par défaut",
@@ -91,14 +116,20 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
       // Poids saisi en kg, gardé en grammes.
       weightGrams: (() => { const n = Number(v.weight.replace(",", ".")); return v.weight.trim() && Number.isFinite(n) && n > 0 ? Math.round(n * 1000) : 0; })(),
       sku: v.sku.trim(),
+      barcode: v.barcode,
+      lengthMm, widthMm, heightMm,
       stock: v.stock,
       position: i,
     });
   }
+  const organisation = { category: p.category, productType: p.productType, vendor: p.vendor, tags: [...new Set(p.tags)].join(", "), taxable: p.taxable };
+  // Stock avant enregistrement, par variante : chaque écart est tracé dans l'historique des ajustements.
+  const before = new Map<string, number>();
 
   if (p.id) {
     const existing = await db.product.findFirst({ where: { id: p.id, storeId: store.id }, include: { variants: true } });
     if (!existing) return { error: "Ce produit n'existe plus." };
+    for (const v of existing.variants) before.set(v.id, v.stock);
     const handle = await uniqueHandle(store.id, p.title, p.id);
     if (existing.handle !== handle) await addAutoRedirect(store.id, `/p/${existing.handle}`, `/p/${handle}`);
     const keep = new Set(variants.map((v) => v.id).filter((id): id is string => !!id && existing.variants.some((e) => e.id === id)));
@@ -126,6 +157,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
           continueSelling: p.continueSelling,
           subscriptionInterval: p.subscriptionInterval || null,
           subscriptionDiscountBps: Math.round(p.subscriptionDiscountPct * 100),
+          ...organisation,
           collections: { create: await validCollections(store.id, p.collectionIds) },
         },
       }),
@@ -149,6 +181,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
         continueSelling: p.continueSelling,
         subscriptionInterval: p.subscriptionInterval || null,
         subscriptionDiscountBps: Math.round(p.subscriptionDiscountPct * 100),
+        ...organisation,
         variants: { create: variants.map(({ id: _id, ...v }) => v) },
         collections: { create: await validCollections(store.id, p.collectionIds) },
       },
@@ -163,9 +196,14 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
     db.bundleItem.deleteMany({ where: { bundleId: p.id! } }),
     ...p.bundle.filter((b) => ok.some((o) => o.id === b.variantId)).map((b) => db.bundleItem.create({ data: { bundleId: p.id!, variantId: b.variantId, quantity: b.quantity } })),
   ]);
+  // Historique des ajustements : écart entre le stock d'avant et celui saisi (une variante nouvelle part de zéro).
+  for (const v of await db.variant.findMany({ where: { productId: p.id! }, select: { id: true, stock: true } })) {
+    await logAdjustment(db, { storeId: store.id, variantId: v.id, delta: v.stock - (before.get(v.id) ?? 0), after: v.stock, reason: "Modifié sur la fiche produit", author: user.name, locationId: PRIMARY });
+  }
   await logActivity(`Produit « ${p.title} » enregistré`, `/admin/products/${p.id}`);
   await notifyBackInStock({ storeId: store.id });
   revalidatePath("/admin/products");
+  revalidatePath("/admin/inventory");
   revalidatePath(`/s/${store.slug}`, "layout");
   redirect(`/admin/products/${p.id}?saved=1`);
 }

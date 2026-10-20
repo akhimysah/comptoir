@@ -576,6 +576,7 @@ model Order {
   utmCampaign           String          @default("")
   visitsBefore          Int? // nombre de visites avant la commande
   paymentInstructions   String          @default("") // moyen de paiement manuel choisi (virement, à la livraison) : consignes
+  storeCreditCents      Int             @default(0) // crédit en magasin utilisé sur cette commande
 
   @@unique([storeId, number])
 }

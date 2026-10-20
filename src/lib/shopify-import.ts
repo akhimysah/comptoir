@@ -67,6 +67,12 @@ export function convertShopify(table: string[][]): { table: string[][]; images: 
       SKU: col(row, "Variant SKU"),
       Stock: col(row, "Variant Inventory Qty"),
       "Poids (g)": col(row, "Variant Grams"),
+      // Organisation : catégorie, type, fournisseur et balises Shopify ; le code-barres de chaque variante.
+      "Catégorie": title ? col(row, "Product Category") : "",
+      "Type de produit": title ? col(row, "Type") : "",
+      Fournisseur: title ? col(row, "Vendor") : "",
+      Balises: title ? col(row, "Tags") : "",
+      "Code-barres": col(row, "Variant Barcode"),
     };
     out.push(PRODUCT_COLUMNS.map((c) => r[c] ?? ""));
     const vImg = col(row, "Variant Image");

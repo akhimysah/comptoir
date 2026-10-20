@@ -8,7 +8,7 @@ import { requirePerm } from "@/lib/auth";
 import { appUrl } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { bundleChoicesFor } from "@/lib/bundle-choices";
-import { centsToInput } from "@/lib/money";
+import { centsToInput, formatMoney } from "@/lib/money";
 import { parseJson } from "@/lib/utils";
 import { storeBase } from "@/lib/domains";
 
@@ -23,6 +23,8 @@ export default async function EditProductPage({ params, searchParams }: { params
   const productChoices = await db.product.findMany({ where: { storeId: store.id, isGiftCard: false, status: { not: "archived" } }, orderBy: { title: "asc" }, select: { id: true, title: true } });
   const fieldDefs = await db.metafieldDefinition.findMany({ where: { storeId: store.id }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
   const waiting = await db.stockAlert.count({ where: { storeId: store.id, notifiedAt: null, variantId: { in: product.variants.map((v) => v.id) } } });
+  const sales = await productSales(store.id, product.variants.map((v) => v.id));
+  const mmToCm = (mm: number | null) => (mm === null ? "" : String(mm / 10).replace(".", ","));
 
   return (
     <>
@@ -40,6 +42,16 @@ export default async function EditProductPage({ params, searchParams }: { params
           </>
         }
       />
+      {sales.units > 0 && (
+        <p className="card mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-[13px]">
+          <span className="font-[650]">{sales.units} unité{sales.units > 1 ? "s" : ""} vendue{sales.units > 1 ? "s" : ""}</span>
+          <span className="text-muted">·</span>
+          <span>{sales.buyers} acheteur{sales.buyers > 1 ? "s" : ""}</span>
+          <span className="text-muted">·</span>
+          <span>{formatMoney(sales.netCents, store.currency)} de ventes nettes</span>
+          <Link href="/admin/analytics" className="ml-auto text-pine hover:underline">Afficher les détails</Link>
+        </p>
+      )}
       {waiting > 0 && (
         <p className="card mb-4 flex flex-wrap items-center gap-2 px-4 py-3 text-[13px]">
           <span className="rounded-md bg-[#ffeb78] px-1.5 font-[650] text-[#4f4700]">{waiting}</span>
@@ -72,10 +84,34 @@ export default async function EditProductPage({ params, searchParams }: { params
           hue: product.hue,
           images: parseJson(product.images, []),
           options: parseJson(product.options, []),
-          variants: product.variants.map((v) => ({ id: v.id, optionValues: parseJson(v.optionValues, []), price: centsToInput(v.priceCents), compareAt: centsToInput(v.compareAtCents), cost: v.costCents === null ? "" : centsToInput(v.costCents), image: v.image, weight: v.weightGrams ? String(v.weightGrams / 1000).replace(".", ",") : "", sku: v.sku, stock: v.stock })),
+          variants: product.variants.map((v) => ({ id: v.id, optionValues: parseJson(v.optionValues, []), price: centsToInput(v.priceCents), compareAt: centsToInput(v.compareAtCents), cost: v.costCents === null ? "" : centsToInput(v.costCents), image: v.image, weight: v.weightGrams ? String(v.weightGrams / 1000).replace(".", ",") : "", sku: v.sku, barcode: v.barcode, lengthCm: mmToCm(v.lengthMm), widthCm: mmToCm(v.widthMm), heightCm: mmToCm(v.heightMm), stock: v.stock })),
           collectionIds: product.collections.map((c) => c.collectionId),
+          category: product.category,
+          productType: product.productType,
+          vendor: product.vendor,
+          tags: product.tags.split(",").map((t) => t.trim()).filter(Boolean),
+          taxable: product.taxable,
         }}
       />
     </>
   );
+}
+
+/**
+ * Ventes du produit, comme le bandeau « 21 unités vendues · 21 acheteurs · 573,79 € de ventes nettes » de Shopify.
+ * Base : les lignes des commandes payées (ou partiellement remboursées) et non annulées qui portent une variante du produit.
+ * - unités vendues = somme des quantités commandées ;
+ * - acheteurs = nombre d'adresses e-mail distinctes ;
+ * - ventes nettes = Σ prix × quantité − Σ prix × quantité remboursée (hors livraison et taxes ; la remise de commande n'est pas répartie).
+ */
+async function productSales(storeId: string, variantIds: string[]) {
+  const items = await db.orderItem.findMany({
+    where: { variantId: { in: variantIds }, order: { storeId, paymentStatus: { in: ["paid", "partially_refunded"] }, cancelledAt: null } },
+    select: { quantity: true, refundedQuantity: true, priceCents: true, order: { select: { email: true } } },
+  });
+  return {
+    units: items.reduce((s, i) => s + i.quantity, 0),
+    buyers: new Set(items.map((i) => i.order.email.toLowerCase())).size,
+    netCents: items.reduce((s, i) => s + i.priceCents * (i.quantity - Math.min(i.quantity, i.refundedQuantity)), 0),
+  };
 }

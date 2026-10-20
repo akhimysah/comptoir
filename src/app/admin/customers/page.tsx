@@ -1,16 +1,27 @@
 import Link from "next/link";
-import { Empty, PageHeader } from "@/components/ui";
+import { Empty, PageHeader, Pill } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { describeRule } from "@/lib/segment-fields";
 import { applySegment, customerStats, segmentRules } from "@/lib/segments";
-import { cx, formatDate } from "@/lib/utils";
+import { cx, formatDate, parseJson } from "@/lib/utils";
 
 export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ segment?: string; tag?: string }> }) {
   const { segment: segmentId, tag } = await searchParams;
   const { store } = await requirePerm("customers");
-  const [stats, segments] = await Promise.all([customerStats(store.id), db.segment.findMany({ where: { storeId: store.id }, orderBy: { createdAt: "asc" } })]);
+  const [stats, segments, extra] = await Promise.all([
+    customerStats(store.id),
+    db.segment.findMany({ where: { storeId: store.id }, orderBy: { createdAt: "asc" } }),
+    db.customer.findMany({ where: { storeId: store.id }, select: { id: true, subscribedAt: true, address: true } }),
+  ]);
+  // Abonnement aux e-mails (abonné, jamais abonné, ou désabonné) et emplacement (adresse du client, sinon pays de sa dernière commande).
+  const more = new Map(extra.map((c) => [c.id, c]));
+  const subscription = (c: { id: string; acceptsMarketing: boolean }) => (c.acceptsMarketing ? { label: "Abonné", tone: "ok" as const } : more.get(c.id)?.subscribedAt ? { label: "Désabonné", tone: "neutral" as const } : { label: "Non abonné", tone: "neutral" as const });
+  const location = (c: { id: string; country: string }) => {
+    const ad = parseJson<{ city?: string; country?: string }>(more.get(c.id)?.address ?? "", {});
+    return [ad.city?.trim(), ad.country?.trim() || c.country].filter(Boolean).join(", ");
+  };
   const segment = segments.find((s) => s.id === segmentId);
   let rows = segment ? applySegment(stats, segment.match, segmentRules(segment)) : stats;
   if (tag) rows = rows.filter((c) => c.tags.includes(tag.toLowerCase()));
@@ -38,13 +49,12 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
         {rows.length ? (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead><tr><th className="th">Client</th><th className="th">Commandes</th><th className="th hidden sm:table-cell">Dernier achat</th><th className="th hidden md:table-cell">Pays</th><th className="th text-right">Total dépensé</th></tr></thead>
+              <thead><tr><th className="th">Client</th><th className="th hidden sm:table-cell">Abonnement aux e-mails</th><th className="th hidden md:table-cell">Emplacement</th><th className="th">Commandes</th><th className="th hidden lg:table-cell">Dernier achat</th><th className="th text-right">Montant dépensé</th></tr></thead>
               <tbody>
                 {rows.map((c) => (
                   <tr key={c.id} className="hover:bg-[#f7f7f7]">
                     <td className="td">
                       <Link href={`/admin/customers/${c.id}`} className="font-[650] hover:underline">{c.name}</Link>
-                      {c.acceptsMarketing && <span className="ml-2 rounded-md bg-[#e0f0ff] px-1.5 text-[11px] font-[550] text-[#00527c]">Abonné</span>}
                       <div className="text-xs text-muted">{c.email}</div>
                       {c.tags.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
@@ -52,9 +62,10 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                         </div>
                       )}
                     </td>
-                    <td className="td num">{c.orders}</td>
-                    <td className="td hidden text-muted sm:table-cell">{c.last ? formatDate(c.last) : "—"}</td>
-                    <td className="td hidden text-muted md:table-cell">{c.country || "—"}</td>
+                    <td className="td hidden sm:table-cell"><Pill tone={subscription(c).tone}>{subscription(c).label}</Pill></td>
+                    <td className="td hidden text-muted md:table-cell">{location(c) || "—"}</td>
+                    <td className="td num">{c.orders} commande{c.orders > 1 ? "s" : ""}</td>
+                    <td className="td hidden text-muted lg:table-cell">{c.last ? formatDate(c.last) : "—"}</td>
                     <td className="td num text-right">{formatMoney(c.spent, store.currency)}</td>
                   </tr>
                 ))}

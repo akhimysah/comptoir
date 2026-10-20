@@ -76,13 +76,20 @@ export async function body(req: Request): Promise<Record<string, unknown> | null
 
 // --- Représentations publiques (montants en centimes, dates ISO) ---
 
+/** Balises « a, b, c » → ["a", "b", "c"] (et retour), sans doublon ni vide. */
+export const splitTags = (tags: string) => [...new Set(tags.split(",").map((t) => t.trim()).filter(Boolean))];
+export const joinTags = (tags: string[]) => splitTags(tags.join(",")).join(", ");
+
 export const variantJson = (v: Variant) => ({
-  id: v.id, title: v.title, options: parseJson<string[]>(v.optionValues, []), sku: v.sku,
+  id: v.id, title: v.title, options: parseJson<string[]>(v.optionValues, []), sku: v.sku, barcode: v.barcode,
   priceCents: v.priceCents, compareAtCents: v.compareAtCents, stock: v.stock, weightGrams: v.weightGrams, image: v.image,
+  // Taille du produit emballé, en millimètres (null si inconnue).
+  dimensionsMm: v.lengthMm || v.widthMm || v.heightMm ? { length: v.lengthMm, width: v.widthMm, height: v.heightMm } : null,
 });
 
 export const productJson = (p: Product & { variants: Variant[] }, store: Store) => ({
   id: p.id, handle: p.handle, title: p.title, description: p.description, status: p.status,
+  vendor: p.vendor, productType: p.productType, category: p.category, tags: splitTags(p.tags), taxable: p.taxable,
   images: parseJson<string[]>(p.images, []), options: parseJson<{ name: string; values: string[] }[]>(p.options, []),
   currency: store.currency, createdAt: p.createdAt.toISOString(), updatedAt: p.updatedAt.toISOString(),
   variants: [...p.variants].sort((a, b) => a.position - b.position).map(variantJson),
@@ -92,6 +99,8 @@ export const orderJson = (o: Order & { items: OrderItem[] }, store: Store) => ({
   id: o.id, number: o.number, email: o.email, name: o.name, currency: store.currency,
   createdAt: o.createdAt.toISOString(), paidAt: o.paidAt?.toISOString() ?? null, cancelledAt: o.cancelledAt?.toISOString() ?? null, dueAt: o.dueAt?.toISOString() ?? null,
   paymentStatus: o.paymentStatus, fulfillmentStatus: o.fulfillmentStatus, deliveryMethod: o.deliveryMethod,
+  deliveredAt: o.deliveredAt?.toISOString() ?? null, fulfillBy: o.fulfillBy?.toISOString() ?? null, archivedAt: o.archivedAt?.toISOString() ?? null,
+  tags: o.tags.split(",").map((t) => t.trim()).filter(Boolean), riskLevel: o.riskLevel || null,
   shippingAddress: parseJson(o.address, null), note: o.note,
   subtotalCents: o.subtotalCents, discountCents: o.discountCents, discountCode: o.discountCode, shippingCents: o.shippingCents, shippingMethod: o.shippingMethod,
   taxCents: o.taxCents, taxRateBps: o.taxRateBps, giftCardCents: o.giftCardCents, totalCents: o.totalCents, refundedCents: o.refundedCents,

@@ -44,7 +44,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <PageHeader title="Stock" subtitle={value > 0 ? `Valeur du stock au prix d'achat : ${formatMoney(value, store.currency)}${withoutCost ? ` (${withoutCost} article${withoutCost > 1 ? "s" : ""} sans coût renseigné)` : ""}` : "Renseignez le coût par article de vos produits pour connaître la valeur de votre stock."} actions={<Link href="/admin/products/purchase-orders/new" className="btn">Commander au fournisseur</Link>} />
+      <PageHeader title="Stock" subtitle={value > 0 ? `Valeur du stock au prix d'achat : ${formatMoney(value, store.currency)}${withoutCost ? ` (${withoutCost} article${withoutCost > 1 ? "s" : ""} sans coût renseigné)` : ""}` : "Renseignez le coût par article de vos produits pour connaître la valeur de votre stock."} actions={<><Link href="/admin/inventory/history" className="btn">Historique</Link><Link href="/admin/products/purchase-orders/new" className="btn">Commander au fournisseur</Link></>} />
       {err && <p role="alert" className="rounded-lg border border-[#fedad9] bg-[#fff4f4] px-4 py-3 text-[#8e0b21]">{err}</p>}
       {ok && <p role="status" className="rounded-lg border border-[#b4fed2] bg-[#ecfdf3] px-4 py-3 text-[#0c5132]">Transfert effectué.</p>}
       {multi && (
@@ -63,7 +63,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         {variants.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[780px]">
-              <thead><tr><th className="th">Produit</th><th className="th">SKU</th><th className="th text-right">Engagé</th><th className="th text-right">À recevoir</th><th className="th text-right" title="Clients qui ont demandé à être prévenus du retour en stock">En attente</th>{multi && <th className="th text-right">Total</th>}<th className="th text-right">{multi ? `Disponible · ${current.name}` : "Disponible"}</th>{multi && <th className="th" />}</tr></thead>
+              <thead><tr><th className="th">Produit</th><th className="th">SKU</th><th className="th text-right">Engagé</th><th className="th text-right">À recevoir</th><th className="th text-right" title="Clients qui ont demandé à être prévenus du retour en stock">En attente</th>{multi && <th className="th text-right">Total</th>}<th className="th text-right" title="Disponible + engagé">En stock</th><th className="th text-right">{multi ? `Disponible · ${current.name}` : "Disponible"}</th><th className="th" /></tr></thead>
               <tbody>
                 {variants.map((v) => (
                   <tr key={v.id} className="hover:bg-[#f7f7f7]">
@@ -81,9 +81,13 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     <td className="td num text-right">{incoming.get(v.id) ? <Link href="/admin/products/purchase-orders" className="text-pine hover:underline">{incoming.get(v.id)}</Link> : <span className="text-muted">0</span>}</td>
                     <td className="td num text-right">{waiting.get(v.id) ? <span className="rounded-md bg-[#ffeb78] px-1.5 text-xs font-[550] text-[#4f4700]">{waiting.get(v.id)}</span> : <span className="text-muted">0</span>}</td>
                     {multi && <td className="td num text-right text-muted" title={locations.map((l) => `${l.name} : ${perLocation?.get(v.id)?.get(l.id) ?? 0}`).join(" · ")}>{v.stock}</td>}
+                    {/* « En stock » comme Shopify : ce qui est disponible plus ce qui est déjà engagé par des commandes payées. */}
+                    <td className="td num text-right text-muted">{v.stock + (committedBy.get(v.id) ?? 0)}</td>
                     <td className="td"><StockInput key={`${v.id}-${current.id}`} variantId={v.id} initial={here(v)} label={`${v.product.title} ${v.title}`} locationId={current.id} /></td>
+                    <td className="td">
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={`/admin/inventory/history?variant=${v.id}`} className="whitespace-nowrap text-xs text-pine hover:underline" title="Afficher l'historique des ajustements">Historique</Link>
                     {multi && (
-                      <td className="td">
                         <details className="relative">
                           <summary className="btn btn-sm cursor-pointer list-none">Transférer</summary>
                           <form action={transfer} className="absolute right-0 z-10 mt-1 flex w-64 flex-col gap-2 rounded-lg border border-line bg-white p-3 shadow-lg">
@@ -94,8 +98,9 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                             <button className="btn btn-primary">Transférer</button>
                           </form>
                         </details>
-                      </td>
                     )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

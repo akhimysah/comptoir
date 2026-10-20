@@ -11,6 +11,7 @@ export const TOPICS = {
   "orders/create": "Commande confirmée (payée, ou à échéance pour un client pro)",
   "orders/paid": "Commande payée",
   "orders/fulfilled": "Commande expédiée",
+  "orders/delivered": "Commande livrée",
   "orders/cancelled": "Commande annulée",
 } as const;
 export type Topic = keyof typeof TOPICS;

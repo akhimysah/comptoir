@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { adjustPoints, saveCustomerNote, saveCustomerTags } from "../actions";
+import { adjustCredit, adjustPoints, saveCustomerLocale, saveCustomerNote, saveCustomerTags, setCustomerMarketing, setCustomerTaxExempt } from "../actions";
+import { CustomerTimeline, type TimelineEntry } from "@/components/admin/CustomerTimeline";
 import { recheckVat, saveCustomerB2B } from "../price-lists/actions";
 import { PAYMENT_TERMS, termsLabel } from "@/lib/b2b";
 import { isEuVatNumber } from "@/lib/tax";
@@ -9,6 +10,7 @@ import { PageHeader, Pill, Thumb } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
+import { storeCreditHistory } from "@/lib/store-credit";
 import { FULFILLMENT_LABELS, paymentLabel, type Address } from "@/lib/orders";
 import { formatDate, formatDateTime, parseJson } from "@/lib/utils";
 
@@ -17,8 +19,23 @@ export default async function CustomerPage({ params, searchParams }: { params: P
   const { store } = await requirePerm("customers");
   const c = await db.customer.findFirst({ where: { id, storeId: store.id }, include: { orders: { orderBy: { createdAt: "desc" }, include: { items: true } } } });
   if (!c) notFound();
-  const priceLists = await db.priceList.findMany({ where: { storeId: store.id }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, percentOff: true } });
-  const entries = store.loyaltyEnabled ? await db.loyaltyEntry.findMany({ where: { customerId: c.id }, orderBy: { createdAt: "desc" }, take: 8 }) : [];
+  const credits = await storeCreditHistory(c.id, 6);
+  const [priceLists, entries, events, mails] = await Promise.all([
+    db.priceList.findMany({ where: { storeId: store.id }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, percentOff: true } }),
+    store.loyaltyEnabled ? db.loyaltyEntry.findMany({ where: { customerId: c.id }, orderBy: { createdAt: "desc" }, take: 8 }) : [],
+    db.customerEvent.findMany({ where: { customerId: c.id, storeId: store.id }, orderBy: { createdAt: "desc" }, take: 200 }),
+    db.mailLog.findMany({ where: { storeId: store.id, to: { in: [...new Set([c.email, c.email.toLowerCase()])] }, status: { not: "failed" } }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, subject: true, createdAt: true } }),
+  ]);
+  // Chronologie : commentaires et modifications de la fiche, commandes, e-mails envoyés, création du client.
+  const timeline: TimelineEntry[] = [
+    ...events.map((e) => {
+      const sep = e.type === "comment" ? e.message.indexOf(" : ") : -1;
+      return { id: e.id, at: e.createdAt, type: e.type, text: sep > 0 ? e.message.slice(sep + 3) : e.message, author: sep > 0 ? e.message.slice(0, sep) : undefined };
+    }),
+    ...c.orders.map((o) => ({ id: `order-${o.id}`, at: o.createdAt, type: "order", text: `Ce client a passé la commande #${o.number} sur ${o.paymentMethod.startsWith("pos") ? "Point de vente" : o.paymentMethod === "manual" ? "Commande provisoire" : "Boutique en ligne"}${o.cancelledAt ? " (annulée)" : ""}.`, href: `/admin/orders/${o.id}` })),
+    ...mails.map((m) => ({ id: `mail-${m.id}`, at: m.createdAt, type: "mail", text: `L'e-mail « ${m.subject} » a été envoyé à ce client.` })),
+    { id: "created", at: c.createdAt, type: "created", text: "Le client a été créé." },
+  ];
   const m = (x: number) => formatMoney(x, store.currency);
   const paid = c.orders.filter((o) => ["paid", "partially_refunded"].includes(o.paymentStatus) && !o.cancelledAt);
   const spent = paid.reduce((s, o) => s + o.totalCents - o.refundedCents, 0);
@@ -78,13 +95,49 @@ export default async function CustomerPage({ params, searchParams }: { params: P
               </tbody>
             </table>
           </section>
+          <CustomerTimeline customerId={c.id} entries={timeline} />
         </div>
         <aside className="flex flex-col gap-4">
           <section className="card flex flex-col gap-3 p-4">
             <h2 className="text-sm font-[650]">Client</h2>
-            <div><h3 className="text-[13px] font-[650]">Coordonnées</h3><div className="break-all text-pine">{c.email}</div>{c.phone && <div className="text-muted">{c.phone}</div>}</div>
+            <div>
+              <h3 className="text-[13px] font-[650]">Coordonnées</h3>
+              <div className="break-all text-pine">{c.email}</div>
+              {c.phone ? <div className="text-muted">{c.phone}</div> : <div className="text-xs text-muted">Aucun numéro de téléphone</div>}
+              <form action={saveCustomerLocale} className="mt-1 flex items-center gap-1.5 text-xs text-muted">
+                <input type="hidden" name="id" value={c.id} />
+                <span>Recevra les notifications en</span>
+                <select name="locale" defaultValue={c.locale} aria-label="Langue des notifications" className="input h-7 w-auto min-h-0 py-0 text-xs">
+                  <option value="fr">Français</option>
+                  <option value="en">English</option>
+                </select>
+                <button className="btn btn-sm h-7">OK</button>
+              </form>
+            </div>
+            <div>
+              <h3 className="text-[13px] font-[650]">Marketing</h3>
+              <div className="flex flex-wrap items-center gap-2">
+                {c.acceptsMarketing ? <Pill tone="ok">Abonné aux e-mails</Pill> : c.subscribedAt ? <Pill>Désabonné des e-mails</Pill> : <Pill>Non abonné aux e-mails</Pill>}
+                <form action={setCustomerMarketing}><input type="hidden" name="id" value={c.id} /><input type="hidden" name="subscribe" value={c.acceptsMarketing ? "0" : "1"} /><button className="text-xs text-pine hover:underline">{c.acceptsMarketing ? "Désabonner" : "Abonner"}</button></form>
+              </div>
+              {c.subscribedAt && c.acceptsMarketing && <div className="text-xs text-muted">Depuis le {formatDate(c.subscribedAt)}</div>}
+            </div>
             {(() => { const ad = parseJson<{ line1?: string; zip?: string; city?: string; country?: string }>(c.address, {}); return ad.line1 || ad.city ? <div><h3 className="text-[13px] font-[650]">Adresse</h3><address className="not-italic text-muted">{ad.line1}<br />{ad.zip} {ad.city}<br />{ad.country}</address></div> : null; })()}
             {addr && <div><h3 className="text-[13px] font-[650]">Adresse par défaut</h3><address className="not-italic text-muted">{addr.line1}<br />{addr.zip} {addr.city}<br />{addr.country}</address></div>}
+            <div>
+              <h3 className="text-[13px] font-[650]">Numéro de TVA</h3>
+              <div className="text-muted">{c.vatNumber || "Aucun numéro de TVA"}</div>
+            </div>
+            <form action={setCustomerTaxExempt} className="flex flex-col gap-1.5">
+              <input type="hidden" name="id" value={c.id} />
+              <h3 className="text-[13px] font-[650]">Percevoir la taxe</h3>
+              <label className="flex items-start gap-2 text-[13px]">
+                <input type="checkbox" name="taxExempt" defaultChecked={c.taxExempt} className="mt-0.5 h-4 w-4 accent-[#7c3aed]" />
+                <span>Ne pas percevoir la taxe pour ce client<span className="block text-xs text-muted">Connecté à son compte, ce client paie hors taxes sur la boutique.</span></span>
+              </label>
+              {c.taxExempt && <Pill tone="warn">Exonéré de taxe</Pill>}
+              <button className="btn btn-sm self-end">Enregistrer</button>
+            </form>
           </section>
           <form id="recheck-vat" action={recheckVat} className="hidden"><input type="hidden" name="id" value={c.id} /></form>
           <form action={saveCustomerB2B} className="card flex flex-col gap-2.5 p-4">
@@ -117,6 +170,19 @@ export default async function CustomerPage({ params, searchParams }: { params: P
             <p className="text-xs text-muted">Le client voit ses prix et choisit le paiement à échéance une fois connecté à son compte sur la boutique.{!priceLists.length && <> <Link href="/admin/customers/price-lists" className="text-pine hover:underline">Créer une liste de prix</Link></>}</p>
             <button className="btn self-end">Enregistrer</button>
           </form>
+          <section className="card flex flex-col gap-2 p-4">
+            <div className="flex items-center justify-between gap-2"><h2 className="text-sm font-[650]">Crédit en magasin</h2>{!store.loyaltyEnabled && !store.storeCreditEnabled && <Link href="/admin/settings/payments#credit" className="text-xs text-pine hover:underline">Activer</Link>}</div>
+            <div className="text-2xl font-bold tabular-nums">{m(c.storeCreditCents)}</div>
+            {!store.storeCreditEnabled && <p className="text-xs text-muted">Le crédit n'est pas encore activé pour la boutique : il ne sera pas déduit au paiement. <Link href="/admin/settings/payments#credit" className="text-pine hover:underline">Activer</Link></p>}
+            {credits.length > 0 && <ul className="flex flex-col gap-1 text-xs">{credits.slice(0, 6).map((e) => <li key={e.id} className="flex justify-between gap-2"><span className="truncate text-muted" title={e.reason}>{e.reason}</span><span className={`tabular-nums ${e.deltaCents > 0 ? "text-[#0c5132]" : "text-[#8e0b21]"}`}>{e.deltaCents > 0 ? "+" : "−"}{m(Math.abs(e.deltaCents))}</span></li>)}</ul>}
+            <form action={adjustCredit} className="mt-1 flex flex-wrap gap-1.5">
+              <input type="hidden" name="id" value={c.id} />
+              <select name="direction" className="input h-8 w-auto py-1" aria-label="Sens"><option value="add">Ajouter</option><option value="remove">Retirer</option></select>
+              <input name="amount" inputMode="decimal" required placeholder="10,00" aria-label="Montant" className="input num h-8 w-24" />
+              <input name="reason" placeholder="Motif (geste commercial…)" aria-label="Motif" className="input h-8 min-w-32 flex-1" />
+              <button className="btn btn-sm h-8">OK</button>
+            </form>
+          </section>
           {store.loyaltyEnabled && (
             <section className="card flex flex-col gap-2 p-4">
               <h2 className="text-sm font-[650]">Fidélité</h2>
