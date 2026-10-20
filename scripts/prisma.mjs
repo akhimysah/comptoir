@@ -26,5 +26,7 @@ if (/^postgres(ql)?:/.test(url)) {
 // Mise à jour du schéma : connexion directe (Neon, Vercel Postgres) plutôt que le pool de connexions.
 const direct = process.argv[2] === "db" ? process.env.DATABASE_URL_UNPOOLED || process.env.POSTGRES_URL_NON_POOLING : "";
 const env = direct ? { ...process.env, DATABASE_URL: direct } : process.env;
-const result = spawnSync("npx", ["prisma", ...process.argv.slice(2), "--schema", schema], { stdio: "inherit", cwd: root, env });
+// Suppression de colonnes acceptée seulement sur demande explicite (variable posée le temps d'un déploiement).
+const extra = process.argv[2] === "db" && process.env.PRISMA_ACCEPT_DATA_LOSS === "1" ? ["--accept-data-loss"] : [];
+const result = spawnSync("npx", ["prisma", ...process.argv.slice(2), ...extra, "--schema", schema], { stdio: "inherit", cwd: root, env });
 process.exit(result.status ?? 1);
