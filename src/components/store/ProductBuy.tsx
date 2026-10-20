@@ -28,6 +28,7 @@ const T = dict(
     soldOut: "Épuisé",
     allInCart: "Tout le stock est dans votre panier",
     addToCart: "Ajouter au panier",
+    delivery: (from: string, to: string) => `Livraison estimée entre le ${from} et le ${to}.`,
     added: "Ajouté au panier. ",
     viewCart: "Voir le panier",
     bundle: "Ce lot contient",
@@ -59,6 +60,7 @@ const T = dict(
     soldOut: "Sold out",
     allInCart: "All available stock is in your cart",
     addToCart: "Add to cart",
+    delivery: (from: string, to: string) => `Estimated delivery between ${from} and ${to}.`,
     added: "Added to cart. ",
     viewCart: "View cart",
     bundle: "This bundle includes",
@@ -78,8 +80,8 @@ const T = dict(
 
 type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number; image?: string | null };
 
-export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null, initialVariant, specs = [], productId }: {
-  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null; initialVariant?: string; specs?: { name: string; value: string }[]; productId?: string;
+export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null, initialVariant, specs = [], productId, delivery = null }: {
+  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null; initialVariant?: string; specs?: { name: string; value: string }[]; productId?: string; delivery?: { from: string; to: string } | null;
   options: { name: string; values: string[] }[]; variants: V[];
 }) {
   const { add, items } = useCart(slug);
@@ -204,6 +206,7 @@ export function ProductBuy({ slug, currency, rate = 1, title, description, image
           </div>
         )}
         {isPreorder && <p className="text-sm text-[var(--c-muted)]">{t.preorderNote}</p>}
+        {delivery && !isGiftCard && <p className="text-sm text-[var(--c-muted)]">{t.delivery(new Date(delivery.from).toLocaleDateString(loc, { day: "numeric", month: "long" }), new Date(delivery.to).toLocaleDateString(loc, { day: "numeric", month: "long" }))}</p>}
         {isGiftCard && <p className="text-sm text-[var(--c-muted)]">{t.giftCardNote}</p>}
         {!isGiftCard && !preorder && variant && variant.stock > 0 && variant.stock <= 5 && <p className="text-sm text-[var(--c-muted)]">{t.lowStock(variant.stock)}</p>}
 

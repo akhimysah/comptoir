@@ -2,6 +2,7 @@ import "server-only";
 import type { Order, OrderItem, Store } from "@prisma/client";
 import { formatMoney } from "./money";
 import { orderCurrency } from "./presentment";
+import { orderNumber } from "./checkout-settings";
 import { appUrl } from "./stripe";
 import { parseJson } from "./utils";
 import { carrierLabel, trackingLink } from "./tracking";
@@ -26,6 +27,7 @@ const T = dict(
     pickup: "Retrait en boutique",
     shippingAddress: "Adresse de livraison",
     dueBy: (amount: string, date: string) => `${amount} à régler avant le ${date}`,
+    howToPay: (amount: string) => `Comment régler votre commande (${amount})`,
     payOnline: "Payer en ligne",
     backToStore: "Retourner sur la boutique",
     carrier: "Transporteur",
@@ -77,6 +79,7 @@ const T = dict(
     pickup: "In-store pickup",
     shippingAddress: "Shipping address",
     dueBy: (amount: string, date: string) => `${amount} due by ${date}`,
+    howToPay: (amount: string) => `How to pay for your order (${amount})`,
     payOnline: "Pay online",
     backToStore: "Visit our store",
     carrier: "Carrier",
@@ -185,14 +188,18 @@ function addressBlock(order: Order, store?: Store, locale: Locale = "fr") {
 export function orderConfirmationEmail(store: Store, order: Order & { items: OrderItem[] }, payUrl?: string | null, locale: Locale = orderLocale(order)) {
   const L = T[locale];
   const cur = orderCurrency(order, store.currency);
-  const t = texts(store, "order_confirmation", { prenom: firstName(order.name), numero: String(order.number), montant: money(cur.total, cur.currency, locale) }, locale);
+  const t = texts(store, "order_confirmation", { prenom: firstName(order.name), numero: orderNumber(store, order.number).replace(/^#/, ""), montant: money(cur.total, cur.currency, locale) }, locale);
   // Client professionnel à échéance : montant et date limite, avec le lien pour payer en ligne.
   const due = order.dueAt && order.paymentStatus === "pending"
     ? `<div style="margin:16px 0;background:#f7f7f7;border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.5"><b>${L.dueBy(money(order.totalCents, store.currency, locale), order.dueAt.toLocaleDateString(intlLocale(locale), { day: "numeric", month: "long", year: "numeric" }))}</b>${payUrl ? `<div style="margin-top:10px">${t.button(payUrl, L.payOnline)}</div>` : ""}</div>`
     : "";
+  // Moyen de paiement manuel (virement, paiement à la livraison…) : les consignes choisies par le marchand.
+  const manual = order.paymentStatus === "pending" && order.paymentMethod === "manual" && order.paymentInstructions
+    ? `<div style="margin:16px 0;background:#f7f7f7;border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.5"><b>${L.howToPay(money(cur.total, cur.currency, locale))}</b><div style="margin-top:6px;white-space:pre-line">${esc(order.paymentInstructions)}</div></div>`
+    : "";
   return {
     subject: t.subject,
-    html: t.layout(t.title, `${t.intro}${due}
+    html: t.layout(t.title, `${t.intro}${due}${manual}
 ${itemsTable(order, store.currency, locale)}${addressBlock(order, store, locale)}
 <p style="margin-top:24px">${t.button(`${storeBase(store)}`, L.backToStore)}</p>`),
   };
@@ -200,7 +207,7 @@ ${itemsTable(order, store.currency, locale)}${addressBlock(order, store, locale)
 
 export function shippingEmail(store: Store, order: Order & { items: OrderItem[] }, update = false, locale: Locale = orderLocale(order)) {
   const L = T[locale];
-  const t = texts(store, "shipping", { prenom: firstName(order.name), numero: String(order.number) }, locale);
+  const t = texts(store, "shipping", { prenom: firstName(order.name), numero: orderNumber(store, order.number).replace(/^#/, "") }, locale);
   const link = trackingLink(order);
   const tracking = order.trackingNumber
     ? `<div style="margin:16px 0;background:#f7f7f7;border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.5"><b>${esc(carrierLabel(order.trackingCarrier) || L.carrier)}</b> · ${L.trackingNumber} <span style="font-family:monospace">${esc(order.trackingNumber)}</span>${link ? `<div style="margin-top:10px">${t.button(link, L.trackParcel)}</div>` : ""}</div>`
@@ -270,7 +277,7 @@ ${expiresAt ? `<div style="font-size:12px;color:#616161;margin-top:6px">${L.vali
 }
 
 export function refundEmail(store: Store, number: number, amountCents: number, items: { title: string; quantity: number }[], reason: string, locale: Locale = "fr", currency = store.currency) {
-  const t = texts(store, "refund", { numero: String(number), montant: money(amountCents, currency, locale) }, locale);
+  const t = texts(store, "refund", { numero: orderNumber(store, number).replace(/^#/, ""), montant: money(amountCents, currency, locale) }, locale);
   return {
     subject: t.subject,
     html: t.layout(t.title, `${t.intro}
@@ -335,7 +342,7 @@ ${note ? `<p style="font-size:14px;line-height:1.5;color:#616161">« ${esc(note)
 
 export function returnApprovedEmail(store: Store, number: number, items: ReturnItem[], locale: Locale = "fr") {
   const L = T[locale];
-  const t = texts(store, "return_approved", { numero: String(number) }, locale);
+  const t = texts(store, "return_approved", { numero: orderNumber(store, number).replace(/^#/, "") }, locale);
   const instructions = store.returnInstructions.trim();
   return {
     subject: t.subject,
@@ -357,7 +364,7 @@ ${reason ? `<p style="font-size:14px;line-height:1.5;color:#616161">${L.reason}$
 
 export function invoiceEmail(store: Store, order: Order & { items: OrderItem[] }, link: string, message: string, locale: Locale = orderLocale(order)) {
   const L = T[locale];
-  const t = texts(store, "invoice", { prenom: firstName(order.name), numero: String(order.number), montant: money(order.totalCents, store.currency, locale) }, locale);
+  const t = texts(store, "invoice", { prenom: firstName(order.name), numero: orderNumber(store, order.number).replace(/^#/, ""), montant: money(order.totalCents, store.currency, locale) }, locale);
   return {
     subject: t.subject,
     html: t.layout(t.title,
@@ -418,7 +425,7 @@ export function chatReplyEmail(store: Store, name: string, authorName: string, b
 }
 
 export function pickupReadyEmail(store: Store, order: Order & { items: OrderItem[] }, locale: Locale = orderLocale(order)) {
-  const t = texts(store, "pickup_ready", { prenom: firstName(order.name), numero: String(order.number) }, locale);
+  const t = texts(store, "pickup_ready", { prenom: firstName(order.name), numero: orderNumber(store, order.number).replace(/^#/, "") }, locale);
   return {
     subject: t.subject,
     html: t.layout(t.title, `${t.intro}

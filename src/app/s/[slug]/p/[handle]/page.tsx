@@ -12,6 +12,7 @@ import { complementaryProducts } from "@/lib/recommendations";
 import { getStore } from "@/lib/storefront";
 import { bundleStock } from "@/lib/bundles";
 import { parseJson } from "@/lib/utils";
+import { deliveryWindow } from "@/lib/checkout-settings";
 import { getCustomer } from "@/lib/customer-auth";
 import { loadProPricing, proPrice } from "@/lib/b2b";
 import { dict, translate, type Locale } from "@/lib/i18n";
@@ -71,6 +72,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       variants={product.variants.map((v) => ({ id: v.id, title: v.title, optionValues: parseJson(v.optionValues, []), priceCents: proPrice(v.priceCents, v.id, pro), compareAtCents: proPrice(v.priceCents, v.id, pro) < v.priceCents ? v.priceCents : v.compareAtCents, stock: product.isGiftCard ? 99 : bundleLeft ?? v.stock, image: v.image }))}
       contents={contents}
       preorder={product.continueSelling}
+      delivery={(() => { const w = deliveryWindow(store); return w ? { from: w.from.toISOString(), to: w.to.toISOString() } : null; })()}
       subscription={product.subscriptionInterval ? { interval: product.subscriptionInterval, discountBps: product.subscriptionDiscountBps } : null}
       isGiftCard={product.isGiftCard}
     />
