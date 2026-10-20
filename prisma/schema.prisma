@@ -149,6 +149,7 @@ model Store {
   customerEvents           CustomerEvent[]
   storeCreditEntries       StoreCreditEntry[]
   mediaFiles               MediaFile[]
+  SavedView                SavedView[]
 }
 
 /// Abonnement d'un client à un produit : une commande est créée à chaque échéance.
@@ -1090,4 +1091,18 @@ model MediaFile {
   createdAt DateTime @default(now())
 
   @@unique([storeId, url])
+}
+
+/// Vue enregistrée d'une liste (commandes, produits, clients) : des filtres gardés sous un nom, comme sur Shopify.
+model SavedView {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  page      String // orders | products | customers
+  name      String
+  query     String // paramètres de la liste (ex. « tab=unpaid&channel=online »)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([storeId, page])
 }

@@ -10,6 +10,8 @@ import { formatMoney } from "@/lib/money";
 import { FULFILLMENT_LABELS, paymentLabel } from "@/lib/orders";
 import { isRiskLevel, RISK_LABELS } from "@/lib/risk";
 import { cx, formatDateTime } from "@/lib/utils";
+import { listViews } from "@/lib/saved-views-data";
+import { SavedViews } from "@/components/admin/SavedViews";
 
 const TABS = [
   { key: "all", label: "Toutes" },
@@ -36,13 +38,16 @@ function filter(storeId: string, tab: string): Prisma.OrderWhereInput {
 
 const isChannel = (c: string): c is Channel => Object.hasOwn(CHANNELS, c);
 
-export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ tab?: string; q?: string; tag?: string; channel?: string }> }) {
+export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ tab?: string; q?: string; tag?: string; channel?: string; view?: string }> }) {
   const sp = await searchParams;
   const { tab = "all", q = "" } = sp;
   const tag = (sp.tag ?? "").trim().toLowerCase();
   const channel = sp.channel && isChannel(sp.channel) ? sp.channel : null;
   const { store } = await requirePerm("orders");
   await archiveFinishedOrders();
+  // Vues enregistrées : les filtres actifs (hors onglet par défaut) peuvent être gardés sous un nom.
+  const views = await listViews(store.id, "orders");
+  const currentQuery = new URLSearchParams(Object.entries({ tab: tab !== "all" ? tab : "", q, tag, channel: channel ?? "" }).filter(([, v]) => v)).toString();
   const counts = await Promise.all(TABS.map((t) => db.order.count({ where: filter(store.id, t.key) })));
   const n = Number(q.replace("#", ""));
   const found = await db.order.findMany({
@@ -78,6 +83,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               {t.label}{t.key !== "all" && counts[i] > 0 && <span className="ml-1 text-xs tabular-nums text-muted">{counts[i]}</span>}
             </Link>
           ))}
+          <SavedViews page="orders" basePath="/admin/orders" views={views} currentQuery={currentQuery} activeId={sp.view ?? null} />
           <form className="ml-auto flex items-center gap-1.5">
             <input type="hidden" name="tab" value={tab} />
             {tag && <input type="hidden" name="tag" value={tag} />}
