@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "../db";
+import { parseJsonLenient } from "./schema";
 
 /** Réglage d'un schéma Shopify (settings_schema.json ou {% schema %} d'une section). */
 export type SchemaSetting = { type: string; id?: string; label?: string; default?: unknown; info?: string; options?: { value: string; label: string }[]; min?: number; max?: number; step?: number; unit?: string; placeholder?: string; content?: string; limit?: number };
@@ -21,7 +22,8 @@ export const EDITABLE_TEMPLATES: { key: string; label: string; preview: (sample:
   { key: "password", label: "Mot de passe", preview: () => "/password" },
 ];
 
-const parseJson = <T,>(s: string | null | undefined, fallback: T): T => { try { return s ? (JSON.parse(s) as T) : fallback; } catch { return fallback; } };
+// Les fichiers des thèmes tolèrent virgules finales et commentaires : même lecture indulgente que le moteur.
+const parseJson = <T,>(s: string | null | undefined, fallback: T): T => (s ? parseJsonLenient<T>(s) ?? fallback : fallback);
 
 /** Schéma d'une section d'après son bloc {% schema %}. */
 export function readSectionSchema(liquid: string): SectionSchema | null {

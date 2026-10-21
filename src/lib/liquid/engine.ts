@@ -289,7 +289,9 @@ async function buildState(engine: Engine, source: ThemeSource, data: PageData): 
     shop: data.shop?.permanent_domain ?? data.shop?.domain ?? "", locale, currency: { active: data.money?.currency ?? "EUR", rate: String(data.money?.rate ?? 1) }, country: data.localization?.country?.iso_code ?? "FR",
     theme: { ...theme, schema_name: config.themeName, schema_version: "1.0" }, routes: { root }, designMode: !!data.design_mode, cdnHost: "",
   };
-  const contentForHeader = `${data.content_for_header ?? ""}\n<script>window.Shopify = window.Shopify || {};Object.assign(window.Shopify, ${JSON.stringify(shopify)});</script>`;
+  // window.Shopify comme sur Shopify : identité de la boutique, plus les fonctions que les thèmes appellent
+  // (loadFeatures pour la 3D et le consentement, customerPrivacy, PaymentButton) en version neutre.
+  const contentForHeader = `${data.content_for_header ?? ""}\n<script>window.Shopify = window.Shopify || {};Object.assign(window.Shopify, ${JSON.stringify(shopify)});Shopify.customerPrivacy=Shopify.customerPrivacy||{userCanBeTracked:function(){return true},getTrackingConsent:function(){return "yes"},setTrackingConsent:function(c,cb){if(cb)cb()},shouldShowBanner:function(){return false},shouldShowGDPRBanner:function(){return false},currentVisitorConsent:function(){return{marketing:"yes",analytics:"yes",preferences:"yes",sale_of_data:"no"}},analyticsProcessingAllowed:function(){return true},marketingAllowed:function(){return true},preferencesProcessingAllowed:function(){return true},saleOfDataAllowed:function(){return false},consentLevels:{}};Shopify.loadFeatures=Shopify.loadFeatures||function(features,cb){(features||[]).forEach(function(f){if(f&&typeof f.onLoad==="function")try{f.onLoad(null)}catch(e){}});if(typeof cb==="function")cb(null)};Shopify.PaymentButton=Shopify.PaymentButton||{init:function(){}};Shopify.ModelViewerUI=Shopify.ModelViewerUI||function(){};</script>`;
 
   Object.assign(globals, {
     ...data,

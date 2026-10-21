@@ -63,12 +63,18 @@ async function context(req: Request, slug: string, path: string, design?: Design
 function contentForHeader(c: Ctx) {
   const track = c.theme.preview || c.access.preview ? "" : `<script>(function(){var s=${JSON.stringify(c.store.slug)};var u={};new URLSearchParams(location.search).forEach(function(v,k){if(k.indexOf("utm_")===0)u[k]=v});var d=/Mobi|Android/i.test(navigator.userAgent)?(/iPad|Tablet/i.test(navigator.userAgent)?"tablet":"mobile"):"desktop";function send(t){fetch("/s/"+s+"/track",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({type:t,path:location.pathname,referrer:document.referrer,utm:u,cartItems:${c.cart.item_count},device:d})}).catch(function(){})}send("view");setInterval(function(){if(document.visibilityState==="visible")send("ping")},30000)})();</script>`;
   if (c.design) return `<meta name="generator" content="Revolution Ecom"><meta name="robots" content="noindex">${designModeScript(c.design.names)}`;
-  const banner = c.theme.preview && !c.theme.platform ? `<div style="position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#1a1a1a;color:#fff;font:13px system-ui;padding:8px 16px;display:flex;gap:12px;align-items:center;justify-content:center">Aperçu du brouillon « ${c.theme.name.replace(/</g, "&lt;")} » : seule votre équipe le voit. <a href="${c.root}/preview?exit=1" style="color:#fff;text-decoration:underline">Quitter l'aperçu</a></div>` : "";
-  return `<meta name="generator" content="Revolution Ecom">${track}${banner}`;
+  return `<meta name="generator" content="Revolution Ecom">${track}`;
 }
 
+/** Bandeau d'aperçu d'un brouillon : ajouté en fin de <body> (jamais dans <head>, ce qui casserait l'analyse du document). */
+function previewBanner(c: Ctx) {
+  const banner = c.theme.preview && !c.theme.platform && !c.design ? `<div style="position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#1a1a1a;color:#fff;font:13px system-ui;padding:8px 16px;display:flex;gap:12px;align-items:center;justify-content:center">Aperçu du brouillon « ${c.theme.name.replace(/</g, "&lt;")} » : seule votre équipe le voit. <a href="${c.root}/preview?exit=1" style="color:#fff;text-decoration:underline">Quitter l'aperçu</a></div>` : "";
+  return banner;
+}
+const withBanner = (html: string, c: Ctx) => { const b = previewBanner(c); return b ? (html.includes("</body>") ? html.replace("</body>", `${b}</body>`) : html + b) : html; };
+
 const jsonHeaders = (extra: Record<string, string> = {}) => ({ "Content-Type": "application/json; charset=utf-8", ...extra });
-const wantsJson = (req: Request, path: string) => /\.(js|json)$/.test(path) || (req.headers.get("accept") ?? "").includes("application/json") || (req.headers.get("content-type") ?? "").includes("application/json");
+const wantsJson = (req: Request, path: string) => /\.(js|json)$/.test(path) || /application\/(json|javascript)/.test(req.headers.get("accept") ?? "") || (req.headers.get("content-type") ?? "").includes("application/json");
 
 async function page(c: Ctx, req: Request, template: PageData["template"], extra: Partial<BuildOpts> & { status?: number; setCookie?: string[] } = {}): Promise<Response> {
   const data = await buildPageData({
@@ -88,7 +94,7 @@ async function page(c: Ctx, req: Request, template: PageData["template"], extra:
   const sectionId = c.url.searchParams.get("section_id");
   if (sectionId) return new NextResponse(await renderSection(c.source, data, sectionId), { headers });
   const res = await renderPage(c.source, data);
-  const r = new NextResponse(rewriteShopifyCdn(res.html, c.theme, c.root || `/s/${c.store.slug}`), { status: extra.status ?? res.status ?? 200, headers: { ...headers, ...res.headers } });
+  const r = new NextResponse(withBanner(rewriteShopifyCdn(res.html, c.theme, c.root || `/s/${c.store.slug}`), c), { status: extra.status ?? res.status ?? 200, headers: { ...headers, ...res.headers } });
   for (const sc of extra.setCookie ?? []) r.headers.append("Set-Cookie", sc);
   return r;
 }
@@ -117,8 +123,9 @@ async function get(req: Request, c: Ctx): Promise<Response> {
   if (path === "/products") return redirect("/collections/all");
 
   if (path === "/" || path === "") return page(c, req, "index");
-  if (path === "/cart") return page(c, req, "cart");
-  if (path === "/cart.js" || path === "/cart.json") return NextResponse.json(c.cart, { headers: jsonHeaders({ "Cache-Control": "private, no-store" }) });
+  // Les thèmes lisent aussi le panier sur /cart avec Accept: application/json (comme sur Shopify).
+  if (path === "/cart" && !wantsJson(req, path)) return page(c, req, "cart");
+  if (path === "/cart" || path === "/cart.js" || path === "/cart.json") return NextResponse.json(c.cart, { headers: jsonHeaders({ "Cache-Control": "private, no-store" }) });
   if (path === "/checkout") {
     // Pont vers le paiement natif : le panier serveur est recopié dans le navigateur, puis la page de paiement de l'app s'ouvre.
     const items = c.lines.map((l) => ({ variantId: l.v, quantity: l.q }));
@@ -380,7 +387,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const path = req.headers.get("x-liquid-path") ?? `/${((await params).path ?? []).join("/")}`;
   if (path === "/design-preview") {
     // Éditeur : rendu d'une page avec les fichiers en cours de modification, sans rien enregistrer.
-    const b = (await req.json().catch(() => null)) as { themeId?: string; path?: string; overrides?: Record<string, string>; names?: Record<string, string> } | null;
+    // JSON, ou formulaire soumis dans le cadre de l'éditeur (vraie navigation : scripts et événements comme en production).
+    const raw = await body(req);
+    const parse = <T,>(v: unknown, fallback: T): T => { if (v && typeof v === "object") return v as T; try { return v ? (JSON.parse(String(v)) as T) : fallback; } catch { return fallback; } };
+    const b = { themeId: typeof raw.themeId === "string" ? raw.themeId : undefined, path: typeof raw.path === "string" ? raw.path : undefined, overrides: parse<Record<string, string>>(raw.overrides, {}), names: parse<Record<string, string>>(raw.names, {}) };
     if (!b?.themeId || typeof b.path !== "string") return new NextResponse("Requête invalide", { status: 400 });
     const overrides = Object.fromEntries(Object.entries(b.overrides ?? {}).filter(([k, v]) => /^(templates|sections|config)\/[\w./-]+\.json$/.test(k) && typeof v === "string" && v.length < 1_000_000).slice(0, 40));
     const target = new URL(b.path.startsWith("/") ? b.path : `/${b.path}`, req.url);

@@ -87,22 +87,24 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
     return out;
   }, [tpl, groups, current]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Aperçu en direct : la page est rendue par le serveur avec les fichiers en cours de modification, puis écrite dans le cadre. */
+  /**
+   * Aperçu en direct : la page est rendue par le serveur avec les fichiers en cours de modification. Le formulaire caché
+   * est soumis dans le cadre : une vraie navigation, où les scripts du thème s'exécutent comme en production.
+   */
   const previewPath = previews[current] ?? "/";
+  const previewForm = useRef<HTMLFormElement>(null);
   useEffect(() => {
-    const ctrl = new AbortController();
-    const t = setTimeout(async () => {
+    const t = setTimeout(() => {
+      const f = previewForm.current;
+      if (!f) return;
+      (f.elements.namedItem("path") as HTMLInputElement).value = previewPath;
+      (f.elements.namedItem("overrides") as HTMLInputElement).value = JSON.stringify(changedFiles());
+      (f.elements.namedItem("names") as HTMLInputElement).value = JSON.stringify(names());
       setRendering(true);
-      try {
-        const res = await fetch(`/s/${slug}/liquid/design-preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ themeId, path: previewPath, overrides: changedFiles(), names: names() }), signal: ctrl.signal });
-        const html = await res.text();
-        const doc = iframe.current?.contentDocument;
-        if (!doc) return;
-        doc.open(); doc.write(html); doc.close();
-      } catch { /* requête annulée ou aperçu indisponible : le cadre garde la version précédente */ } finally { setRendering(false); }
+      f.submit();
     }, 350);
-    return () => { clearTimeout(t); ctrl.abort(); };
-  }, [state, previewPath, slug, themeId, changedFiles, names]);
+    return () => clearTimeout(t);
+  }, [state, previewPath, changedFiles, names]);
 
   // Messages de l'aperçu : survol, clic sur une section ou un bloc, « + » entre les sections, position de défilement.
   useEffect(() => {
@@ -330,7 +332,10 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
         </aside>
         <main className="flex min-w-0 flex-1 justify-center overflow-hidden p-3">
           <div className="flex h-full flex-col overflow-hidden rounded-xl border border-line bg-white shadow-sm transition-[width]" style={{ width: DEVICES[device].width, maxWidth: "100%" }}>
-            <iframe ref={iframe} title="Aperçu" className="min-h-0 w-full flex-1 bg-white" />
+            <iframe ref={iframe} name="rv-theme-preview" title="Aperçu" onLoad={() => setRendering(false)} className="min-h-0 w-full flex-1 bg-white" />
+            <form ref={previewForm} method="post" action={`/s/${slug}/liquid/design-preview`} target="rv-theme-preview" className="hidden" aria-hidden>
+              <input type="hidden" name="themeId" value={themeId} /><input type="hidden" name="path" /><input type="hidden" name="overrides" /><input type="hidden" name="names" />
+            </form>
           </div>
         </main>
         {inspectorPanel()}
