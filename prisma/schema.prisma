@@ -1014,6 +1014,8 @@ model PageView {
   utmCampaign String   @default("")
   landing     Boolean  @default(false) // première page de la visite
   device      String   @default("") // mobile | desktop | tablet
+  country     String   @default("") // nom français du pays (d'après l'adresse IP, via l'hébergeur)
+  city        String   @default("")
   createdAt   DateTime @default(now())
 
   @@index([storeId, createdAt])
@@ -1027,6 +1029,10 @@ model LiveVisitor {
   store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   path       String   @default("")
   cartItems  Int      @default(0)
+  country    String   @default("")
+  city       String   @default("")
+  lat        Float?
+  lng        Float?
   lastSeenAt DateTime @default(now())
 
   @@index([storeId, lastSeenAt])

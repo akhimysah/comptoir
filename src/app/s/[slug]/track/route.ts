@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requestGeo } from "@/lib/geo";
 import { clientIp, hit } from "@/lib/rate-limit";
 import { SESSION_COOKIE } from "@/lib/traffic";
 
@@ -26,6 +27,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     res.cookies.set(SESSION_COOKIE, sessionId, { path: "/", maxAge: 30 * 60, sameSite: "lax", httpOnly: true, secure: process.env.NODE_ENV === "production" }); // la session dure 30 min après la dernière activité
   }
   const path = String(b.path ?? "/").slice(0, 300);
+  const geo = requestGeo(req.headers);
   const clean = (v: unknown, n = 200) => (typeof v === "string" ? v.slice(0, n) : "");
   if (b.type === "view") {
     if (!landing) landing = !(await db.pageView.findFirst({ where: { storeId: store.id, sessionId }, select: { id: true } }));
@@ -33,9 +35,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     const ref = clean(b.referrer, 500);
     let external = "";
     try { if (ref && new URL(ref).host !== new URL(req.url).host) external = ref; } catch {}
-    await db.pageView.create({ data: { storeId: store.id, sessionId, path, referrer: external, utmSource: clean(b.utm?.utm_source, 80), utmMedium: clean(b.utm?.utm_medium, 80), utmCampaign: clean(b.utm?.utm_campaign, 120), landing, device: ["mobile", "tablet", "desktop"].includes(String(b.device)) ? String(b.device) : "" } });
+    await db.pageView.create({ data: { storeId: store.id, sessionId, path, referrer: external, utmSource: clean(b.utm?.utm_source, 80), utmMedium: clean(b.utm?.utm_medium, 80), utmCampaign: clean(b.utm?.utm_campaign, 120), landing, device: ["mobile", "tablet", "desktop"].includes(String(b.device)) ? String(b.device) : "", country: geo.country, city: geo.city } });
   }
   const cartItems = Math.max(0, Math.min(999, Math.floor(Number(b.cartItems) || 0)));
-  await db.liveVisitor.upsert({ where: { sessionId }, update: { path, cartItems, lastSeenAt: new Date() }, create: { sessionId, storeId: store.id, path, cartItems } });
+  await db.liveVisitor.upsert({ where: { sessionId }, update: { path, cartItems, lastSeenAt: new Date(), ...geo }, create: { sessionId, storeId: store.id, path, cartItems, ...geo } });
   return res;
 }
