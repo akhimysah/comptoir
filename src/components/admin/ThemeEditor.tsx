@@ -10,6 +10,7 @@ import { blankSection, FONTS, PRESETS, SECTION_LABELS, themeVars, type FontKey, 
 import { cx } from "@/lib/utils";
 import { ImageField } from "./ImageField";
 import { MenuPopover } from "./MenuPopover";
+import { SortableList } from "./SortableList";
 
 const COLOR_LABELS: Record<keyof Theme["colors"], string> = {
   background: "Fond",
@@ -124,24 +125,18 @@ export function ThemeEditor({ themeId, name, published, initial, store, products
 
   const current = panel.kind === "section" ? theme.sections.find((s) => s.id === panel.id) ?? null : null;
   const selectedId = current?.id ?? null;
-  const dragFrom = useRef<number | null>(null);
   const iconBtn = (active = false) => cx("grid h-8 w-8 place-items-center rounded-lg text-[#4a4a4a] hover:bg-[#f1f1f1] disabled:opacity-30 disabled:hover:bg-transparent", active && "bg-[#e3e3e3] text-ink");
 
   /** Ligne de la colonne de gauche (section, en-tête, barre d'annonce…). */
-  const Row = ({ icon, label, sub, active, onClick, hidden, onToggle, draggable, i, chevron = true }: { icon: string; label: string; sub?: string; active?: boolean; onClick: () => void; hidden?: boolean; onToggle?: () => void; draggable?: boolean; i?: number; chevron?: boolean }) => (
-    <div
-      className={cx("group flex items-center gap-1 rounded-lg pr-1 hover:bg-[#f1f1f1]", active && "bg-[#ebebeb]", hidden && "opacity-50")}
-      draggable={draggable}
-      onDragStart={draggable ? () => { dragFrom.current = i!; } : undefined}
-      onDragOver={draggable ? (e) => e.preventDefault() : undefined}
-      onDrop={draggable ? () => { if (dragFrom.current != null) moveTo(dragFrom.current, i!); dragFrom.current = null; } : undefined}
-    >
+  type Handle = { onPointerDown: (e: React.PointerEvent) => void; className: string };
+  const Row = ({ icon, label, sub, active, onClick, hidden, onToggle, handle, chevron = true }: { icon: string; label: string; sub?: string; active?: boolean; onClick: () => void; hidden?: boolean; onToggle?: () => void; handle?: Handle; chevron?: boolean }) => (
+    <div className={cx("group flex items-center gap-1 rounded-lg pr-1 hover:bg-[#f1f1f1]", active && "bg-[#ebebeb]", hidden && "opacity-50")}>
       <button type="button" onClick={onClick} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-2 text-left text-[13px]">
         {chevron ? <I n="chevron" className="h-3.5 w-3.5 shrink-0 text-[#8a8a8a]" /> : <span className="w-3.5" />}
         <I n={icon} className="h-4 w-4 shrink-0 text-[#4a4a4a]" />
         <span className="min-w-0 flex-1 truncate">{label}{sub && <span className="ml-1.5 text-xs text-muted">{sub}</span>}</span>
       </button>
-      {draggable && <span className="cursor-grab text-[#b5b5b5] opacity-0 group-hover:opacity-100" aria-hidden><I n="grip" className="h-4 w-4" /></span>}
+      {handle && <span {...handle} className={cx(handle.className, "grid h-7 w-7 place-items-center rounded-md text-[#8a8a8a] opacity-0 hover:bg-[#e3e3e3] group-hover:opacity-100")} title="Glisser pour déplacer" aria-label="Déplacer"><I n="grip" className="h-4 w-4" /></span>}
       {onToggle && <button type="button" onClick={onToggle} className={cx("grid h-7 w-7 place-items-center rounded-md text-[#6b6b6b] hover:bg-[#e3e3e3]", !hidden && "opacity-0 group-hover:opacity-100")} aria-label={hidden ? "Afficher" : "Masquer"}><I n={hidden ? "eyeOff" : "eye"} className="h-4 w-4" /></button>}
     </div>
   );
@@ -219,14 +214,14 @@ export function ThemeEditor({ themeId, name, published, initial, store, products
               <div className="border-b border-line px-4 py-3 text-[13px] font-[650]">Page d&apos;accueil</div>
               <div className="border-b border-line p-2">
                 <div className="px-2 pb-1 pt-1 text-xs font-[650] text-[#4a4a4a]">Groupe d&apos;en-tête</div>
-                <Row icon="marquee" label="Barre d'annonces" active={false} hidden={!theme.announcement} onClick={() => setPanel({ kind: "announcement" })} onToggle={() => setPanel({ kind: "announcement" })} />
-                <Row icon="header" label="En-tête" onClick={() => setPanel({ kind: "header" })} />
+                {Row({ icon: "marquee", label: "Barre d'annonces", active: false, hidden: !theme.announcement, onClick: () => setPanel({ kind: "announcement" }), onToggle: () => setPanel({ kind: "announcement" }) })}
+                {Row({ icon: "header", label: "En-tête", onClick: () => setPanel({ kind: "header" }) })}
               </div>
               <div className="border-b border-line p-2">
                 <div className="px-2 pb-1 pt-1 text-xs font-[650] text-[#4a4a4a]">Modèle</div>
-                {theme.sections.map((s, i) => (
-                  <Row key={s.id} i={i} draggable icon={SECTION_ICON[s.type]} label={SECTION_LABELS[s.type]} sub={"title" in s && s.title ? s.title : undefined} active={selectedId === s.id} hidden={s.hidden} onClick={() => setPanel({ kind: "section", id: s.id })} onToggle={() => updateSection(s.id, { hidden: !s.hidden })} />
-                ))}
+                <SortableList ids={theme.sections.map((s) => s.id)} onMove={moveTo}>
+                  {(id, handle) => { const s = theme.sections.find((x) => x.id === id)!; return Row({ handle, icon: SECTION_ICON[s.type], label: SECTION_LABELS[s.type], sub: "title" in s && s.title ? s.title : undefined, active: selectedId === s.id, hidden: s.hidden, onClick: () => setPanel({ kind: "section", id: s.id }), onToggle: () => updateSection(s.id, { hidden: !s.hidden }) }); }}
+                </SortableList>
                 <div className="relative">
                   <button type="button" onClick={() => setAdding((a) => !a)} className="flex items-center gap-2 px-2 py-2 text-[13px] font-[550] text-[#005bd3] hover:underline"><I n="plus" className="h-4 w-4" />Ajouter une section</button>
                   {adding && (
@@ -238,8 +233,8 @@ export function ThemeEditor({ themeId, name, published, initial, store, products
               </div>
               <div className="p-2">
                 <div className="px-2 pb-1 pt-1 text-xs font-[650] text-[#4a4a4a]">Groupe de pied de page</div>
-                <Row icon="mail" label="Newsletter" onClick={() => setPanel({ kind: "footer" })} chevron={false} />
-                <Row icon="footer" label="Pied de page" onClick={() => setPanel({ kind: "footer" })} />
+                {Row({ icon: "mail", label: "Newsletter", onClick: () => setPanel({ kind: "footer" }), chevron: false })}
+                {Row({ icon: "footer", label: "Pied de page", onClick: () => setPanel({ kind: "footer" }) })}
               </div>
             </div>
           )}

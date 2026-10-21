@@ -8,6 +8,7 @@ import { schemaLabel } from "@/lib/liquid/schema-label";
 import { cx } from "@/lib/utils";
 import { ImageField } from "./ImageField";
 import { MenuPopover } from "./MenuPopover";
+import { SortableList } from "./SortableList";
 import { I } from "./ThemeEditor";
 
 type Pick = { handle: string; title: string };
@@ -150,32 +151,35 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
     setInspector({ group, id });
   };
   const iconBtn = (active = false) => cx("grid h-8 w-8 place-items-center rounded-lg text-[#4a4a4a] hover:bg-[#f1f1f1] disabled:opacity-30 disabled:hover:bg-transparent", active && "bg-[#e3e3e3] text-ink");
-  const dragFrom = useRef<{ group: string | null; i: number } | null>(null);
 
   /** Ligne de l'arborescence : une section, avec ses blocs dépliés quand elle est sélectionnée. */
-  const Row = ({ group, id, i }: { group: string | null; id: string; i: number }) => {
+  /** Ligne de l'arborescence (appelée comme fonction : le DOM n'est pas recréé à chaque rendu). */
+  const Row = ({ group, id, handle }: { group: string | null; id: string; handle: { onPointerDown: (e: React.PointerEvent) => void; className: string } }) => {
     const d = doc(group); const s = d.sections[id]; if (!s) return null;
     const sc = schemaOf(s.type);
     const active = inspector?.id === id;
     const blockOrder = s.block_order ?? Object.keys(s.blocks ?? {});
     return (
       <div>
-        <div className={cx("group flex items-center gap-1 rounded-lg pr-1 hover:bg-[#f1f1f1]", (active || hover === id) && "bg-[#ebebeb]", s.disabled && "opacity-50")} draggable onDragStart={() => { dragFrom.current = { group, i }; }} onDragOver={(e) => e.preventDefault()} onDrop={() => { const f = dragFrom.current; dragFrom.current = null; if (!f || f.group !== group || f.i === i) return; setDoc(group, (dd) => { const o = [...dd.order]; const [x] = o.splice(f.i, 1); o.splice(i, 0, x); return { ...dd, order: o }; }); }}>
+        <div className={cx("group flex items-center gap-1 rounded-lg pr-1 hover:bg-[#f1f1f1]", (active || hover === id) && "bg-[#ebebeb]", s.disabled && "opacity-50")}>
           <button type="button" onClick={() => setInspector(active && !inspector?.blockId ? null : { group, id })} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-2 text-left text-[13px]">
             <I n="chevron" className={cx("h-3.5 w-3.5 shrink-0 text-[#8a8a8a] transition", active && "rotate-90")} /><I n="sections" className="h-4 w-4 shrink-0 text-[#4a4a4a]" />
             <span className="min-w-0 flex-1 truncate ">{label(s.type)}</span>
           </button>
-          <span className="cursor-grab text-[#b5b5b5] opacity-0 group-hover:opacity-100" aria-hidden><I n="grip" className="h-4 w-4" /></span>
+          <span {...handle} className={cx(handle.className, "grid h-7 w-7 place-items-center rounded-md text-[#8a8a8a] opacity-0 hover:bg-[#e3e3e3] group-hover:opacity-100")} title="Glisser pour déplacer" aria-label="Déplacer"><I n="grip" className="h-4 w-4" /></span>
           <button type="button" onClick={() => setDoc(group, (dd) => ({ ...dd, sections: { ...dd.sections, [id]: { ...s, disabled: !s.disabled } } }))} className={cx("grid h-7 w-7 place-items-center rounded-md text-[#6b6b6b] hover:bg-[#e3e3e3]", !s.disabled && "opacity-0 group-hover:opacity-100")} aria-label={s.disabled ? "Afficher" : "Masquer"}><I n={s.disabled ? "eyeOff" : "eye"} className="h-4 w-4" /></button>
         </div>
         {active && sc?.blocks?.length ? (
           <div className="ml-6 border-l border-line pl-1">
-            {blockOrder.map((bid) => { const b = s.blocks?.[bid]; if (!b) return null; const bs = sc.blocks!.find((x) => x.type === b.type); return (
-              <div key={bid} className={cx("group flex items-center rounded-lg hover:bg-[#f1f1f1]", inspector?.blockId === bid && "bg-[#ebebeb]", b.disabled && "opacity-50")}>
-                <button type="button" onClick={() => setInspector({ group, id, blockId: bid })} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-left text-[13px]"><I n="text" className="h-3.5 w-3.5 text-[#8a8a8a]" /><span className="truncate ">{tr(bs?.name) || b.type}</span></button>
-                <button type="button" onClick={() => setDoc(group, (dd) => ({ ...dd, sections: { ...dd.sections, [id]: { ...s, blocks: { ...s.blocks, [bid]: { ...b, disabled: !b.disabled } } } } }))} className={cx("grid h-6 w-6 place-items-center rounded-md text-[#6b6b6b] hover:bg-[#e3e3e3]", !b.disabled && "opacity-0 group-hover:opacity-100")} aria-label={b.disabled ? "Afficher" : "Masquer"}><I n={b.disabled ? "eyeOff" : "eye"} className="h-3.5 w-3.5" /></button>
-              </div>
-            ); })}
+            <SortableList ids={blockOrder} onMove={(from, to) => setDoc(group, (dd) => { const o = [...blockOrder]; const [x] = o.splice(from, 1); o.splice(to, 0, x); return { ...dd, sections: { ...dd.sections, [id]: { ...s, block_order: o } } }; })}>
+              {(bid, bh) => { const b = s.blocks?.[bid]; if (!b) return null; const bs = sc.blocks!.find((x) => x.type === b.type); return (
+                <div className={cx("group flex items-center rounded-lg hover:bg-[#f1f1f1]", inspector?.blockId === bid && "bg-[#ebebeb]", b.disabled && "opacity-50")}>
+                  <button type="button" onClick={() => setInspector({ group, id, blockId: bid })} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-left text-[13px]"><I n="text" className="h-3.5 w-3.5 text-[#8a8a8a]" /><span className="truncate">{tr(bs?.name) || b.type}</span></button>
+                  <span {...bh} className={cx(bh.className, "grid h-6 w-6 place-items-center rounded-md text-[#8a8a8a] opacity-0 hover:bg-[#e3e3e3] group-hover:opacity-100")} aria-label="Déplacer"><I n="grip" className="h-3.5 w-3.5" /></span>
+                  <button type="button" onClick={() => setDoc(group, (dd) => ({ ...dd, sections: { ...dd.sections, [id]: { ...s, blocks: { ...s.blocks, [bid]: { ...b, disabled: !b.disabled } } } } }))} className={cx("grid h-6 w-6 place-items-center rounded-md text-[#6b6b6b] hover:bg-[#e3e3e3]", !b.disabled && "opacity-0 group-hover:opacity-100")} aria-label={b.disabled ? "Afficher" : "Masquer"}><I n={b.disabled ? "eyeOff" : "eye"} className="h-3.5 w-3.5" /></button>
+                </div>
+              ); }}
+            </SortableList>
             {blockOrder.length < (sc.max_blocks ?? 50) && (
               <details><summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1 text-[13px] font-[550] text-[#005bd3] hover:underline"><I n="plus" className="h-3.5 w-3.5" />Ajouter un bloc</summary>
                 <div className="ml-2 flex flex-col gap-0.5 rounded-lg border border-line p-1">{sc.blocks.filter((bt) => bt.type !== "@app").map((bt) => <button key={bt.type} type="button" onClick={() => { const bid = `${bt.type}_${uid()}`; setDoc(group, (dd) => ({ ...dd, sections: { ...dd.sections, [id]: { ...s, blocks: { ...s.blocks, [bid]: { type: bt.type, settings: Object.fromEntries((bt.settings ?? []).filter((x) => x.id && x.default !== undefined).map((x) => [x.id!, x.default])) } }, block_order: [...blockOrder, bid] } } })); setInspector({ group, id, blockId: bid }); }} className="rounded px-2 py-1 text-left text-[13px] hover:bg-[#f1f1f1]">{tr(bt.name) || bt.type}</button>)}</div>
@@ -258,10 +262,15 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
   const otherGroups = Object.entries(groups).filter(([, g]) => g.type !== "header" && g.type !== "footer");
   const tplDoc = tpl[current];
   const generalSchema = data.schema.filter((g) => g.name !== "theme_info");
+  const sectionList = (group: string | null, order: string[]) => (
+    <SortableList ids={order} onMove={(from, to) => setDoc(group, (dd) => { const o = [...dd.order]; const [x] = o.splice(from, 1); o.splice(to, 0, x); return { ...dd, order: o }; })}>
+      {(id, handle) => Row({ group, id, handle })}
+    </SortableList>
+  );
   const groupBlock = (k: string, g: TemplateJson, fallback: string) => (
     <div key={k} className="border-b border-line p-2">
       <div className="px-2 pb-1 pt-1 text-xs font-[650] text-[#4a4a4a]">{GROUP_NAMES[tr(g.name)] ?? tr(g.name) ?? fallback}</div>
-      {g.order.map((id, i) => <Row key={id} group={k} id={id} i={i} />)}
+      {sectionList(k, g.order)}
       <AddLink group={k} index={g.order.length} />
     </div>
   );
@@ -311,7 +320,7 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
               {headerGroups.map(([k, g]) => groupBlock(k, g, "Groupe d'en-tête"))}
               <div className="border-b border-line p-2">
                 <div className="px-2 pb-1 pt-1 text-xs font-[650] text-[#4a4a4a]">Modèle</div>
-                {tplDoc ? tplDoc.order.map((id, i) => <Row key={id} group={null} id={id} i={i} />) : <p className="px-2 py-2 text-xs text-muted">Ce gabarit n&apos;est pas au format JSON : modifiez-le dans « Modifier le code ».</p>}
+                {tplDoc ? sectionList(null, tplDoc.order) : <p className="px-2 py-2 text-xs text-muted">Ce gabarit n&apos;est pas au format JSON : modifiez-le dans « Modifier le code ».</p>}
                 {tplDoc && <AddLink group={null} index={tplDoc.order.length} />}
               </div>
               {otherGroups.map(([k, g]) => groupBlock(k, g, k))}
