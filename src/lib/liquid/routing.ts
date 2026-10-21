@@ -3,7 +3,7 @@ import { db } from "../db";
 import { previewCookie } from "../storefront";
 
 /** Chemins de la boutique toujours servis par l'app React, même sous un thème Shopify (paiement, compte, mesure…). */
-const NATIVE = /^\/(track|vitals|assets|preview|pay|order|account|currency|lang|market|feeds|sitemap\.xml|robots\.txt|unsubscribe|password|reviews|stock-alert|chat|favorites|liquid)(\/|$)/;
+const NATIVE = /^\/(track|vitals|assets|preview|pay|order|currency|lang|market|feeds|sitemap\.xml|robots\.txt|unsubscribe|password|reviews|stock-alert|chat|favorites|liquid)(\/|$)/;
 
 const cache = new Map<string, { until: number; value: string | null }>();
 const remember = (key: string, value: string | null) => { if (cache.size > 2000) cache.clear(); cache.set(key, { until: Date.now() + 30_000, value }); return value; };

@@ -448,6 +448,9 @@ model Customer {
   priceList         PriceList?         @relation(fields: [priceListId], references: [id], onDelete: SetNull)
   paymentTermsDays  Int                @default(0) // 0 = paiement à la commande ; 15, 30, 45, 60 = paiement à échéance
   taxExempt         Boolean            @default(false)
+  passwordHash      String? // compte avec mot de passe (thèmes Shopify) ; null = connexion par code uniquement
+  resetTokenHash    String? // réinitialisation du mot de passe en cours
+  resetExpiresAt    DateTime?
   locale            String             @default("fr")
   storeCreditCents  Int                @default(0)
   events            CustomerEvent[]

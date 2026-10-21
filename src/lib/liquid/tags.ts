@@ -288,9 +288,9 @@ function formAction(type: string, state: RenderState, obj: unknown): string {
     case "guest_login": return r.account_login_url;
     case "create_customer": return r.account_register_url;
     case "recover_customer_password": return r.account_recover_url;
-    case "reset_customer_password": return join(r.account_url, "reset");
+    case "reset_customer_password": return state.data.request?.path ?? join(r.account_url, "reset"); // renvoie vers le lien reçu (/account/reset/<id>/<jeton>)
     case "activate_customer_password": return join(r.account_url, "activate");
-    case "customer_address": return r.account_addresses_url;
+    case "customer_address": { const id = (obj as { id?: string | null })?.id; return id ? `${r.account_addresses_url}/${id}` : r.account_addresses_url; }
     case "localization": return join(root, "localization");
     case "currency": return join(root, "currency");
     case "storefront_password": return join(root, "password");
@@ -346,7 +346,8 @@ export class FormTag extends Tag {
     const fields = result?.fields ?? {};
     const product = type === "product" ? (obj as { id?: string } | undefined) : undefined;
     const defaultId: Record<string, string> = { product: `product_form_${product?.id ?? ""}`, contact: "contact_form", customer: "contact_form", customer_login: "customer_login", create_customer: "create_customer", recover_customer_password: "recover_customer_password", localization: "localization_form", storefront_password: "login_form", new_comment: "comment_form" };
-    const id = params.id != null ? toStr(params.id) : defaultId[type] ?? `${type}_form`;
+    const addressId = type === "customer_address" ? (obj as { id?: string | null })?.id ?? null : null;
+    const id = params.id != null ? toStr(params.id) : type === "customer_address" ? `address_form_${addressId ?? "new"}` : defaultId[type] ?? `${type}_form`;
     const form = {
       id, posted_successfully: !!result?.posted_successfully, errors: formErrors(result?.errors ?? []), password_needed: type === "customer_login",
       email: fields.email ?? "", author: fields.author ?? fields.name ?? "", body: fields.body ?? "", name: fields.name ?? "", phone: fields.phone ?? "", first_name: fields.first_name ?? "", last_name: fields.last_name ?? "",
@@ -362,6 +363,7 @@ export class FormTag extends Tag {
     let hidden = `<input type="hidden" name="form_type" value="${esc(type)}"><input type="hidden" name="utf8" value="✓">`;
     if (type === "localization" || type === "customer_login" || type === "storefront_password") hidden += `<input type="hidden" name="return_to" value="${esc(params.return_to ?? form.return_to)}">`;
     if (type === "customer") hidden += `<input type="hidden" name="contact[tags]" value="newsletter">`;
+    if (type === "customer_address" && addressId) hidden += `<input type="hidden" name="_method" value="put">`;
     if (type === "new_comment") hidden += `<input type="hidden" name="comment[article_id]" value="${esc((obj as { id?: string })?.id ?? "")}">`;
     ctx.push({ form });
     try {

@@ -194,7 +194,19 @@ export type ShopifyArticle = { id: string; title: string; handle: string; url: s
 export type ShopifyBlog = { id: string; title: string; handle: string; url: string; articles: ShopifyArticle[]; articles_count: number; all_tags: string[]; tags: string[]; comments_enabled: boolean; moderated: boolean };
 export type ShopifyPage = { id: string; title: string; handle: string; url: string; content: string; author: string; published_at: string; template_suffix: string };
 
-export type ShopifyCustomer = { id: string; email: string; name: string; first_name: string; last_name: string; accepts_marketing: boolean; orders_count: number; total_spent: number; tags: string[]; has_account: boolean; phone: string; default_address: null; addresses: never[]; addresses_count: number; b2b?: boolean; tax_exempt?: boolean } | null;
+export type ShopifyAddress = { id: string | null; first_name: string; last_name: string; name: string; company: string; address1: string; address2: string; city: string; zip: string; province: string; province_code: string; country: string; country_code: string; country_name: string; phone: string; summary: string; url: string; street: string };
+
+export type ShopifyOrder = {
+  id: string; name: string; order_number: number; order_status_url: string; customer_url: string; email: string; phone: string; note: string; created_at: string; cancelled: boolean; cancelled_at: string | null; cancel_reason: string | null;
+  financial_status: string; financial_status_label: string; fulfillment_status: string; fulfillment_status_label: string;
+  subtotal_price: number; line_items_subtotal_price: number; total_duties: number; taxes_included: boolean; shipping_price: number; total_shipping_price: number; tax_price: number; total_tax: number; total_discounts: number; total_price: number; total_refunded_amount: number; total_net_amount: number; currency: string;
+  line_items: ShopifyLineItem[]; item_count: number; shipping_address: ShopifyAddress | null; billing_address: ShopifyAddress | null; shipping_methods: { title: string; price: number }[]; discount_applications: { title: string; total_allocated_amount: number }[]; tax_lines: { title: string; price: number; rate: number; rate_percentage: number }[]; transactions: { amount: number; kind: string; status: string; gateway: string; created_at: string }[]; tags: string[]; attributes: Record<string, string>; fulfillments: { tracking_company: string; tracking_number: string; tracking_url: string; created_at: string }[];
+};
+
+export type ShopifyCustomer = {
+  id: string; email: string; name: string; first_name: string; last_name: string; accepts_marketing: boolean; email_marketing_consent?: { state: string }; orders_count: number; total_spent: number; tags: string[]; has_account: boolean; phone: string;
+  default_address: ShopifyAddress | null; addresses: ShopifyAddress[]; addresses_count: number; new_address?: ShopifyAddress; orders: ShopifyOrder[]; last_order: ShopifyOrder | null; b2b?: boolean; tax_exempt?: boolean; current_company?: null; company_available_locations?: never[];
+} | null;
 
 export type ShopifyShop = {
   id: string;
@@ -320,6 +332,11 @@ export type PageData = {
   settings?: Record<string, unknown>;
   /** Mode éditeur de thème : contours et attributs de sections. */
   design_mode?: boolean;
+  /** Commande affichée (customers/order) et adresse en cours de modification (customers/addresses). */
+  order?: ShopifyOrder;
+  address?: ShopifyAddress;
+  /** Balises <option> des pays livrables pour les formulaires d'adresse ({{ all_country_option_tags }}). */
+  country_option_tags?: string;
   /** Paramètres de la requête courante (filtres, tri) conservés par la pagination. */
   request_query?: string;
   /** Message d'erreur / succès des formulaires (contact, newsletter, login…), par type de formulaire. */

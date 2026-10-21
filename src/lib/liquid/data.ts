@@ -1,5 +1,7 @@
 import "server-only";
-import type { BlogPost, Collection, Customer, Page, Product, Store, Variant } from "@prisma/client";
+import type { BlogPost, Collection, Customer, Order, OrderItem, Page, Product, Store, Variant } from "@prisma/client";
+import { orderNumber } from "../checkout-settings";
+import { COUNTRIES } from "../countries";
 import { db } from "../db";
 import { POLICY_KEYS, POLICY_LABELS, readPolicies } from "../checkout-settings";
 import { translate, type Locale } from "../i18n";
@@ -7,7 +9,7 @@ import { storeLocales } from "../locale";
 import { adjustPrice } from "../markets";
 import { resolveMenus, type ResolvedLink } from "../navigation";
 import { parseJson } from "../utils";
-import type { PageData, ShopifyArticle, ShopifyBlog, ShopifyCart, ShopifyCollection, ShopifyCollectionRef, ShopifyCustomer, ShopifyImage, ShopifyLink, ShopifyLinklist, ShopifyPage, ShopifyProduct, ShopifyShop, ShopifyVariant } from "./types";
+import type { PageData, ShopifyAddress, ShopifyOrder, ShopifyArticle, ShopifyBlog, ShopifyCart, ShopifyCollection, ShopifyCollectionRef, ShopifyCustomer, ShopifyImage, ShopifyLink, ShopifyLinklist, ShopifyPage, ShopifyProduct, ShopifyShop, ShopifyVariant } from "./types";
 
 /** Produit de la base avec ses variantes et ses collections. */
 export type FullProduct = Product & { variants: Variant[]; collections: { collection: Pick<Collection, "handle"> }[] };
@@ -96,11 +98,57 @@ function links(items: ResolvedLink[], slug: string, root: string, path: string):
   });
 }
 
-export function shopifyCustomer(c: Customer | null): ShopifyCustomer {
+/** Adresse d'un client ou d'une commande (JSON { line1, line2?, zip, city, country, phone?, company?, firstName?, lastName? }). */
+export function shopifyAddress(raw: string | null | undefined, root: string, fallbackName = "", id: string | null = "default"): ShopifyAddress | null {
+  const a = parseJson<Record<string, string>>(raw, {});
+  if (!a.line1 && !a.city && !a.country) return null;
+  const [first, ...rest] = (fallbackName || "").split(" ");
+  const first_name = a.firstName ?? first ?? "", last_name = a.lastName ?? rest.join(" ");
+  const parts = [a.line1, a.line2, [a.zip, a.city].filter(Boolean).join(" "), a.country].filter(Boolean);
+  return { id, first_name, last_name, name: [first_name, last_name].filter(Boolean).join(" "), company: a.company ?? "", address1: a.line1 ?? "", address2: a.line2 ?? "", city: a.city ?? "", zip: a.zip ?? "", province: "", province_code: "", country: a.country ?? "", country_code: "", country_name: a.country ?? "", phone: a.phone ?? "", summary: parts.join(", "), url: `${root}/account/addresses/${id ?? "new"}`, street: [a.line1, a.line2].filter(Boolean).join(", ") };
+}
+
+const FINANCIAL: Record<string, { fr: string; en: string }> = { paid: { fr: "Payée", en: "Paid" }, pending: { fr: "En attente", en: "Pending" }, unpaid: { fr: "Non payée", en: "Unpaid" }, refunded: { fr: "Remboursée", en: "Refunded" }, partially_refunded: { fr: "Partiellement remboursée", en: "Partially refunded" }, voided: { fr: "Annulée", en: "Voided" } };
+const FULFILLMENT: Record<string, { fr: string; en: string }> = { fulfilled: { fr: "Expédiée", en: "Fulfilled" }, unfulfilled: { fr: "Non expédiée", en: "Unfulfilled" }, partial: { fr: "Partiellement expédiée", en: "Partially fulfilled" }, delivered: { fr: "Livrée", en: "Delivered" } };
+
+/** Commande au format Shopify (customers/account, customers/order). */
+export function shopifyOrder(o: Order & { items: OrderItem[] }, store: Store, root: string, locale: Locale): ShopifyOrder {
+  const lab = (map: Record<string, { fr: string; en: string }>, k: string) => map[k]?.[locale === "en" ? "en" : "fr"] ?? k;
+  const financial = o.cancelledAt ? "voided" : o.paymentStatus;
+  const fulfillment = o.deliveredAt ? "delivered" : o.fulfillmentStatus;
+  const address = shopifyAddress(o.address, root, o.name, null);
+  const line_items = o.items.map((i) => {
+    const img = image(i.image, i.productTitle, i.id);
+    const variant = { id: i.variantId ?? i.id, title: i.variantTitle, sku: "", barcode: "", price: i.priceCents, compare_at_price: null, available: true, inventory_quantity: 0, inventory_management: null, inventory_policy: "deny" as const, option1: i.variantTitle, option2: null, option3: null, options: [i.variantTitle], featured_image: img, image: img, weight: 0, weight_unit: "kg", requires_shipping: !i.isGiftCard, taxable: true, url: "", product_id: "" };
+    const product = { id: "", title: i.productTitle, handle: "", description: "", content: "", vendor: "", type: "", tags: [], price: i.priceCents, price_min: i.priceCents, price_max: i.priceCents, price_varies: false, compare_at_price: null, compare_at_price_min: 0, compare_at_price_max: 0, compare_at_price_varies: false, available: true, featured_image: img, featured_media: img, images: img ? [img] : [], media: img ? [img] : [], variants: [variant], options: ["Title"], options_with_values: [], options_by_name: {}, has_only_default_variant: true, selected_or_first_available_variant: variant, selected_variant: null, first_available_variant: variant, url: "", collections: [], created_at: "", published_at: "", gift_card: i.isGiftCard, requires_selling_plan: false, template_suffix: "", metafields: {} };
+    const q = i.quantity - i.refundedQuantity;
+    return { id: i.id, key: i.id, title: i.variantTitle && !["Par défaut", "Default Title"].includes(i.variantTitle) ? `${i.productTitle} - ${i.variantTitle}` : i.productTitle, product_title: i.productTitle, variant_title: ["Par défaut", "Default Title"].includes(i.variantTitle) ? null : i.variantTitle, quantity: q, price: i.priceCents, line_price: i.priceCents * q, original_price: i.priceCents, original_line_price: i.priceCents * q, final_price: i.priceCents, final_line_price: i.priceCents * q, total_discount: 0, line_level_total_discount: 0, line_level_discount_allocations: [], discount_allocations: [], sku: "", grams: 0, vendor: "", url: "", image: img, product, variant, variant_id: variant.id, product_id: "", handle: "", properties: {}, requires_shipping: !i.isGiftCard, taxable: true, gift_card: i.isGiftCard, options_with_values: [], item_components: [], selling_plan_allocation: null, unit_price: null };
+  });
+  const name = orderNumber(store, o.number);
+  return {
+    id: o.id, name, order_number: o.number, order_status_url: `${root}/order/${o.id}`, customer_url: `${root}/account/orders/${o.id}`, email: o.email, phone: "", note: o.note, created_at: o.createdAt.toISOString(), cancelled: Boolean(o.cancelledAt), cancelled_at: o.cancelledAt?.toISOString() ?? null, cancel_reason: null,
+    financial_status: financial, financial_status_label: lab(FINANCIAL, financial), fulfillment_status: fulfillment, fulfillment_status_label: lab(FULFILLMENT, fulfillment),
+    subtotal_price: o.subtotalCents, line_items_subtotal_price: o.subtotalCents, total_duties: 0, taxes_included: true, shipping_price: o.shippingCents, total_shipping_price: o.shippingCents, tax_price: o.taxCents, total_tax: o.taxCents, total_discounts: o.discountCents + o.giftCardCents + o.storeCreditCents, total_price: o.totalCents, total_refunded_amount: o.refundedCents, total_net_amount: o.totalCents - o.refundedCents, currency: store.currency,
+    line_items, item_count: line_items.reduce((n, l) => n + l.quantity, 0), shipping_address: address, billing_address: address, shipping_methods: o.shippingMethod ? [{ title: o.shippingMethod, price: o.shippingCents }] : [], discount_applications: o.discountCode ? [{ title: o.discountCode, total_allocated_amount: o.discountCents }] : [], tax_lines: o.taxCents ? [{ title: "TVA", price: o.taxCents, rate: o.taxRateBps / 10000, rate_percentage: o.taxRateBps / 100 }] : [], transactions: o.paidAt ? [{ amount: o.totalCents, kind: "sale", status: "success", gateway: o.paymentMethod, created_at: o.paidAt.toISOString() }] : [], tags: o.tags.split(",").map((x) => x.trim()).filter(Boolean), attributes: {}, fulfillments: o.fulfilledAt ? [{ tracking_company: o.trackingCarrier, tracking_number: o.trackingNumber, tracking_url: o.trackingUrl, created_at: o.fulfilledAt.toISOString() }] : [],
+  };
+}
+
+export function shopifyCustomer(c: Customer | null, root = "", orders: ShopifyOrder[] = []): ShopifyCustomer {
   if (!c) return null;
   const [first_name, ...rest] = c.name.split(" ");
-  return { id: c.id, email: c.email, name: c.name, first_name, last_name: rest.join(" "), accepts_marketing: c.acceptsMarketing, orders_count: 0, total_spent: 0, tags: c.tags.split(",").map((x) => x.trim()).filter(Boolean), has_account: true, phone: c.phone ?? "", default_address: null, addresses: [], addresses_count: 0, tax_exempt: c.taxExempt };
+  const address = shopifyAddress(c.address, root, c.name);
+  const empty: ShopifyAddress = { id: null, first_name, last_name: rest.join(" "), name: c.name, company: c.company, address1: "", address2: "", city: "", zip: "", province: "", province_code: "", country: "", country_code: "", country_name: "", phone: c.phone ?? "", summary: "", url: `${root}/account/addresses/new`, street: "" };
+  return { id: c.id, email: c.email, name: c.name, first_name, last_name: rest.join(" "), accepts_marketing: c.acceptsMarketing, email_marketing_consent: { state: c.acceptsMarketing ? "subscribed" : "not_subscribed" }, orders_count: orders.length, total_spent: orders.reduce((n, o) => n + o.total_net_amount, 0), tags: c.tags.split(",").map((x) => x.trim()).filter(Boolean), has_account: true, phone: c.phone ?? "", default_address: address, addresses: address ? [address] : [], addresses_count: address ? 1 : 0, new_address: empty, orders, last_order: orders[0] ?? null, tax_exempt: c.taxExempt, b2b: Boolean(c.company) };
 }
+
+/** Commandes d'un client, les plus récentes d'abord. */
+export async function customerOrders(store: Store, customerId: string, root: string, locale: Locale) {
+  const rows = await db.order.findMany({ where: { storeId: store.id, customerId }, include: { items: true }, orderBy: { createdAt: "desc" }, take: 50 });
+  return rows.map((o) => shopifyOrder(o, store, root, locale));
+}
+
+/** <option> des pays livrables, pour {{ all_country_option_tags }} des formulaires d'adresse. */
+export const countryOptionTags = (selected = "") => COUNTRIES.map((c) => `<option value="${c}" data-provinces="[]"${c === selected ? " selected" : ""}>${c}</option>`).join("");
 
 const MONEY: Record<string, { format: string; withCurrency: string }> = {
   EUR: { format: "{{amount_with_comma_separator}} €", withCurrency: "{{amount_with_comma_separator}} € EUR" },
@@ -132,7 +180,7 @@ export type BuildOpts = {
   variantId?: string | null;
   currentPage?: number;
   formResults?: PageData["form_results"];
-  pageObjects?: Partial<Pick<PageData, "product" | "collection" | "page" | "blog" | "article" | "search" | "recommendations" | "predictive_search" | "page_title" | "page_description">>;
+  pageObjects?: Partial<Pick<PageData, "product" | "collection" | "page" | "blog" | "article" | "search" | "recommendations" | "predictive_search" | "page_title" | "page_description" | "order" | "address">>;
 };
 
 /** Catalogue complet de la boutique au format Shopify (produits actifs et collections), chargé une fois par requête. */
@@ -210,13 +258,13 @@ export async function buildPageData(o: BuildOpts): Promise<PageData> {
     template: o.template, template_suffix: o.templateSuffix, shop, routes,
     request: { host: domain, origin: o.origin, path: o.path, page_type: pageType, design_mode: Boolean(o.designMode), visual_preview_mode: false, locale: language },
     localization: { language, available_languages: langs, country: { iso_code: "FR", name: "France", currency, market: { handle: "fr", id: "fr" }, unit_system: "metric", available_languages: langs }, available_countries: [{ iso_code: "FR", name: "France", currency }], market: { handle: "fr", id: "fr" } },
-    cart: o.cart, customer: shopifyCustomer(o.customer), linklists, collections: catalog.collections,
+    cart: o.cart, customer: await (async () => (o.customer ? shopifyCustomer(o.customer, root, await customerOrders(store, o.customer.id, root, locale)) : null))(), linklists, collections: catalog.collections,
     all_products: Object.fromEntries(catalog.products.slice(0, 20).map((p) => [p.handle, p])),
     pages: Object.fromEntries(pages.map((p) => [p.handle, shopifyPage(p, root, locale)])),
     images, blogs: { news: blog, blog: blog }, articles: Object.fromEntries(blog.articles.map((a) => [`news/${a.handle}`, a])),
     ...pageObjects,
     page_title: title, page_description: pageObjects.page_description ?? store.tagline, canonical_url: `${o.origin}${o.path}`, current_page: o.currentPage ?? 1, current_tags: null,
     content_for_header: o.contentForHeader ?? "", locale, money: { format: moneyFormat(store.currency).format, formatWithCurrency: moneyFormat(store.currency).withCurrency, currency: o.display?.code ?? store.currency, rate: o.display?.rate ?? 1 },
-    design_mode: Boolean(o.designMode), form_results: o.formResults,
+    design_mode: Boolean(o.designMode), form_results: o.formResults, country_option_tags: countryOptionTags(),
   };
 }

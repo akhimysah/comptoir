@@ -432,3 +432,15 @@ export function pickupReadyEmail(store: Store, order: Order & { items: OrderItem
 ${addressBlock(order, store, locale)}${itemsTable(order, store.currency, locale)}`),
   };
 }
+
+/** Réinitialisation du mot de passe d'un client (compte avec mot de passe, thèmes Shopify). */
+export function customerPasswordResetEmail(store: Store, link: string, locale: Locale = "fr") {
+  const fr = locale !== "en";
+  return {
+    subject: fr ? `Réinitialiser votre mot de passe · ${store.name}` : `Reset your password · ${store.name}`,
+    html: layout(store.name, fr ? "Réinitialiser votre mot de passe" : "Reset your password",
+      `<p style="font-size:14px;line-height:1.5">${fr ? "Vous avez demandé à réinitialiser le mot de passe de votre compte. Le lien est valable 1 heure." : "You asked to reset the password of your account. The link is valid for 1 hour."}</p>
+<p>${button(link, fr ? "Choisir un nouveau mot de passe" : "Choose a new password")}</p>
+<p style="font-size:13px;color:#616161">${fr ? "Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail." : "If you did not ask for this, ignore this email."}</p>`, "#303030", locale),
+  };
+}

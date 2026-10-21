@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { startConversation } from "@/lib/chat";
 import { displayCurrency } from "@/lib/currency";
-import { getCustomer } from "@/lib/customer-auth";
+import { createPasswordReset, getCustomer, loginWithPassword, logoutCustomer, openCustomerSession, registerCustomer, resetCustomerPassword } from "@/lib/customer-auth";
+import { customerPasswordResetEmail } from "@/lib/emails";
+import { sendMail } from "@/lib/mail";
 import { db } from "@/lib/db";
 import { activeThemeRow } from "@/lib/liquid/active";
 import { cartCookieHeader, lineKey, readCartCookie, shopifyCart, type CookieLine } from "@/lib/liquid/cart";
-import { buildPageData, liquidCatalog, shopifyArticle, shopifyBlog, shopifyPage, type BuildOpts } from "@/lib/liquid/data";
+import { buildPageData, liquidCatalog, shopifyAddress, shopifyArticle, shopifyBlog, shopifyOrder, shopifyPage, type BuildOpts } from "@/lib/liquid/data";
 import { renderPage, renderSection } from "@/lib/liquid/engine";
 import { dbThemeSource, overlaySource, platformThemeSource, rewriteShopifyCdn } from "@/lib/liquid/source";
 import { designModeScript } from "@/lib/liquid/design-mode";
@@ -187,7 +189,21 @@ async function get(req: Request, c: Ctx): Promise<Response> {
     if (url.searchParams.get("section_id")) return page(c, req, "product", { pageObjects: { recommendations: { performed: true, products: list, products_count: list.length, intent: url.searchParams.get("intent") ?? "related" } } });
     return NextResponse.json({ products: list.map(productJson) }, { headers: jsonHeaders() });
   }
-  if (path === "/account" || path.startsWith("/account/")) return NextResponse.redirect(new URL(`/s/${c.store.slug}/account`, url.origin), 302);
+  // Compte client rendu par les gabarits customers/* du thème.
+  const to = (p: string, status = 302) => NextResponse.redirect(new URL(`${root}${p}`, url.origin), status);
+  if (path === "/account") return c.customer ? page(c, req, "customers/account") : to("/account/login");
+  if (path === "/account/login") return c.customer ? to("/account") : page(c, req, "customers/login");
+  if (path === "/account/register") return c.customer ? to("/account") : page(c, req, "customers/register");
+  if (path === "/account/logout") { await logoutCustomer(c.store.id, c.store.slug); return to("/"); }
+  if (path === "/account/addresses" || path.startsWith("/account/addresses/")) return c.customer ? page(c, req, "customers/addresses", { pageObjects: { address: shopifyAddress(c.customer.address, root, c.customer.name) ?? undefined } }) : to("/account/login");
+  if ((m = path.match(/^\/account\/orders\/([^/]+)$/))) {
+    if (!c.customer) return to("/account/login");
+    const row = await db.order.findFirst({ where: { id: m[1], storeId: c.store.id, customerId: c.customer.id }, include: { items: true } });
+    if (!row) return page(c, req, "404", { status: 404 });
+    return page(c, req, "customers/order", { pageObjects: { order: shopifyOrder(row, c.store, root, locale) } });
+  }
+  if ((m = path.match(/^\/account\/reset\/([^/]+)\/([^/]+)$/))) return page(c, req, "customers/reset_password");
+  if (path.startsWith("/account/")) return to("/account");
   // Redirections enregistrées par le marchand (Navigation → Redirections).
   const r = await db.redirect.findUnique({ where: { storeId_fromPath: { storeId: c.store.id, fromPath: path.replace(/\/$/, "") || "/" } } });
   if (r) { await db.redirect.update({ where: { id: r.id }, data: { hits: { increment: 1 } } }); return NextResponse.redirect(new URL(r.toPath.startsWith("/") ? `${root}${r.toPath === "/" ? "" : r.toPath}` : r.toPath, url.origin), 301); }
@@ -307,7 +323,47 @@ async function post(req: Request, c: Ctx): Promise<Response> {
     if (json) return NextResponse.json({ ok }, { status: ok ? 200 : 422 });
     return page(c, req, back.includes("/cart") ? "cart" : "index", { formResults: { customer: { posted_successfully: ok, errors: ok ? [] : [c.locale === "en" ? "Please enter a valid email." : "Indiquez un e-mail valide."], fields: { email } } } });
   }
-  if (path.startsWith("/account")) return NextResponse.redirect(new URL(`/s/${c.store.slug}/account`, url.origin), 303);
+  // Formulaires du compte client (customer_login, create_customer, recover_customer_password, reset_customer_password, customer_address).
+  const redirectTo = (p: string) => NextResponse.redirect(new URL(p.startsWith("/") && !p.startsWith("//") ? (p.startsWith(root) ? p : `${root}${p}`) : `${root}/account`, url.origin), 303);
+  const cust = (b.customer ?? {}) as Record<string, string>;
+  const L = c.locale;
+  if (path === "/account/login") {
+    const r = await loginWithPassword(c.store.id, str(cust.email), str(cust.password), L);
+    if (r.customerId) { await openCustomerSession(c.store.id, r.customerId); return redirectTo(str(b.return_to) || "/account"); }
+    return page(c, req, "customers/login", { formResults: { customer_login: { posted_successfully: false, errors: [r.error!], fields: { email: str(cust.email) } } } });
+  }
+  if (path === "/account/recover" || formType === "recover_customer_password") {
+    const email = str(b.email ?? cust.email);
+    const reset = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? await createPasswordReset(c.store.id, email) : null;
+    if (reset) { const mail = customerPasswordResetEmail(c.store, `${c.origin}${root}/account/reset/${reset.customerId}/${reset.token}`, L); await sendMail({ to: email, subject: mail.subject, html: mail.html, storeId: c.store.id }); }
+    // Même réponse que le compte existe ou non (pas de fuite), comme Shopify.
+    return page(c, req, "customers/login", { formResults: { recover_customer_password: { posted_successfully: true, errors: [], fields: { email } } } });
+  }
+  if ((path === "/account" || path === "/account/register") && formType === "create_customer") {
+    const r = await registerCustomer(c.store.id, { email: str(cust.email), password: str(cust.password), firstName: str(cust.first_name), lastName: str(cust.last_name), acceptsMarketing: Boolean(cust.accepts_marketing) }, L);
+    if (r.customerId) { await openCustomerSession(c.store.id, r.customerId); return redirectTo("/account"); }
+    return page(c, req, "customers/register", { formResults: { create_customer: { posted_successfully: false, errors: [r.error!], fields: { email: str(cust.email), first_name: str(cust.first_name), last_name: str(cust.last_name) } } } });
+  }
+  const m = path.match(/^\/account\/reset\/([^/]+)\/([^/]+)$/);
+  if (m) {
+    if (str(cust.password) !== str(cust.password_confirmation)) return page(c, req, "customers/reset_password", { formResults: { reset_customer_password: { posted_successfully: false, errors: [L === "en" ? "Passwords don't match." : "Les deux mots de passe ne correspondent pas."], fields: {} } } });
+    const r = await resetCustomerPassword(c.store.id, m[1], m[2], str(cust.password), L);
+    if (r.ok) { await openCustomerSession(c.store.id, m[1]); return redirectTo("/account"); }
+    return page(c, req, "customers/reset_password", { formResults: { reset_customer_password: { posted_successfully: false, errors: [r.error!], fields: {} } } });
+  }
+  if (path === "/account/addresses" || path.startsWith("/account/addresses/")) {
+    if (!c.customer) return redirectTo("/account/login");
+    const method = str(b._method).toLowerCase();
+    if (method === "delete") await db.customer.update({ where: { id: c.customer.id }, data: { address: "" } });
+    else {
+      const a = (b.address ?? {}) as Record<string, string>;
+      const address = { firstName: str(a.first_name), lastName: str(a.last_name), company: str(a.company), line1: str(a.address1), line2: str(a.address2), city: str(a.city), zip: str(a.zip), country: str(a.country), phone: str(a.phone) };
+      await db.customer.update({ where: { id: c.customer.id }, data: { address: JSON.stringify(address), ...(address.phone ? { phone: address.phone } : {}), ...(address.firstName || address.lastName ? { name: [address.firstName, address.lastName].filter(Boolean).join(" ") } : {}) } });
+    }
+    return redirectTo("/account/addresses");
+  }
+  if (path === "/account/logout") { await logoutCustomer(c.store.id, c.store.slug); return redirectTo("/"); }
+  if (path.startsWith("/account")) return redirectTo("/account");
   return page(c, req, "404", { status: 404 });
 }
 
