@@ -11,6 +11,7 @@ import { defaultTheme } from "@/lib/theme";
 import { parseThemeJson, storeUpdateFromFiles, THEME_FILES } from "@/lib/theme-files";
 import { installPlatformTheme, isTextPath, putThemeFiles, themePath } from "@/lib/liquid/source";
 import { liquidEditorData, type SchemaSetting, type TemplateJson } from "@/lib/liquid/editor-data";
+import { recordRevision, restoreRevision } from "@/lib/theme-revisions";
 import { createTheme, duplicateTheme, ownTheme, publishTheme, saveThemeRow, themeFromPreset, uniqueThemeName } from "@/lib/themes";
 
 const refresh = (slug: string) => { revalidatePath("/admin/theme"); revalidatePath(`/s/${slug}`, "layout"); };
@@ -18,10 +19,12 @@ const back = (kind: "ok" | "err", msg: string) => redirect(`/admin/theme?${kind}
 
 /** Éditeur : enregistre le thème (la vitrine suit s'il est publié). */
 export async function saveTheme(themeId: string, json: string): Promise<{ error?: string; ok?: boolean }> {
-  const { store } = await requirePerm("content");
-  if (!(await ownTheme(store.id, themeId))) return { error: "Thème introuvable." };
+  const { store, user } = await requirePerm("content");
+  const theme = await ownTheme(store.id, themeId);
+  if (!theme) return { error: "Thème introuvable." };
   const parsed = parseThemeJson(json);
   if ("error" in parsed) return { error: parsed.error };
+  await recordRevision(theme, store.name, "Enregistrement depuis l'éditeur", [THEME_FILES.theme], user.name);
   await saveThemeRow(store, themeId, { theme: JSON.stringify(parsed.theme) });
   await logActivity(store.publishedThemeId === themeId ? "Thème publié modifié" : "Brouillon de thème enregistré", `/admin/theme/${themeId}`);
   await pushThemeLater(themeId, "Thème modifié depuis l'admin");
@@ -103,7 +106,7 @@ export async function remove(form: FormData) {
 
 /** « Modifier le code » : enregistre un fichier du thème (theme.json, custom.css ou locales/en.json), vérifié comme à l'import. */
 export async function saveThemeFile(themeId: string, file: string, content: string): Promise<{ error?: string; ok?: boolean }> {
-  const { store } = await requirePerm("content");
+  const { store, user } = await requirePerm("content");
   const theme = await ownTheme(store.id, themeId);
   if (!theme) return { error: "Thème introuvable." };
   if (theme.engine === "liquid") {
@@ -112,6 +115,7 @@ export async function saveThemeFile(themeId: string, file: string, content: stri
     if (!path || !isTextPath(path)) return { error: "Fichier inconnu." };
     if (content.length > 2_000_000) return { error: "Fichier trop long (2 Mo maximum)." };
     if (path.endsWith(".json")) { try { JSON.parse(content); } catch { return { error: "JSON invalide." }; } }
+    await recordRevision(theme, store.name, `Modification de ${path} dans l'éditeur de code`, [path], user.name);
     await putThemeFiles(themeId, [{ path, data: new TextEncoder().encode(content) }]);
     await db.storeTheme.update({ where: { id: themeId }, data: { version: { increment: 1 } } });
     await logActivity(`Fichier ${path} du thème « ${theme.name} » modifié`, `/admin/theme/${themeId}/code`);
@@ -122,6 +126,7 @@ export async function saveThemeFile(themeId: string, file: string, content: stri
   if (content.length > 200_000) return { error: "Fichier trop long." };
   const { data, error } = storeUpdateFromFiles(theme, { [file]: content });
   if (error) return { error };
+  await recordRevision(theme, store.name, `Modification de ${file} dans l'éditeur de code`, [file], user.name);
   await saveThemeRow(store, themeId, data);
   await logActivity(`Fichier ${file} du thème « ${theme.name} » modifié`, `/admin/theme/${themeId}/code`);
   await pushThemeLater(themeId, `${file} modifié depuis l'éditeur de code`);
@@ -131,7 +136,7 @@ export async function saveThemeFile(themeId: string, file: string, content: stri
 
 /** Éditeur visuel d'un thème Shopify : enregistre des fichiers JSON (gabarits, groupes de sections, settings_data). */
 export async function saveLiquidFiles(themeId: string, files: Record<string, string>): Promise<{ error?: string; ok?: boolean }> {
-  const { store } = await requirePerm("content");
+  const { store, user } = await requirePerm("content");
   const theme = await ownTheme(store.id, themeId);
   if (!theme || theme.engine !== "liquid") return { error: "Thème introuvable." };
   const out: { path: string; data: Uint8Array }[] = [];
@@ -142,6 +147,7 @@ export async function saveLiquidFiles(themeId: string, files: Record<string, str
     try { JSON.parse(content); } catch { return { error: `JSON invalide dans ${path}.` }; }
     out.push({ path, data: new TextEncoder().encode(content) });
   }
+  if (out.length) await recordRevision(theme, store.name, "Enregistrement depuis l'éditeur", out.map((f) => f.path), user.name);
   await putThemeFiles(themeId, out);
   await db.storeTheme.update({ where: { id: themeId }, data: { version: { increment: 1 } } });
   await logActivity(store.publishedThemeId === themeId ? "Thème publié modifié" : "Brouillon de thème enregistré", `/admin/theme/${themeId}`);
@@ -158,7 +164,7 @@ const SAMPLE_IMAGES = { landscape: [1, 2, 3, 4, 5, 6].map((i) => `/samples/scene
  * et les sections qui demandent un produit ou une collection reçoivent ceux de la boutique.
  */
 export async function fillDemoContent(form: FormData) {
-  const { store } = await requirePerm("content");
+  const { store, user } = await requirePerm("content");
   const themeId = String(form.get("id") ?? "");
   const theme = await ownTheme(store.id, themeId);
   if (!theme || theme.engine !== "liquid") back("err", "Thème introuvable.");
@@ -196,10 +202,25 @@ export async function fillDemoContent(form: FormData) {
     if (changed) files.push({ path, data: new TextEncoder().encode(JSON.stringify(doc, null, 2)) });
   }
   if (files.length) {
+    await recordRevision(theme!, store.name, "Contenu d'exemple ajouté", files.map((f) => f.path), user.name);
     await putThemeFiles(themeId, files);
     await db.storeTheme.update({ where: { id: themeId }, data: { version: { increment: 1 } } });
     await logActivity(`Contenu d'exemple ajouté au thème « ${theme!.name} »`, `/admin/theme/${themeId}`);
     refresh(store.slug);
   }
   redirect(`/admin/theme/${themeId}`);
+}
+
+/** Historique des versions : revenir à l'état d'avant une version. */
+export async function restoreThemeRevision(form: FormData) {
+  const { store, user } = await requirePerm("content");
+  const themeId = String(form.get("themeId") ?? "");
+  const theme = await ownTheme(store.id, themeId);
+  if (!theme) back("err", "Thème introuvable.");
+  const r = await restoreRevision(theme!, store.name, String(form.get("revisionId") ?? ""), user.name);
+  if (r.error) redirect(`/admin/theme/${themeId}/history?err=${encodeURIComponent(r.error)}`);
+  if (store.publishedThemeId === themeId && theme!.engine !== "liquid") { const row = await ownTheme(store.id, themeId); if (row) await saveThemeRow(store, themeId, { theme: row.theme, customCss: row.customCss, translations: row.translations }); }
+  await logActivity(`Version précédente du thème « ${theme!.name} » restaurée`, `/admin/theme/${themeId}`);
+  refresh(store.slug);
+  redirect(`/admin/theme/${themeId}/history?ok=${encodeURIComponent("Version restaurée.")}`);
 }

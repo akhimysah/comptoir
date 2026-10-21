@@ -162,6 +162,7 @@ export function ThemeEditor({ themeId, name, published, initial, store, products
         <MenuPopover label="Plus d'actions" buttonClassName={iconBtn()}>
           <a href={`/s/${store.slug}/preview?theme=${themeId}`} target="_blank" className={menuItem}>Aperçu dans un nouvel onglet</a>
           <Link href={`/admin/theme/${themeId}/code`} className={menuItem}>Modifier le code</Link>
+          <Link href={`/admin/theme/${themeId}/history`} className={menuItem}>Historique des versions</Link>
           <Link href="/admin/theme" className={menuItem}>Bibliothèque de thèmes</Link>
         </MenuPopover>
         {!published && (

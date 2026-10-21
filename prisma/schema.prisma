@@ -980,6 +980,7 @@ model StoreTheme {
   engine              String    @default("native") // native (sections React) | liquid (thème Shopify importé, rendu par le moteur Liquid)
   version             Int       @default(1) // incrémenté à chaque changement de fichier (cache des gabarits)
   files               ThemeFile[]
+  revisions           ThemeRevision[]
   // Dépôt GitHub relié (connexion par l'application de la plateforme, ou jeton collé)
   githubRepo          String?
   githubBranch        String    @default("main")
@@ -1092,6 +1093,28 @@ model StoreCreditEntry {
 }
 
 /// Bibliothèque de fichiers (Contenu → Fichiers) : chaque image ou vidéo envoyée.
+/// Historique des versions d'un thème : à chaque enregistrement, l'état précédent des fichiers modifiés.
+/// Restaurer une version = rejouer ces états en remontant jusqu'à elle (et garder une trace, restaurable aussi).
+model ThemeRevision {
+  id        String               @id @default(cuid())
+  themeId   String
+  theme     StoreTheme           @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  label     String
+  userName  String               @default("")
+  createdAt DateTime             @default(now())
+  entries   ThemeRevisionEntry[]
+
+  @@index([themeId, createdAt])
+}
+
+model ThemeRevisionEntry {
+  id         String        @id @default(cuid())
+  revisionId String
+  revision   ThemeRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  path       String
+  before     String? // contenu avant la modification ; null = le fichier n'existait pas
+}
+
 /// Bibliothèque de thèmes de la plateforme (comme le Theme Store de Shopify) : thèmes Shopify déposés par
 /// l'administrateur, proposés dans « Découvrir des thèmes » de chaque boutique et copiés à l'installation.
 model PlatformTheme {
