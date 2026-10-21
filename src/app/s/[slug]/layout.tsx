@@ -12,6 +12,7 @@ import { sanitizeCss } from "@/lib/custom-css";
 import { CurrencySelect } from "@/components/store/CurrencySelect";
 import { storeFontVars } from "@/components/store/fonts";
 import { getStoreUngated } from "@/lib/storefront";
+import { db } from "@/lib/db";
 import { resolveMenus, type ResolvedLink } from "@/lib/navigation";
 
 const ext = (l: ResolvedLink) => (l.external ? { target: "_blank", rel: "noopener noreferrer" } : {});
@@ -53,11 +54,31 @@ export default async function StoreLayout({ children, params }: { children: Reac
     );
   }
   const menus = await resolveMenus(store, locale);
-  // Sur le domaine de la boutique, les liens /s/<boutique>/… sont ouverts directement à leur adresse courte (sans redirection).
-  const onDomain = Boolean(store.domain && store.domainVerifiedAt && (await headers()).get("x-store-domain") === store.domain);
   // Politiques publiées (Paramètres › Politiques) : liens dans le pied de page, à la suite du menu.
   const policies = readPolicies(store.policies);
   const policyLinks = POLICY_KEYS.filter((k) => policies[k].published && policies[k].body).map((k) => ({ href: `/s/${slug}/policies/${k}`, title: POLICY_LABELS[k][locale] }));
+  // Thème Shopify en vigueur : les pages natives (paiement, compte…) gardent une mise en page neutre, sans notre en-tête ni notre pied de page.
+  const activeId = preview?.id ?? store.publishedThemeId;
+  const liquid = activeId ? (await db.storeTheme.findUnique({ where: { id: activeId }, select: { engine: true } }))?.engine === "liquid" : false;
+  if (liquid) {
+    return (
+      <LocaleProvider locale={locale}>
+        <div lang={locale} style={themeVars(theme) as React.CSSProperties} className={`${storeFontVars} flex min-h-screen flex-col bg-[var(--c-bg)] font-[family-name:var(--t-body)] text-[var(--c-text)]`}>
+          <header className="border-b border-[color-mix(in_srgb,var(--c-text)_12%,transparent)]">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
+              <a href={`/s/${slug}`} className="font-[family-name:var(--t-display)] text-xl font-semibold">{store.name}</a>
+              <a href={`/s/${slug}`} className="text-sm underline underline-offset-4">{locale === "en" ? "Back to the store" : "Retour à la boutique"}</a>
+            </div>
+          </header>
+          <main className="flex-1">{children}</main>
+          {(store.gaId || store.metaPixelId) && <Tracking slug={slug} gaId={store.gaId} pixelId={store.metaPixelId} />}
+          <footer className="border-t border-[color-mix(in_srgb,var(--c-text)_12%,transparent)]"><div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-3 px-4 py-6 text-sm text-[var(--c-muted)]"><span>© {new Date().getFullYear()} {store.name}</span><nav className="flex flex-wrap gap-x-5 gap-y-1">{policyLinks.map((l) => <a key={l.href} href={l.href} className="hover:opacity-70">{l.title}</a>)}</nav></div></footer>
+        </div>
+      </LocaleProvider>
+    );
+  }
+  // Sur le domaine de la boutique, les liens /s/<boutique>/… sont ouverts directement à leur adresse courte (sans redirection).
+  const onDomain = Boolean(store.domain && store.domainVerifiedAt && (await headers()).get("x-store-domain") === store.domain);
   return (
     <LocaleProvider locale={locale}>
     <div lang={locale} style={themeVars(theme) as React.CSSProperties} className={`${storeFontVars} flex min-h-screen flex-col bg-[var(--c-bg)] font-[family-name:var(--t-body)] text-[var(--c-text)]`}>
