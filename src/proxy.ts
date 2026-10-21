@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isPlatformHost, slugForDomain } from "@/lib/domains";
+import { wantsLiquid } from "@/lib/liquid/routing";
 
 /** Chemins communs à toutes les boutiques, jamais réécrits (fichiers de l'application, API, impressions). */
 const SHARED = /^\/(_next|api|print|uploads|brand)(\/|$)|^\/(icon\.png|apple-icon\.png|favicon\.ico)$/;
@@ -17,7 +18,20 @@ export async function proxy(req: NextRequest) {
   if (pt && /^[A-Za-z0-9]{1,40}$/.test(pt)) headers.set("x-preview-theme", pt);
   else headers.delete("x-preview-theme");
   const passthrough = () => NextResponse.next({ request: { headers } });
-  if (!host || isPlatformHost(host)) return passthrough();
+  /** Thème Shopify importé : la page est rendue par le moteur Liquid (/s/<boutique>/liquid/…) au lieu des pages React. */
+  const liquidRewrite = async (slug: string, path: string, search: string) => {
+    if (!(await wantsLiquid(slug, path, req.nextUrl.searchParams, req.headers.get("cookie") ?? ""))) return null;
+    const url = req.nextUrl.clone();
+    url.pathname = `/s/${slug}/liquid${path === "/" ? "" : path}`;
+    url.search = search;
+    headers.set("x-liquid-path", path);
+    return NextResponse.rewrite(url, { request: { headers } });
+  };
+  if (!host || isPlatformHost(host)) {
+    const m = req.nextUrl.pathname.match(/^\/s\/([a-z0-9-]+)(\/.*)?$/);
+    if (m) return (await liquidRewrite(m[1], m[2] || "/", req.nextUrl.search)) ?? passthrough();
+    return passthrough();
+  }
   const slug = await slugForDomain(host);
   if (!slug) return passthrough();
 
@@ -35,6 +49,8 @@ export async function proxy(req: NextRequest) {
   // Une autre boutique de la plateforme n'est jamais servie sur ce domaine.
   if (pathname.startsWith("/s/") || pathname.startsWith("/admin") || pathname.startsWith("/legal")) return new NextResponse("Page introuvable", { status: 404 });
   if (SHARED.test(pathname)) return NextResponse.next({ request: { headers } });
+  const liquid = await liquidRewrite(slug, pathname || "/", search);
+  if (liquid) return liquid;
   const url = req.nextUrl.clone();
   url.pathname = pathname === "/" ? prefix : `${prefix}${pathname}`;
   url.search = search;

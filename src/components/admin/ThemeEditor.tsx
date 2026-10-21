@@ -21,7 +21,7 @@ const COLOR_LABELS: Record<keyof Theme["colors"], string> = {
 };
 
 /** Icônes de l'éditeur (traits fins, comme Polaris). */
-function I({ n, className = "h-5 w-5" }: { n: string; className?: string }) {
+export function I({ n, className = "h-5 w-5" }: { n: string; className?: string }) {
   const d: Record<string, ReactNode> = {
     exit: <><path d="M9 4H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h4" /><path d="m13 7 3 3-3 3M8 10h8" /></>,
     sections: <><rect x="3" y="4" width="14" height="4" rx="1" /><rect x="3" y="12" width="14" height="4" rx="1" /></>,

@@ -53,7 +53,7 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
           <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,.72))] px-5 pb-4 pt-16 text-white">
             <div className="min-w-0">
               <div className="truncate text-lg font-[650]">{new URL(base).host}</div>
-              <div className="text-[13px] text-white/80">{current.name} · Dernier enregistrement : {formatDateTime(current.updatedAt)}</div>
+              <div className="text-[13px] text-white/80">{current.name}{current.engine === "liquid" ? " · Thème Shopify" : ""} · Dernier enregistrement : {formatDateTime(current.updatedAt)}</div>
               {current.githubRepo && <div className="mt-2"><a href={`https://github.com/${current.githubRepo}/tree/${current.githubBranch}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-2 py-1 text-xs font-[550] backdrop-blur hover:bg-white/25"><GithubIcon className="h-3.5 w-3.5" />{current.githubRepo.split("/")[1]}/{current.githubBranch}</a></div>}
               {current.githubError && <div className="mt-1 text-xs text-[#ffb4a8]">{current.githubError}</div>}
             </div>
@@ -75,7 +75,7 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
               <li key={t.id} className="flex flex-wrap items-center gap-4 border-b border-line px-4 py-4 last:border-0">
                 <ThemeThumb src={`${base}?pt=${t.id}`} width={128} height={80} className="shrink-0 rounded-lg border border-line" />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-[650]">{t.name}</div>
+                  <div className="flex items-center gap-2 truncate font-[650]">{t.name}{t.engine === "liquid" && <span className="rounded-full bg-[#e0f0ff] px-2 py-0.5 text-[11px] font-[550] text-[#0a3a7a]">Thème Shopify</span>}</div>
                   <div className="text-[13px] text-muted">{t.source === "editor" || t.source === "copy" ? `Dernière sauvegarde : ${formatDateTime(t.updatedAt)}` : `Ajouté le : ${formatDateTime(t.createdAt)}`}</div>
                   {t.githubRepo && <div className="mt-1.5"><Badge repo={t.githubRepo} branch={t.githubBranch} /></div>}
                   {t.githubError && <div className="mt-1 text-xs text-[#8e0b21]">{t.githubError}</div>}

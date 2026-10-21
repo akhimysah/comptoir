@@ -59,20 +59,75 @@ function ZipDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) 
   const [over, setOver] = useState(false);
   const [name, setName] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const pick = (file: File | undefined) => {
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+
+  /**
+   * Thème Shopify complet (layout/, sections/, assets/…) : décompressé ici, dans le navigateur, puis envoyé par lots
+   * de quelques Mo (limite de l'hébergeur par requête). Un thème Revolution (theme.json) passe par l'import classique.
+   */
+  const importShopifyTheme = async (file: File) => {
+    const { unzipSync } = await import("fflate");
+    const entries = unzipSync(new Uint8Array(await file.arrayBuffer()), { filter: (f) => !f.name.includes("__MACOSX") && !f.name.endsWith("/") && f.originalSize <= 8 * 1024 * 1024 });
+    const paths = Object.keys(entries);
+    const isShopify = paths.some((p) => /(^|\/)layout\/theme\.liquid$/.test(p)) && paths.some((p) => /(^|\/)config\/settings_schema\.json$/.test(p));
+    if (!isShopify) return false;
+    const files = paths.filter((p) => /(^|\/)(layout|templates|sections|snippets|config|locales|assets|blocks)\//.test(p));
+    const bytes = files.reduce((n, p) => n + entries[p].length, 0);
+    const start = await fetch("/admin/theme/import?step=start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, files: files.length, bytes }) });
+    const { id, error } = (await start.json()) as { id?: string; error?: string };
+    if (!id) throw new Error(error ?? "Import impossible.");
+    try {
+      let batch: string[] = [], size = 0, done = 0;
+      setProgress({ done, total: files.length });
+      const flush = async () => {
+        if (!batch.length) return;
+        const fd = new FormData();
+        fd.set("id", id);
+        for (const p of batch) { fd.append("path", p); fd.append("file", new Blob([entries[p] as BlobPart]), p.split("/").pop()); }
+        const res = await fetch("/admin/theme/import?step=files", { method: "POST", body: fd });
+        const r = (await res.json()) as { ok?: boolean; error?: string };
+        if (!r.ok) throw new Error(r.error ?? "Envoi interrompu.");
+        done += batch.length; setProgress({ done, total: files.length });
+        batch = []; size = 0;
+      };
+      for (const p of files) {
+        if (size + entries[p].length > 3_000_000 || batch.length >= 150) await flush();
+        batch.push(p); size += entries[p].length;
+      }
+      await flush();
+      const fin = await fetch("/admin/theme/import?step=finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      const r = (await fin.json()) as { ok?: boolean; url?: string; error?: string };
+      if (!r.ok || !r.url) throw new Error(r.error ?? "Import impossible.");
+      window.location.href = r.url;
+    } catch (e) {
+      await fetch(`/admin/theme/import?id=${id}`, { method: "DELETE" }).catch(() => {});
+      throw e;
+    }
+    return true;
+  };
+
+  const pick = async (file: File | undefined) => {
     setProblem(null);
     if (!file) return;
     if (!/\.zip$/i.test(file.name)) return setProblem("Déposez un fichier .zip.");
-    if (file.size > 2 * 1024 * 1024) return setProblem("Fichier trop lourd (2 Mo maximum).");
-    if (input.current && input.current.files?.[0] !== file) { const dt = new DataTransfer(); dt.items.add(file); input.current.files = dt.files; }
+    if (file.size > 80 * 1024 * 1024) return setProblem("Fichier trop lourd (80 Mo maximum).");
     setName(file.name);
+    try {
+      if (await importShopifyTheme(file)) return;
+    } catch (e) {
+      setName(null); setProgress(null);
+      return setProblem((e as Error).message || "Import impossible.");
+    }
+    // Thème Revolution Ecom (theme.json) : import classique.
+    if (file.size > 2 * 1024 * 1024) { setName(null); return setProblem("Ce .zip n'est ni un thème Shopify, ni un thème Revolution Ecom de moins de 2 Mo."); }
+    if (input.current && input.current.files?.[0] !== file) { const dt = new DataTransfer(); dt.items.add(file); input.current.files = dt.files; }
     form.current?.requestSubmit();
   };
   return (
     <dialog ref={ref} className={dialogClass}>
       <DialogHeader title="Charger un fichier zip" onClose={() => ref.current?.close()} />
       <form ref={form} action="/admin/theme/zip" method="post" encType="multipart/form-data" className="flex flex-col gap-3 p-5">
-        <p className="text-[13px] text-muted">Le thème importé est ajouté à vos brouillons : vous pourrez le prévisualiser avant de le publier.</p>
+        <p className="text-[13px] text-muted">Thème Shopify (.zip exporté depuis Shopify ou acheté sur le Theme Store) ou thème Revolution Ecom. Il est ajouté à vos brouillons : vous pourrez le prévisualiser avant de le publier.</p>
         {problem && <p role="alert" className="rounded-lg bg-[#fff4f4] px-3 py-2 text-[13px] text-[#8e0b21]">{problem}</p>}
         <label
           onDragOver={(e) => { e.preventDefault(); setOver(true); }}
@@ -81,10 +136,14 @@ function ZipDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) 
           className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-8 text-center transition ${over ? "border-[#7c3aed] bg-[#f5f3ff]" : "border-line hover:bg-[#f7f7f7]"}`}
         >
           <span className="text-[13px] font-[550]">{name ? `Import de ${name}…` : "Déposez un thème .zip ici, ou cliquez pour le choisir"}</span>
-          <span className="text-xs text-muted">theme.json, custom.css, locales/en.json · 2 Mo maximum</span>
+          {progress ? (
+            <span className="mt-1 flex w-full max-w-xs flex-col gap-1 text-xs text-muted"><span className="h-1.5 w-full overflow-hidden rounded-full bg-[#e3e3e3]"><span className="block h-full bg-[#7c3aed] transition-[width]" style={{ width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%` }} /></span>{progress.done} / {progress.total} fichiers envoyés</span>
+          ) : (
+            <span className="text-xs text-muted">Thème Shopify complet (layout, sections, assets…) jusqu'à 60 Mo, ou theme.json</span>
+          )}
           <input ref={input} type="file" name="zip" accept=".zip,application/zip" className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
         </label>
-        <p className="text-xs text-muted">Pour obtenir la structure attendue, téléchargez un thème existant (menu ⋯ → Télécharger). Les thèmes Shopify (.liquid) ne sont pas compatibles.</p>
+        <p className="text-xs text-muted">Les thèmes Shopify sont rendus par notre moteur Liquid : la grande majorité des sections fonctionne, certaines fonctions propres à Shopify (applications, Shop Pay) n'existent pas ici.</p>
       </form>
     </dialog>
   );

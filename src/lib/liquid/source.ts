@@ -1,0 +1,78 @@
+import "server-only";
+import { db } from "../db";
+import type { ThemeSource } from "./types";
+
+/** Dossiers d'un thème Shopify et types de fichiers acceptés à l'import. */
+export const THEME_DIRS = ["layout", "templates", "sections", "snippets", "config", "locales", "assets", "blocks"] as const;
+const TEXT_EXT = /\.(liquid|json|css|js|mjs|svg|txt|md|map|html|xml|csv|vtt|webmanifest)$/i;
+const BINARY_EXT = /\.(png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|mp4|webm|mp3|ogg|pdf)$/i;
+export const IMPORT_LIMITS = { files: 2500, totalBytes: 60 * 1024 * 1024, fileBytes: 8 * 1024 * 1024, batchBytes: 3_500_000 };
+
+const MIME: Record<string, string> = { css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", mjs: "text/javascript; charset=utf-8", json: "application/json; charset=utf-8", svg: "image/svg+xml", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", avif: "image/avif", ico: "image/x-icon", woff: "font/woff", woff2: "font/woff2", ttf: "font/ttf", otf: "font/otf", eot: "application/vnd.ms-fontobject", mp4: "video/mp4", webm: "video/webm", mp3: "audio/mpeg", ogg: "audio/ogg", pdf: "application/pdf", txt: "text/plain; charset=utf-8", html: "text/html; charset=utf-8", xml: "application/xml", vtt: "text/vtt", webmanifest: "application/manifest+json", liquid: "text/plain; charset=utf-8", map: "application/json" };
+export const contentTypeOf = (path: string) => MIME[path.split(".").pop()!.toLowerCase()] ?? "application/octet-stream";
+
+/**
+ * Chemin accepté dans un thème : un des dossiers connus, pas de remontée, nom simple.
+ * Renvoie le chemin normalisé (sans dossier parent éventuel du zip) ou null.
+ */
+export function themePath(raw: string): string | null {
+  const p = raw.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (p.includes("..") || p.includes("__MACOSX") || p.split("/").pop()!.startsWith(".")) return null;
+  const parts = p.split("/");
+  // Le zip peut contenir un dossier racine : on garde à partir du dossier de thème connu.
+  const i = parts.findIndex((x) => (THEME_DIRS as readonly string[]).includes(x));
+  if (i < 0 || i === parts.length - 1) return null;
+  const rel = parts.slice(i).join("/");
+  if (rel.length > 300 || !/^[\w./@ ()+,'-]+$/.test(rel)) return null;
+  const dir = parts[i];
+  if (dir === "assets") return TEXT_EXT.test(rel) || BINARY_EXT.test(rel) ? rel : null;
+  if (parts.length - i !== 2 && !(dir === "locales" || dir === "templates")) return null; // sous-dossiers : seulement templates/customers et locales
+  return /\.(liquid|json)$/i.test(rel) ? rel : null;
+}
+export const isTextPath = (p: string) => TEXT_EXT.test(p) || /\.(liquid|json)$/i.test(p);
+
+/** Un dossier décompressé est un thème Shopify s'il a une mise en page et une configuration. */
+export const looksLikeShopifyTheme = (paths: string[]) => paths.some((p) => /(^|\/)layout\/theme\.liquid$/.test(p)) && paths.some((p) => /(^|\/)config\/settings_schema\.json$/.test(p));
+
+type ThemeRef = { id: string; version: number };
+const listings = new Map<string, { until: number; paths: string[] }>();
+
+/** Fichiers du thème lus dans la base, listing gardé une minute par version. */
+export function dbThemeSource(theme: ThemeRef, root: string): ThemeSource {
+  const key = `${theme.id}:${theme.version}`;
+  const list = async () => {
+    const hit = listings.get(key);
+    if (hit && hit.until > Date.now()) return hit.paths;
+    const rows = await db.themeFile.findMany({ where: { themeId: theme.id }, select: { path: true } });
+    const paths = rows.map((r) => r.path).sort();
+    if (listings.size > 200) listings.clear();
+    listings.set(key, { until: Date.now() + 60_000, paths });
+    return paths;
+  };
+  return {
+    id: theme.id,
+    version: String(theme.version),
+    async get(path) {
+      const row = await db.themeFile.findUnique({ where: { themeId_path: { themeId: theme.id, path } }, select: { text: true, bytes: true } });
+      if (!row) return null;
+      return row.text ?? (row.bytes ? Buffer.from(row.bytes).toString("utf8") : "");
+    },
+    async list(prefix) { return (await list()).filter((p) => p.startsWith(prefix)); },
+    // L'identifiant du thème voyage avec l'adresse : les fichiers d'un brouillon en aperçu (?pt=) se servent sans cookie.
+    assetUrl(name) { return `${root}/assets/${encodeURIComponent(name).replace(/%2F/g, "/")}?v=${theme.version}&t=${theme.id}`; },
+  };
+}
+
+/** Fichier brut d'un thème (service des assets). */
+export async function themeFile(themeId: string, path: string) {
+  return db.themeFile.findUnique({ where: { themeId_path: { themeId, path } } });
+}
+
+/** Enregistre un lot de fichiers importés (création ou remplacement). */
+export async function putThemeFiles(themeId: string, files: { path: string; data: Uint8Array }[]) {
+  for (const f of files) {
+    const text = isTextPath(f.path) ? Buffer.from(f.data).toString("utf8") : null;
+    const data = { contentType: contentTypeOf(f.path), size: f.data.length, text, bytes: text === null ? Buffer.from(f.data) : null };
+    await db.themeFile.upsert({ where: { themeId_path: { themeId, path: f.path } }, create: { themeId, path: f.path, ...data }, update: data });
+  }
+}

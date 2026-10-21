@@ -974,6 +974,9 @@ model StoreTheme {
   customCss           String    @default("")
   translations        String    @default("{}")
   source              String    @default("editor") // editor | preset | zip | github | copy
+  engine              String    @default("native") // native (sections React) | liquid (thème Shopify importé, rendu par le moteur Liquid)
+  version             Int       @default(1) // incrémenté à chaque changement de fichier (cache des gabarits)
+  files               ThemeFile[]
   // Dépôt GitHub relié (connexion par l'application de la plateforme, ou jeton collé)
   githubRepo          String?
   githubBranch        String    @default("main")
@@ -1086,6 +1089,21 @@ model StoreCreditEntry {
 }
 
 /// Bibliothèque de fichiers (Contenu → Fichiers) : chaque image ou vidéo envoyée.
+/// Fichier d'un thème Shopify importé (layout/, templates/, sections/, snippets/, config/, locales/, assets/).
+model ThemeFile {
+  id          String     @id @default(cuid())
+  themeId     String
+  theme       StoreTheme @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  path        String // ex. "sections/header.liquid"
+  text        String? // fichiers texte (liquid, json, css, js, svg)
+  bytes       Bytes? // fichiers binaires (images, polices)
+  contentType String     @default("")
+  size        Int        @default(0)
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([themeId, path])
+}
+
 model MediaFile {
   id        String   @id @default(cuid())
   storeId   String

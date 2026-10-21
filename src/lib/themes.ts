@@ -1,6 +1,7 @@
 import "server-only";
 import type { Store, StoreTheme } from "@prisma/client";
 import { db } from "./db";
+import { forgetStoreEngine, forgetThemeEngine } from "./liquid/routing";
 import { defaultTheme, PRESETS, presetSections, readTheme, type Theme } from "./theme";
 
 /**
@@ -11,7 +12,8 @@ export type ThemeData = Pick<StoreTheme, "theme" | "customCss" | "translations">
 
 /** Thèmes de la boutique, le publié en premier ; crée le premier thème à partir de l'existant si besoin. */
 export async function storeThemes(store: Store): Promise<{ themes: StoreTheme[]; publishedId: string }> {
-  let themes = await db.storeTheme.findMany({ where: { storeId: store.id }, orderBy: { updatedAt: "desc" } });
+  // Les imports de thèmes Shopify en cours (engine « importing ») n'apparaissent pas encore.
+  let themes = await db.storeTheme.findMany({ where: { storeId: store.id, engine: { not: "importing" } }, orderBy: { updatedAt: "desc" } });
   let publishedId = store.publishedThemeId && themes.some((t) => t.id === store.publishedThemeId) ? store.publishedThemeId : null;
   if (!publishedId) {
     // Première visite de la bibliothèque : le thème actuel de la boutique devient le thème publié.
@@ -42,6 +44,7 @@ export async function publishTheme(store: Store, id: string) {
     db.store.update({ where: { id: store.id }, data: { theme: row.theme, customCss: row.customCss, translations: row.translations, publishedThemeId: row.id, themeUpdatedAt: new Date() } }),
     db.storeTheme.update({ where: { id: row.id }, data: { updatedAt: new Date() } }),
   ]);
+  forgetStoreEngine(store.slug); forgetThemeEngine(row.id);
   return row;
 }
 
@@ -54,7 +57,14 @@ export async function createTheme(storeId: string, input: { name: string; theme:
 export async function duplicateTheme(storeId: string, id: string) {
   const row = await ownTheme(storeId, id);
   if (!row) return null;
-  return createTheme(storeId, { name: `Copie de ${row.name}`.slice(0, 60), theme: row.theme, customCss: row.customCss, translations: row.translations, source: "copy" });
+  const copy = await createTheme(storeId, { name: `Copie de ${row.name}`.slice(0, 60), theme: row.theme, customCss: row.customCss, translations: row.translations, source: "copy" });
+  if (row.engine === "liquid") {
+    // Thème Shopify : ses fichiers sont copiés aussi (par lots, pour ne pas charger tout le thème en mémoire).
+    const files = await db.themeFile.findMany({ where: { themeId: row.id }, select: { path: true, text: true, bytes: true, contentType: true, size: true } });
+    for (let i = 0; i < files.length; i += 100) await db.themeFile.createMany({ data: files.slice(i, i + 100).map((f) => ({ ...f, themeId: copy.id })) });
+    await db.storeTheme.update({ where: { id: copy.id }, data: { engine: "liquid" } });
+  }
+  return copy;
 }
 
 /** Nouveau brouillon depuis un modèle de la galerie « Découvrir des thèmes ». */

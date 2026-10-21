@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { pushThemeLater } from "@/lib/github";
 import { defaultTheme } from "@/lib/theme";
 import { parseThemeJson, storeUpdateFromFiles, THEME_FILES } from "@/lib/theme-files";
+import { isTextPath, putThemeFiles, themePath } from "@/lib/liquid/source";
 import { createTheme, duplicateTheme, ownTheme, publishTheme, saveThemeRow, themeFromPreset, uniqueThemeName } from "@/lib/themes";
 
 const refresh = (slug: string) => { revalidatePath("/admin/theme"); revalidatePath(`/s/${slug}`, "layout"); };
@@ -92,6 +93,18 @@ export async function saveThemeFile(themeId: string, file: string, content: stri
   const { store } = await requirePerm("content");
   const theme = await ownTheme(store.id, themeId);
   if (!theme) return { error: "Thème introuvable." };
+  if (theme.engine === "liquid") {
+    // Thème Shopify : n'importe quel fichier texte du thème ; la version change pour invalider les gabarits en cache.
+    const path = themePath(file);
+    if (!path || !isTextPath(path)) return { error: "Fichier inconnu." };
+    if (content.length > 2_000_000) return { error: "Fichier trop long (2 Mo maximum)." };
+    if (path.endsWith(".json")) { try { JSON.parse(content); } catch { return { error: "JSON invalide." }; } }
+    await putThemeFiles(themeId, [{ path, data: new TextEncoder().encode(content) }]);
+    await db.storeTheme.update({ where: { id: themeId }, data: { version: { increment: 1 } } });
+    await logActivity(`Fichier ${path} du thème « ${theme.name} » modifié`, `/admin/theme/${themeId}/code`);
+    refresh(store.slug);
+    return { ok: true };
+  }
   if (!(Object.values(THEME_FILES) as string[]).includes(file)) return { error: "Fichier inconnu." };
   if (content.length > 200_000) return { error: "Fichier trop long." };
   const { data, error } = storeUpdateFromFiles(theme, { [file]: content });
@@ -99,6 +112,26 @@ export async function saveThemeFile(themeId: string, file: string, content: stri
   await saveThemeRow(store, themeId, data);
   await logActivity(`Fichier ${file} du thème « ${theme.name} » modifié`, `/admin/theme/${themeId}/code`);
   await pushThemeLater(themeId, `${file} modifié depuis l'éditeur de code`);
+  refresh(store.slug);
+  return { ok: true };
+}
+
+/** Éditeur visuel d'un thème Shopify : enregistre des fichiers JSON (gabarits, groupes de sections, settings_data). */
+export async function saveLiquidFiles(themeId: string, files: Record<string, string>): Promise<{ error?: string; ok?: boolean }> {
+  const { store } = await requirePerm("content");
+  const theme = await ownTheme(store.id, themeId);
+  if (!theme || theme.engine !== "liquid") return { error: "Thème introuvable." };
+  const out: { path: string; data: Uint8Array }[] = [];
+  for (const [file, content] of Object.entries(files)) {
+    const path = themePath(file);
+    if (!path || !path.endsWith(".json") || !/^(templates|sections|config)\//.test(path)) return { error: `Fichier refusé : ${file}` };
+    if (content.length > 1_000_000) return { error: "Fichier trop long." };
+    try { JSON.parse(content); } catch { return { error: `JSON invalide dans ${path}.` }; }
+    out.push({ path, data: new TextEncoder().encode(content) });
+  }
+  await putThemeFiles(themeId, out);
+  await db.storeTheme.update({ where: { id: themeId }, data: { version: { increment: 1 } } });
+  await logActivity(store.publishedThemeId === themeId ? "Thème publié modifié" : "Brouillon de thème enregistré", `/admin/theme/${themeId}`);
   refresh(store.slug);
   return { ok: true };
 }
