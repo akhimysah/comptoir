@@ -6,6 +6,12 @@ const DESCRIPTIONS: Record<string, string> = {
   minuit: "Sombre et élégant : mode, bijoux, high-tech.",
   menthe: "Frais et arrondi : cosmétiques, bien-être, enfants.",
   papier: "Minimal, noir et blanc : galerie, design, édition.",
+  concept: "Inspiré de Concept (Shopify) : net, boutons ronds, noir sur blanc.",
+  digital: "Inspiré de Digital (Shopify) : bleu électrique, high-tech, accessoires.",
+  impact: "Inspiré d'Impact (Shopify) : audacieux, jaune vif, grands arrondis.",
+  paloalto: "Inspiré de Palo Alto (Shopify) : mode et lifestyle, typographie large.",
+  prestige: "Inspiré de Prestige (Shopify) : luxe, sobre, sans arrondi.",
+  mysah: "Votre thème Dawn personnalisé : bleu profond, titres affirmés.",
 };
 
 /** Mini-maquette d'un modèle, dessinée en CSS avec ses couleurs. */
