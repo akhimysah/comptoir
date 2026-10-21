@@ -27,19 +27,6 @@ export async function saveTheme(themeId: string, json: string): Promise<{ error?
   return { ok: true };
 }
 
-export async function saveCustomCss(_: { ok?: boolean; error?: string } | undefined, form: FormData): Promise<{ ok?: boolean; error?: string }> {
-  const { store } = await requirePerm("content");
-  const themeId = String(form.get("themeId") ?? "");
-  if (!(await ownTheme(store.id, themeId))) return { error: "Thème introuvable." };
-  const raw = String(form.get("css") ?? "");
-  if (raw.length > CUSTOM_CSS_MAX) return { error: `CSS trop long (${CUSTOM_CSS_MAX.toLocaleString("fr-FR")} caractères maximum).` };
-  await saveThemeRow(store, themeId, { customCss: sanitizeCss(raw) });
-  await logActivity("CSS personnalisé du thème modifié", `/admin/theme/${themeId}`);
-  await pushThemeLater(themeId, "CSS personnalisé modifié depuis l'admin");
-  refresh(store.slug);
-  return { ok: true };
-}
-
 /** « + Nouveau » : brouillon vierge, ouvert dans l'éditeur. */
 export async function newTheme() {
   const { store } = await requirePerm("content");

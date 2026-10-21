@@ -26,12 +26,12 @@ export function Sections({ sections, products, collections, posts = [], store, s
 }) {
   return (
     <>
-      {sections.map((s) => (
+      {sections.filter((s) => !s.hidden).map((s) => (
         <div key={s.id} data-section={s.id} className={selectedId === s.id ? "outline outline-2 -outline-offset-2 outline-[#3B82F6]" : undefined}>
           <SectionView s={s} products={products} collections={collections} posts={posts} store={store} locale={locale} />
         </div>
       ))}
-      {!sections.length && <p className="px-4 py-24 text-center text-[var(--c-muted)]">{T[locale].none}</p>}
+      {!sections.some((s) => !s.hidden) && <p className="px-4 py-24 text-center text-[var(--c-muted)]">{T[locale].none}</p>}
     </>
   );
 }

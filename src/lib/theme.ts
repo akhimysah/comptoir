@@ -13,6 +13,7 @@ const text = (max: number) => z.string().max(max).default("");
 
 const heroSection = z.object({
   id: z.string(),
+  hidden: z.boolean().optional(),
   type: z.literal("hero"),
   title: text(120),
   subtitle: text(300),
@@ -22,6 +23,7 @@ const heroSection = z.object({
 });
 const featuredSection = z.object({
   id: z.string(),
+  hidden: z.boolean().optional(),
   type: z.literal("featured"),
   title: text(120),
   collectionHandle: z.string().max(80).nullable().default(null), // null = derniers produits
@@ -29,12 +31,14 @@ const featuredSection = z.object({
 });
 const textSection = z.object({
   id: z.string(),
+  hidden: z.boolean().optional(),
   type: z.literal("text"),
   title: text(120),
   body: text(2000),
 });
 const bannerSection = z.object({
   id: z.string(),
+  hidden: z.boolean().optional(),
   type: z.literal("banner"),
   title: text(120),
   buttonLabel: text(40),
@@ -43,6 +47,7 @@ const bannerSection = z.object({
 });
 const collectionsSection = z.object({
   id: z.string(),
+  hidden: z.boolean().optional(),
   type: z.literal("collections"),
   title: text(120),
 });
@@ -51,38 +56,38 @@ const img = z.string().max(300).nullable().default(null);
 const link = text(200);
 /** Diaporama : plusieurs grandes images qui défilent (comme « Slideshow » des thèmes Shopify). */
 const slideshowSection = z.object({
-  id: z.string(), type: z.literal("slideshow"),
+  id: z.string(), hidden: z.boolean().optional(), type: z.literal("slideshow"),
   slides: z.array(z.object({ title: text(120), subtitle: text(300), buttonLabel: text(40), buttonLink: link, image: img })).min(1).max(5),
 });
 /** Colonnes avec icône, titre et texte (« Multicolumn », « Icons row », « Features »). */
 const multicolumnSection = z.object({
-  id: z.string(), type: z.literal("multicolumn"), title: text(120),
+  id: z.string(), hidden: z.boolean().optional(), type: z.literal("multicolumn"), title: text(120),
   columns: z.array(z.object({ icon: text(4), title: text(80), text: text(300) })).max(6),
 });
 /** Témoignages clients (« Testimonials », « Press »). */
 const testimonialsSection = z.object({
-  id: z.string(), type: z.literal("testimonials"), title: text(120),
+  id: z.string(), hidden: z.boolean().optional(), type: z.literal("testimonials"), title: text(120),
   items: z.array(z.object({ quote: text(400), author: text(80), rating: z.number().int().min(0).max(5).default(5) })).max(8),
 });
 /** Inscription à la newsletter. */
-const newsletterSection = z.object({ id: z.string(), type: z.literal("newsletter"), title: text(120), body: text(300) });
+const newsletterSection = z.object({ id: z.string(), hidden: z.boolean().optional(), type: z.literal("newsletter"), title: text(120), body: text(300) });
 /** Questions fréquentes (« FAQ », « Collapsible content »). */
 const faqSection = z.object({
-  id: z.string(), type: z.literal("faq"), title: text(120),
+  id: z.string(), hidden: z.boolean().optional(), type: z.literal("faq"), title: text(120),
   items: z.array(z.object({ question: text(200), answer: text(1000) })).max(12),
 });
 /** Texte qui défile en bandeau (« Scrolling text », « Marquee »). */
-const marqueeSection = z.object({ id: z.string(), type: z.literal("marquee"), body: text(200) });
+const marqueeSection = z.object({ id: z.string(), hidden: z.boolean().optional(), type: z.literal("marquee"), body: text(200) });
 /** Un produit mis en avant en grand (« Featured product »). */
-const featuredProductSection = z.object({ id: z.string(), type: z.literal("featuredProduct"), title: text(120), productHandle: z.string().max(80).nullable().default(null) });
+const featuredProductSection = z.object({ id: z.string(), hidden: z.boolean().optional(), type: z.literal("featuredProduct"), title: text(120), productHandle: z.string().max(80).nullable().default(null) });
 /** Compte à rebours vers une date (« Countdown timer »). */
-const countdownSection = z.object({ id: z.string(), type: z.literal("countdown"), title: text(120), endsAt: text(30), buttonLabel: text(40), buttonLink: link });
+const countdownSection = z.object({ id: z.string(), hidden: z.boolean().optional(), type: z.literal("countdown"), title: text(120), endsAt: text(30), buttonLabel: text(40), buttonLink: link });
 /** Galerie d'images (« Media grid », « Image collage »). */
-const gallerySection = z.object({ id: z.string(), type: z.literal("gallery"), title: text(120), images: z.array(z.string().max(300)).max(8) });
+const gallerySection = z.object({ id: z.string(), hidden: z.boolean().optional(), type: z.literal("gallery"), title: text(120), images: z.array(z.string().max(300)).max(8) });
 /** Vidéo YouTube ou Vimeo. */
-const videoSection = z.object({ id: z.string(), type: z.literal("video"), title: text(120), url: text(300) });
+const videoSection = z.object({ id: z.string(), hidden: z.boolean().optional(), type: z.literal("video"), title: text(120), url: text(300) });
 /** Derniers articles du blog (« Blog posts », « Featured blog »). */
-const blogSection = z.object({ id: z.string(), type: z.literal("blog"), title: text(120), limit: z.number().int().min(1).max(6).default(3) });
+const blogSection = z.object({ id: z.string(), hidden: z.boolean().optional(), type: z.literal("blog"), title: text(120), limit: z.number().int().min(1).max(6).default(3) });
 
 export const sectionSchema = z.discriminatedUnion("type", [
   heroSection,
