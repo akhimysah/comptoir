@@ -75,3 +75,13 @@ describe("dimensions des images", async () => {
     expect(imageSize(Buffer.from("pas une image"))).toBeNull();
   });
 });
+
+describe("adresses du CDN Shopify figées dans un thème exporté", async () => {
+  const { rewriteShopifyCdn } = await import("@/lib/liquid/source");
+  it("sont ramenées vers les fichiers du thème", () => {
+    const js = `import {Delegate} from "//cdn.shopify.com/s/files/1/0604/5207/7740/t/57/assets/vendor.min.js?v=20880576495916334881691263407";`;
+    expect(rewriteShopifyCdn(js, { id: "t1", version: 3 }, "/s/demo")).toBe(`import {Delegate} from "/s/demo/assets/vendor.min.js?v=3&t=t1";`);
+    expect(rewriteShopifyCdn('<img src="https://cdn.shopify.com/s/files/1/2/3/files/photo.jpg">', { id: "t1", version: 3 }, "")).toContain("cdn.shopify.com/s/files/1/2/3/files/photo.jpg");
+    expect(rewriteShopifyCdn(`import "//cdn.shopify.com/s/files/1/2/3/t/5/assets/theme.js?548";`, { id: "t1", version: 3 }, "")).toBe(`import "/assets/theme.js?v=3&t=t1";`);
+  });
+});

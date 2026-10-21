@@ -76,3 +76,26 @@ export async function putThemeFiles(themeId: string, files: { path: string; data
     await db.themeFile.upsert({ where: { themeId_path: { themeId, path: f.path } }, create: { themeId, path: f.path, ...data }, update: data });
   }
 }
+
+/** Source avec des fichiers remplacés en mémoire (aperçu en direct de l'éditeur, avant enregistrement). */
+export function overlaySource(base: ThemeSource, overrides: Record<string, string>): ThemeSource {
+  const keys = Object.keys(overrides);
+  let h = 5381;
+  for (const k of keys) for (const ch of k + "\0" + overrides[k]) h = ((h << 5) + h + ch.charCodeAt(0)) | 0;
+  return {
+    id: base.id,
+    version: `${base.version ?? "0"}+${(h >>> 0).toString(36)}`,
+    async get(p) { return p in overrides ? overrides[p] : base.get(p); },
+    async list(prefix) { return [...new Set([...(await base.list(prefix)), ...keys.filter((k) => k.startsWith(prefix))])].sort(); },
+    assetUrl: (name) => base.assetUrl(name),
+  };
+}
+
+/**
+ * Un thème exporté depuis une boutique Shopify garde des adresses figées de son CDN
+ * (« //cdn.shopify.com/s/files/…/assets/vendor.min.js?v=… », y compris dans les `import` des fichiers JS).
+ * Elles sont ramenées vers nos fichiers du thème.
+ */
+export function rewriteShopifyCdn(text: string, theme: ThemeRef, root: string) {
+  return text.replace(/(?:https?:)?\/\/cdn\.shopify\.com\/s\/files\/[^"'()\s]*?\/assets\/([\w.@-]+)(?:\?[\w=&.-]*)?/g, (_, name: string) => `${root}/assets/${name}?v=${theme.version}&t=${theme.id}`);
+}
