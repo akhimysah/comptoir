@@ -53,8 +53,8 @@ function DialogHeader({ title, onClose }: { title: string; onClose: () => void }
   );
 }
 
-export function ZipDialog({ ref, platform = false }: { ref: React.RefObject<HTMLDialogElement | null>; platform?: boolean }) {
-  const qs = platform ? "&platform=1" : "";
+export function ZipDialog({ ref, platform = false, updateOf }: { ref: React.RefObject<HTMLDialogElement | null>; platform?: boolean; /** Mise à jour d'un thème de la plateforme : ses fichiers sont remplacés. */ updateOf?: string | null }) {
+  const qs = platform ? `&platform=1${updateOf ? `&update=${updateOf}` : ""}` : "";
   const form = useRef<HTMLFormElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Dépose un thème Shopify (.zip) dans la bibliothèque de thèmes de la plateforme, par lots, comme le fait l'admin.
- *   node scripts/seed-platform-theme.mjs <theme.zip> --url https://ma-plateforme.fr --token $PLATFORM_IMPORT_TOKEN [--thumb capture.png] [--description "…"]
+ *   node scripts/seed-platform-theme.mjs <theme.zip> --url https://ma-plateforme.fr --token $PLATFORM_IMPORT_TOKEN [--thumb capture.png] [--description "…"] [--update <id du thème>]
+ * --update remplace les fichiers d'un thème déjà présent (nouvelle version) : les boutiques qui l'ont installé se voient proposer la mise à jour.
  * Le jeton est la variable PLATFORM_IMPORT_TOKEN du serveur (réservée à ce script, jamais affichée dans l'admin).
  */
 import { readFileSync } from "node:fs";
@@ -15,8 +16,9 @@ const token = opt("--token") ?? process.env.PLATFORM_IMPORT_TOKEN;
 if (!zipPath || !token) { console.error("Usage : node scripts/seed-platform-theme.mjs <theme.zip> --url <adresse> --token <jeton> [--thumb capture.png] [--description \"…\"]"); process.exit(1); }
 
 const headers = { Authorization: `Bearer ${token}` };
+const updateOf = opt("--update");
 const call = async (step, init) => {
-  const res = await fetch(`${base}/admin/theme/import?step=${step}&platform=1`, { ...init, headers: { ...headers, ...(init.headers ?? {}) } });
+  const res = await fetch(`${base}/admin/theme/import?step=${step}&platform=1${updateOf && step === "finish" ? `&update=${encodeURIComponent(updateOf)}` : ""}`, { ...init, headers: { ...headers, ...(init.headers ?? {}) } });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.error) throw new Error(json.error ?? `HTTP ${res.status} (${step})`);
   return json;

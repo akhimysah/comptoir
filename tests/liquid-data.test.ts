@@ -85,3 +85,27 @@ describe("adresses du CDN Shopify figées dans un thème exporté", async () => 
     expect(rewriteShopifyCdn(`import "//cdn.shopify.com/s/files/1/2/3/t/5/assets/theme.js?548";`, { id: "t1", version: 3 }, "")).toBe(`import "/assets/theme.js?v=3&t=t1";`);
   });
 });
+
+describe("mise à jour d'un thème de la plateforme", async () => {
+  const { db } = await import("@/lib/db");
+  const { installPlatformTheme } = await import("@/lib/liquid/source");
+  it("installe la nouvelle version en gardant les réglages et gabarits personnalisés de l'ancienne", async () => {
+    await db.user.deleteMany();
+    const owner = await db.user.create({ data: { email: `up-${Date.now()}@test.local`, name: "M", passwordHash: "x" } });
+    const store = await db.store.create({ data: { ownerId: owner.id, name: "B", slug: `up-${Date.now()}`, theme: "{}" } });
+    const platform = await db.platformTheme.create({ data: { name: "Thème", version: "2.0.0", ready: true, files: { create: [
+      { path: "layout/theme.liquid", text: "v2 {{ content_for_layout }}" }, { path: "config/settings_data.json", text: '{"current":{"color":"#000"}}' }, { path: "templates/index.json", text: '{"sections":{},"order":[]}' }, { path: "config/settings_schema.json", text: "[]" },
+    ] } } });
+    const old = await db.storeTheme.create({ data: { storeId: store.id, name: "Thème 1.0", theme: "{}", engine: "liquid", platformThemeId: platform.id, platformVersion: "1.0.0", files: { create: [
+      { path: "layout/theme.liquid", text: "v1" }, { path: "config/settings_data.json", text: '{"current":{"color":"#abc"}}' }, { path: "templates/index.json", text: '{"sections":{"hero":{"type":"hero"}},"order":["hero"]}' }, { path: "templates/page.contact.json", text: '{"sections":{},"order":[]}' },
+    ] } } });
+    const next = await installPlatformTheme(store.id, platform.id, "Thème 2.0.0", old.id);
+    const file = async (path: string) => (await db.themeFile.findUnique({ where: { themeId_path: { themeId: next.id, path } } }))?.text;
+    expect(next.platformVersion).toBe("2.0.0");
+    expect(await file("layout/theme.liquid")).toBe("v2 {{ content_for_layout }}"); // code du thème : nouvelle version
+    expect(await file("config/settings_data.json")).toBe('{"current":{"color":"#abc"}}'); // réglages : conservés
+    expect(await file("templates/index.json")).toContain("hero"); // gabarit personnalisé : conservé
+    expect(await file("templates/page.contact.json")).toBeDefined(); // gabarit ajouté par le marchand : conservé
+    await db.platformTheme.delete({ where: { id: platform.id } });
+  });
+});

@@ -978,6 +978,8 @@ model StoreTheme {
   translations        String    @default("{}")
   source              String    @default("editor") // editor | preset | zip | github | copy
   engine              String    @default("native") // native (sections React) | liquid (thème Shopify importé, rendu par le moteur Liquid)
+  platformThemeId     String? // installé depuis la bibliothèque de la plateforme (mises à jour proposées)
+  platformVersion     String    @default("") // version du thème de la plateforme au moment de l'installation
   version             Int       @default(1) // incrémenté à chaque changement de fichier (cache des gabarits)
   files               ThemeFile[]
   revisions           ThemeRevision[]

@@ -99,10 +99,20 @@ export async function putThemeFiles(themeId: string, files: { path: string; data
 }
 
 /** Installe un thème de la plateforme dans une boutique : copie de tous ses fichiers dans un nouveau brouillon. */
-export async function installPlatformTheme(storeId: string, platformThemeId: string, name: string) {
-  const files = await db.platformThemeFile.findMany({ where: { themeId: platformThemeId }, select: { path: true, text: true, bytes: true, contentType: true, size: true } });
-  const row = await db.storeTheme.create({ data: { storeId, name, theme: "{}", source: "preset", engine: "liquid" } });
+export async function installPlatformTheme(storeId: string, platformThemeId: string, name: string, keepFrom?: string) {
+  const [platform, files] = await Promise.all([
+    db.platformTheme.findUnique({ where: { id: platformThemeId }, select: { version: true } }),
+    db.platformThemeFile.findMany({ where: { themeId: platformThemeId, NOT: { path: "thumbnail.png" } }, select: { path: true, text: true, bytes: true, contentType: true, size: true } }),
+  ]);
+  const row = await db.storeTheme.create({ data: { storeId, name, theme: "{}", source: "preset", engine: "liquid", platformThemeId, platformVersion: platform?.version ?? "" } });
   for (let i = 0; i < files.length; i += 100) await db.themeFile.createMany({ data: files.slice(i, i + 100).map((f) => ({ ...f, themeId: row.id })) });
+  // Mise à jour : les réglages et gabarits personnalisés de l'ancien thème sont reportés (comme Shopify conserve les réglages).
+  if (keepFrom) {
+    const kept = await db.themeFile.findMany({ where: { themeId: keepFrom, OR: [{ path: "config/settings_data.json" }, { path: { startsWith: "templates/" }, text: { not: null } }, { path: { startsWith: "sections/" }, AND: { path: { endsWith: ".json" } } }] } });
+    const paths = new Set(files.map((f) => f.path));
+    const data = kept.filter((f) => f.text !== null && (paths.has(f.path) || f.path.startsWith("templates/"))).map((f) => ({ path: f.path, data: new TextEncoder().encode(f.text!) }));
+    await putThemeFiles(row.id, data);
+  }
   return row;
 }
 

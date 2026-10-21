@@ -224,3 +224,17 @@ export async function restoreThemeRevision(form: FormData) {
   refresh(store.slug);
   redirect(`/admin/theme/${themeId}/history?ok=${encodeURIComponent("Version restaurée.")}`);
 }
+
+/** « Mettre à jour » depuis la bibliothèque : nouvelle version du thème de la plateforme, en brouillon, avec les réglages de l'ancien. */
+export async function updateFromPlatform(form: FormData) {
+  const { store } = await requirePerm("content");
+  const theme = await ownTheme(store.id, String(form.get("id") ?? ""));
+  if (!theme?.platformThemeId) back("err", "Thème introuvable.");
+  const platform = await db.platformTheme.findFirst({ where: { id: theme!.platformThemeId!, ready: true } });
+  if (!platform) back("err", "Ce thème n'est plus dans la bibliothèque de la plateforme.");
+  if ((await db.storeTheme.count({ where: { storeId: store.id } })) >= 20) back("err", "20 thèmes au maximum dans la bibliothèque : supprimez-en un d'abord.");
+  const row = await installPlatformTheme(store.id, platform!.id, await uniqueThemeName(store.id, `${platform!.name} ${platform!.version}`.trim()), theme!.id);
+  await logActivity(`Thème « ${row.name} » : mise à jour installée en brouillon`, `/admin/theme/${row.id}`);
+  revalidatePath("/admin/theme");
+  back("ok", `« ${row.name} » ajouté à vos brouillons avec vos réglages. Vérifiez-le, puis publiez-le.`);
+}

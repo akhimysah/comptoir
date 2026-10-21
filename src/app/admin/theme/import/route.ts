@@ -83,6 +83,17 @@ async function platformImport(req: Request, step: string | null) {
       if (info?.theme_name && !(info.theme_author === "Shopify" && info.theme_name === "Dawn")) name = clean(info.theme_name).slice(0, 60);
       version = info?.theme_version ?? ""; author = clean(info?.theme_author ?? "");
     } catch {}
+    // Mise à jour d'un thème existant : ses fichiers sont remplacés par ceux du nouveau dépôt, l'identifiant ne change pas
+    // (les boutiques qui l'ont installé verront la nouvelle version proposée).
+    const updateOf = new URL(req.url).searchParams.get("update");
+    if (updateOf && (await db.platformTheme.findUnique({ where: { id: updateOf } }))) {
+      await db.platformThemeFile.deleteMany({ where: { themeId: updateOf, NOT: { path: "thumbnail.png" } } });
+      await db.platformThemeFile.updateMany({ where: { themeId: theme.id }, data: { themeId: updateOf } });
+      await db.platformTheme.update({ where: { id: updateOf }, data: { version, author: author || undefined } });
+      await db.platformTheme.delete({ where: { id: theme.id } });
+      revalidatePath("/admin/platform/themes"); revalidatePath("/admin/theme");
+      return NextResponse.json({ ok: true, url: `/admin/platform/themes?ok=${encodeURIComponent(`« ${name} » mis à jour en version ${version || "?"}.`)}`, images: null });
+    }
     await db.platformTheme.update({ where: { id: theme.id }, data: { ready: true, name, version, author, position: Date.now() % 1_000_000 } });
     revalidatePath("/admin/platform/themes"); revalidatePath("/admin/theme");
     return NextResponse.json({ ok: true, url: `/admin/platform/themes?ok=${encodeURIComponent(`« ${name} » ajouté à la bibliothèque de la plateforme.`)}`, images: null });

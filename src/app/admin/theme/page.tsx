@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { newTheme, publish } from "./actions";
+import { newTheme, publish, updateFromPlatform } from "./actions";
 import { updateFromGithub } from "./github-actions";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { PresetGallery } from "@/components/admin/PresetGallery";
@@ -27,6 +27,10 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
   const { ok, err } = await searchParams;
   const { store, isOwner } = await requirePerm("content");
   const { themes, publishedId } = await storeThemes(store);
+  // Thèmes installés depuis la bibliothèque de la plateforme : une version plus récente est-elle disponible ?
+  const platformIds = themes.map((t) => t.platformThemeId).filter((x): x is string => Boolean(x));
+  const platformVersions = new Map((await db.platformTheme.findMany({ where: { id: { in: platformIds }, ready: true }, select: { id: true, version: true } })).map((p) => [p.id, p.version]));
+  const updateAvailable = (t: { platformThemeId: string | null; platformVersion: string }) => { const v = t.platformThemeId ? platformVersions.get(t.platformThemeId) : undefined; return v && v !== t.platformVersion ? v : null; };
   const current = themes.find((t) => t.id === publishedId)!;
   const drafts = themes.filter((t) => t.id !== publishedId);
   const [vitals, app] = await Promise.all([storeVitals(store.id), appConfig()]);
@@ -59,6 +63,7 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
               {current.githubError && <div className="mt-1 text-xs text-[#ffb4a8]">{current.githubError}</div>}
             </div>
             <div className="flex items-center gap-2">
+              {updateAvailable(current) && <form action={updateFromPlatform}><input type="hidden" name="id" value={current.id} /><button className="btn h-9 border-0 bg-[#cce3ff] text-[#0a3a7a] hover:bg-[#b9d7ff]" title={`Version ${updateAvailable(current)} disponible`}>Mettre à jour</button></form>}
               {behind.get(current.id) && isOwner && <form action={updateFromGithub}><input type="hidden" name="id" value={current.id} /><button className="btn h-9 border-0 bg-[#cce3ff] text-[#0a3a7a] hover:bg-[#b9d7ff]">Mettre à jour</button></form>}
               <Link href={`/admin/theme/${current.id}`} className="btn h-9 border-0 bg-white text-ink hover:bg-[#f1f1f1]">Modifier le thème</Link>
               <ThemeMenu theme={current} slug={store.slug} published owner={isOwner} buttonClassName="btn h-9 w-9 border-0 bg-white px-0 text-ink hover:bg-[#f1f1f1]" />
@@ -78,10 +83,12 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 truncate font-[650]">{t.name}{t.engine === "liquid" && <span className="rounded-full bg-[#e0f0ff] px-2 py-0.5 text-[11px] font-[550] text-[#0a3a7a]">Thème Shopify</span>}</div>
                   <div className="text-[13px] text-muted">{t.source === "editor" || t.source === "copy" ? `Dernière sauvegarde : ${formatDateTime(t.updatedAt)}` : `Ajouté le : ${formatDateTime(t.createdAt)}`}</div>
+                  {updateAvailable(t) && <div className="mt-1 text-xs text-[#0a3a7a]">Mise à jour disponible : version {updateAvailable(t)}</div>}
                   {t.githubRepo && <div className="mt-1.5"><Badge repo={t.githubRepo} branch={t.githubBranch} /></div>}
                   {t.githubError && <div className="mt-1 text-xs text-[#8e0b21]">{t.githubError}</div>}
                 </div>
                 <div className="flex items-center gap-2">
+                  {updateAvailable(t) && <form action={updateFromPlatform}><input type="hidden" name="id" value={t.id} /><button className="btn h-8 border-0 bg-[#cce3ff] text-[#0a3a7a] hover:bg-[#b9d7ff]">Mettre à jour</button></form>}
                   {behind.get(t.id) && isOwner && <form action={updateFromGithub}><input type="hidden" name="id" value={t.id} /><button className="btn h-8 border-0 bg-[#cce3ff] text-[#0a3a7a] hover:bg-[#b9d7ff]">Mettre à jour</button></form>}
                   <form action={publish}><input type="hidden" name="id" value={t.id} /><ConfirmSubmit label="Publier" confirmLabel={`Publier « ${t.name} »`} className="h-8" /></form>
                   <Link href={`/admin/theme/${t.id}`} className="btn h-8">Modifier le thème</Link>
