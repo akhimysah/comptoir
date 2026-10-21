@@ -137,11 +137,20 @@ export type BuildOpts = {
 
 /** Catalogue complet de la boutique au format Shopify (produits actifs et collections), chargé une fois par requête. */
 export async function liquidCatalog(store: Store, root: string, locale: Locale, adj = 0, variantId?: string | null) {
-  const [products, collections] = await Promise.all([
+  const [products, collections, ratings] = await Promise.all([
     db.product.findMany({ where: { storeId: store.id, status: "active" }, include: { variants: true, collections: { include: { collection: { select: { handle: true } } } } }, orderBy: { createdAt: "desc" } }),
     db.collection.findMany({ where: { storeId: store.id }, include: { products: { select: { productId: true } } }, orderBy: { title: "asc" } }),
+    db.review.groupBy({ by: ["productId"], where: { storeId: store.id, status: "published" }, _avg: { rating: true }, _count: true }),
   ]);
   const sp = products.filter((p) => p.variants.length).map((p) => shopifyProduct(p, root, locale, adj, variantId));
+  // Avis publiés → métachamps « reviews » que les thèmes lisent (product.metafields.reviews.rating.value.rating, rating_count).
+  for (const r of ratings) {
+    const p = sp.find((x) => x.id === r.productId);
+    if (!p) continue;
+    const avg = Math.round((r._avg.rating ?? 0) * 10) / 10;
+    p.rating = { value: avg, count: r._count };
+    p.metafields.reviews = { rating: { value: { rating: avg, scale_min: 1, scale_max: 5 } }, rating_count: { value: r._count } };
+  }
   const byId = new Map(sp.map((p) => [p.id, p]));
   const sc = collections.map((c) => shopifyCollection(c, c.products.map((x) => byId.get(x.productId)).filter((x): x is ShopifyProduct => Boolean(x)), root, locale));
   // Les références de collections des produits reçoivent leurs vrais titres.
