@@ -18,6 +18,8 @@ const T = dict(
     empty: "Votre panier est vide",
     browse: "Découvrir les produits",
     cart: "Panier",
+    checkoutTitle: "Paiement",
+    editCart: "Modifier le panier",
     restored: "Votre panier a été retrouvé. Il ne reste plus qu'à valider la commande.",
     cancelled: "Le paiement a été interrompu. Votre panier est toujours là.",
     loading: "Chargement du panier…",
@@ -94,6 +96,8 @@ const T = dict(
     restored: "We've restored your cart. All that's left is to complete your order.",
     cancelled: "Payment was interrupted. Your cart is still here.",
     loading: "Loading cart…",
+    checkoutTitle: "Checkout",
+    editCart: "Edit cart",
     subscription: (weekly: boolean) => `Subscription · delivered ${weekly ? "every week" : "every month"}`,
     less: "Decrease quantity",
     more: "Increase quantity",
@@ -165,7 +169,7 @@ const field = "w-full rounded-[var(--t-radius)] border border-[color-mix(in_srgb
 
 type Recovered = { items: { variantId: string; quantity: number }[]; email: string; name: string; token: string } | null;
 
-export function CartView({ slug, currency, display, chargeDisplay = false, loyalty, cancelled, demo, recovered, customer, checkout: co }: { slug: string; currency: string; display?: { code: string; rate: number }; chargeDisplay?: boolean; loyalty?: { perUnit: number } | null; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null; checkout?: CheckoutSettings }) {
+export function CartView({ slug, currency, display, chargeDisplay = false, loyalty, cancelled, demo, recovered, customer, checkout: co, checkoutOnly = false }: { slug: string; currency: string; display?: { code: string; rate: number }; chargeDisplay?: boolean; loyalty?: { perUnit: number } | null; cancelled: boolean; demo: boolean; recovered: Recovered; customer?: { email: string; name: string } | null; checkout?: CheckoutSettings; /** Depuis le panier d'un thème Shopify : récapitulatif sans modification, directement l'étape de paiement. */ checkoutOnly?: boolean }) {
   const { items, ready, setQuantity, replace, add } = useCart(slug);
   const locale = useLocale();
   const t = T[locale];
@@ -252,7 +256,7 @@ export function CartView({ slug, currency, display, chargeDisplay = false, loyal
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="mb-6 font-[family-name:var(--t-display)] text-3xl font-semibold md:text-4xl">{t.cart}</h1>
+      <h1 className="mb-6 font-[family-name:var(--t-display)] text-3xl font-semibold md:text-4xl">{checkoutOnly ? t.checkoutTitle : t.cart}</h1>
       {restored && <p className="mb-4 rounded-[var(--t-radius)] bg-[var(--c-surface)] px-4 py-3 text-sm">{t.restored}</p>}
       {cancelled && <p className="mb-4 rounded-[var(--t-radius)] bg-[var(--c-surface)] px-4 py-3 text-sm">{t.cancelled}</p>}
       {cart?.notices.map((n) => <p key={n} className="mb-3 rounded-[var(--t-radius)] bg-[var(--c-surface)] px-4 py-3 text-sm">{n}</p>)}
@@ -269,20 +273,21 @@ export function CartView({ slug, currency, display, chargeDisplay = false, loyal
                 {l.variantTitle !== "Par défaut" && <span className="text-sm text-[var(--c-muted)]">{l.variantTitle}</span>}
                 {l.subscription && <span className="text-sm font-medium">{t.subscription(l.subscription === "week")}</span>}
                 <span className="text-sm">{cart.priceListName && l.compareAtCents && l.compareAtCents > l.priceCents && <s className="mr-1.5 text-[var(--c-muted)]">{m(l.compareAtCents)}</s>}{m(l.priceCents)}</span>
-                <div className="mt-auto flex items-center gap-3">
+                {checkoutOnly ? <span className="mt-auto text-sm text-[var(--c-muted)]">× {l.quantity}</span> : <div className="mt-auto flex items-center gap-3">
                   <div className="inline-flex items-center rounded-[var(--t-radius)] border border-[color-mix(in_srgb,var(--c-text)_22%,transparent)]">
                     <button type="button" className="h-9 w-9" aria-label={t.less} onClick={() => setQuantity(l.variantId, l.quantity - 1)}>−</button>
                     <span className="w-7 text-center tabular-nums">{l.quantity}</span>
                     <button type="button" className="h-9 w-9 disabled:opacity-30" aria-label={t.more} disabled={l.quantity >= l.available} onClick={() => setQuantity(l.variantId, l.quantity + 1)}>+</button>
                   </div>
                   <button type="button" className="text-sm text-[var(--c-muted)] underline underline-offset-4" onClick={() => setQuantity(l.variantId, 0)}>{t.remove}</button>
-                </div>
+                </div>}
               </div>
               <span className="font-medium tabular-nums">{shown ? formatMoney(Math.round(l.priceCents * shown.rate) * l.quantity, shown.code, loc) : m(l.priceCents * l.quantity)}</span>
             </li>
           ))}
         </ul>
-        {cart?.recommendations && cart.recommendations.length > 0 && (
+        {checkoutOnly && <a href={`/s/${slug}/cart`} className="self-start text-sm underline underline-offset-4">{t.editCart}</a>}
+        {!checkoutOnly && cart?.recommendations && cart.recommendations.length > 0 && (
           <section aria-labelledby="upsell-title" className="flex flex-col gap-3">
             <h2 id="upsell-title" className="font-[family-name:var(--t-display)] text-xl font-semibold">{t.upsell}</h2>
             <ul className="grid gap-3 sm:grid-cols-3">
