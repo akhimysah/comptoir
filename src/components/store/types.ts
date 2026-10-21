@@ -15,6 +15,7 @@ export type CardProduct = {
 };
 
 export type CardCollection = { handle: string; title: string; image: string | null; count: number };
+export type CardPost = { handle: string; title: string; excerpt: string; image: string | null; publishedAt: string | null };
 
 export type StoreInfo = { slug: string; name: string; currency: string; rate?: number };
 

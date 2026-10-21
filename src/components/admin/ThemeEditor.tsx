@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { type ReactNode, useState, useTransition } from "react";
 import { saveTheme } from "@/app/admin/theme/actions";
 import { storeFontVars } from "@/components/store/fonts";
 import { Sections } from "@/components/store/Sections";
-import type { CardCollection, CardProduct, StoreInfo } from "@/components/store/types";
+import type { CardCollection, CardPost, CardProduct, StoreInfo } from "@/components/store/types";
 import { blankSection, FONTS, PRESETS, SECTION_LABELS, themeVars, type FontKey, type Section, type SectionType, type Theme } from "@/lib/theme";
 import { cx } from "@/lib/utils";
 import { ImageField } from "./ImageField";
@@ -18,7 +18,7 @@ const COLOR_LABELS: Record<keyof Theme["colors"], string> = {
   accentText: "Texte des boutons",
 };
 
-export function ThemeEditor({ themeId, published, initial, store, products, collections }: { themeId: string; published: boolean; initial: Theme; store: StoreInfo; products: CardProduct[]; collections: CardCollection[] }) {
+export function ThemeEditor({ themeId, published, initial, store, products, collections, posts = [] }: { themeId: string; published: boolean; initial: Theme; store: StoreInfo; products: CardProduct[]; collections: CardCollection[]; posts?: CardPost[] }) {
   const [theme, setTheme] = useState<Theme>(initial);
   const [saved, setSaved] = useState(JSON.stringify(initial));
   const [selected, setSelected] = useState<string | null>(null);
@@ -103,7 +103,7 @@ export function ThemeEditor({ themeId, published, initial, store, products, coll
             <div className="flex flex-col gap-4">
               <button type="button" className="self-start text-sm font-semibold text-pine" onClick={() => setSelected(null)}>← Toutes les sections</button>
               <h2 className="text-sm font-[650]">{SECTION_LABELS[current.type]}</h2>
-              <SectionFields s={current} collections={collections} onChange={(p) => updateSection(current.id, p)} />
+              <SectionFields s={current} collections={collections} products={products} onChange={(p) => updateSection(current.id, p)} />
               <button type="button" className="btn btn-danger" onClick={() => { setTheme((t) => ({ ...t, sections: t.sections.filter((s) => s.id !== current.id) })); setSelected(null); }}>Retirer cette section</button>
             </div>
           ) : (
@@ -167,14 +167,14 @@ export function ThemeEditor({ themeId, published, initial, store, products, coll
               <span className="text-sm font-medium">Panier</span>
             </div>
           </div>
-          <Sections sections={theme.sections} products={products} collections={collections} store={store} selectedId={selected} />
+          <Sections sections={theme.sections} products={products} collections={collections} posts={posts} store={store} selectedId={selected} />
         </div>
       </div>
     </div>
   );
 }
 
-function SectionFields({ s, collections, onChange }: { s: Section; collections: CardCollection[]; onChange: (p: Partial<Section>) => void }) {
+function SectionFields({ s, collections, products, onChange }: { s: Section; collections: CardCollection[]; products: CardProduct[]; onChange: (p: Partial<Section>) => void }) {
   const text = (key: string, label: string, max: number, multiline = false) => {
     const value = (s as Record<string, unknown>)[key] as string;
     return (
@@ -227,5 +227,83 @@ function SectionFields({ s, collections, onChange }: { s: Section; collections: 
       );
     case "collections":
       return <>{text("title", "Titre", 120)}<p className="text-sm text-muted">Affiche toutes vos collections avec leur image.</p></>;
+    case "slideshow":
+      return (
+        <ListEditor label="Diapositives" items={s.slides} max={5} min={1} blank={{ title: "Nouvelle diapositive", subtitle: "", buttonLabel: "", buttonLink: "/products", image: null }} onChange={(slides) => onChange({ slides })}
+          render={(sl, set, i) => (<>
+            <input className="input" maxLength={120} value={sl.title} placeholder="Titre" onChange={(e) => set({ title: e.target.value })} />
+            <textarea className="input min-h-[60px]" maxLength={300} value={sl.subtitle} placeholder="Sous-titre" onChange={(e) => set({ subtitle: e.target.value })} />
+            <div className="grid grid-cols-2 gap-2"><input className="input" maxLength={40} value={sl.buttonLabel} placeholder="Texte du bouton" onChange={(e) => set({ buttonLabel: e.target.value })} /><input className="input" maxLength={200} value={sl.buttonLink} placeholder="Lien" onChange={(e) => set({ buttonLink: e.target.value })} /></div>
+            <ImageField id={`sec-slide-${i}`} label="Image" value={sl.image} onChange={(image) => set({ image })} />
+          </>)} />
+      );
+    case "multicolumn":
+      return (<>{text("title", "Titre", 120)}
+        <ListEditor label="Colonnes" items={s.columns} max={6} blank={{ icon: "✨", title: "Titre", text: "" }} onChange={(columns) => onChange({ columns })}
+          render={(c, set) => (<>
+            <div className="grid grid-cols-[64px_1fr] gap-2"><input className="input text-center" maxLength={4} value={c.icon} placeholder="Icône" onChange={(e) => set({ icon: e.target.value })} /><input className="input" maxLength={80} value={c.title} placeholder="Titre" onChange={(e) => set({ title: e.target.value })} /></div>
+            <textarea className="input min-h-[60px]" maxLength={300} value={c.text} placeholder="Texte" onChange={(e) => set({ text: e.target.value })} />
+          </>)} /></>);
+    case "testimonials":
+      return (<>{text("title", "Titre", 120)}
+        <ListEditor label="Témoignages" items={s.items} max={8} blank={{ quote: "", author: "", rating: 5 }} onChange={(items) => onChange({ items })}
+          render={(it, set) => (<>
+            <textarea className="input min-h-[60px]" maxLength={400} value={it.quote} placeholder="Citation" onChange={(e) => set({ quote: e.target.value })} />
+            <div className="grid grid-cols-[1fr_90px] gap-2"><input className="input" maxLength={80} value={it.author} placeholder="Auteur" onChange={(e) => set({ author: e.target.value })} /><select className="input" value={it.rating} onChange={(e) => set({ rating: Number(e.target.value) })}>{[5, 4, 3, 2, 1, 0].map((n) => <option key={n} value={n}>{n ? `${n} ★` : "Sans note"}</option>)}</select></div>
+          </>)} /></>);
+    case "newsletter":
+      return <>{text("title", "Titre", 120)}{text("body", "Texte", 300, true)}<p className="text-sm text-muted">Les inscrits apparaissent dans Clients, abonnés à la newsletter.</p></>;
+    case "faq":
+      return (<>{text("title", "Titre", 120)}
+        <ListEditor label="Questions" items={s.items} max={12} blank={{ question: "", answer: "" }} onChange={(items) => onChange({ items })}
+          render={(it, set) => (<>
+            <input className="input" maxLength={200} value={it.question} placeholder="Question" onChange={(e) => set({ question: e.target.value })} />
+            <textarea className="input min-h-[80px]" maxLength={1000} value={it.answer} placeholder="Réponse" onChange={(e) => set({ answer: e.target.value })} />
+          </>)} /></>);
+    case "marquee":
+      return <>{text("body", "Texte qui défile", 200)}<p className="text-sm text-muted">Séparez les messages par « · ».</p></>;
+    case "featuredProduct":
+      return (<>{text("title", "Titre", 120)}
+        <label className="label">Produit
+          <select id="sec-product" className="input" value={s.productHandle ?? ""} onChange={(e) => onChange({ productHandle: e.target.value || null })}>
+            <option value="">Le plus récent</option>
+            {products.map((p) => <option key={p.handle} value={p.handle}>{p.title}</option>)}
+          </select>
+        </label></>);
+    case "countdown":
+      return (<>{text("title", "Titre", 120)}
+        <label className="label">Date de fin<input id="sec-endsAt" type="date" className="input" value={s.endsAt.slice(0, 10)} onChange={(e) => onChange({ endsAt: e.target.value })} /></label>
+        {text("buttonLabel", "Texte du bouton", 40)}{text("buttonLink", "Lien du bouton", 200)}</>);
+    case "gallery":
+      return (<>{text("title", "Titre", 120)}
+        <ListEditor label="Images" items={s.images.map((url) => ({ url }))} max={8} blank={{ url: "" }} onChange={(items) => onChange({ images: items.map((i) => i.url).filter(Boolean) })}
+          render={(it, set, i) => <ImageField id={`sec-gallery-${i}`} label="Image" value={it.url || null} onChange={(url) => set({ url: url ?? "" })} />} /></>);
+    case "video":
+      return <>{text("title", "Titre", 120)}{text("url", "Adresse de la vidéo (YouTube ou Vimeo)", 300)}</>;
+    case "blog":
+      return (<>{text("title", "Titre", 120)}
+        <label className="label">Nombre d'articles<input id="sec-limit" type="number" min={1} max={6} className="input" value={s.limit} onChange={(e) => onChange({ limit: Math.max(1, Math.min(6, Number(e.target.value) || 3)) })} /></label></>);
   }
+}
+
+/** Liste d'éléments d'une section (diapositives, colonnes, questions…) : ajouter, retirer, réordonner. */
+function ListEditor<T extends object>({ label, items, max, min = 0, blank, render, onChange }: { label: string; items: T[]; max: number; min?: number; blank: T; render: (item: T, set: (p: Partial<T>) => void, i: number) => ReactNode; onChange: (items: T[]) => void }) {
+  const update = (i: number, p: Partial<T>) => onChange(items.map((it, j) => (j === i ? { ...it, ...p } : it)));
+  const move = (i: number, d: number) => { const a = [...items]; const [x] = a.splice(i, 1); a.splice(i + d, 0, x); onChange(a); };
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="eyebrow mb-1">{label} ({items.length}/{max})</legend>
+      {items.map((it, i) => (
+        <div key={i} className="flex flex-col gap-2 rounded-lg border border-line p-3">
+          {render(it, (p) => update(i, p), i)}
+          <div className="flex justify-end gap-1 text-xs">
+            <button type="button" className="btn btn-sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Monter">↑</button>
+            <button type="button" className="btn btn-sm" disabled={i === items.length - 1} onClick={() => move(i, 1)} aria-label="Descendre">↓</button>
+            <button type="button" className="btn btn-sm text-[#8e0b21]" disabled={items.length <= min} onClick={() => onChange(items.filter((_, j) => j !== i))}>Retirer</button>
+          </div>
+        </div>
+      ))}
+      {items.length < max && <button type="button" className="btn btn-sm self-start" onClick={() => onChange([...items, blank])}>+ Ajouter</button>}
+    </fieldset>
+  );
 }

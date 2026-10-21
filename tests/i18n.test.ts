@@ -25,7 +25,7 @@ describe("traductions", () => {
     const hero = theme.sections.find((s) => s.type === "hero")! as Extract<(typeof theme.sections)[number], { type: "hero" }>;
     const t = translateTheme({ ...theme, announcement: "Livraison offerte" }, { announcement: "Free shipping", [`s.${hero.id}.title`]: "Handmade ceramics" });
     expect(t.announcement).toBe("Free shipping");
-    expect(t.sections.find((s) => s.id === hero.id)!.title).toBe("Handmade ceramics");
+    expect((t.sections.find((s) => s.id === hero.id) as typeof hero).title).toBe("Handmade ceramics");
     expect((t.sections.find((s) => s.id === hero.id) as typeof hero).subtitle).toBe(hero.subtitle);
   });
 

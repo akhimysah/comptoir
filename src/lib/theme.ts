@@ -47,12 +47,60 @@ const collectionsSection = z.object({
   title: text(120),
 });
 
+const img = z.string().max(300).nullable().default(null);
+const link = text(200);
+/** Diaporama : plusieurs grandes images qui défilent (comme « Slideshow » des thèmes Shopify). */
+const slideshowSection = z.object({
+  id: z.string(), type: z.literal("slideshow"),
+  slides: z.array(z.object({ title: text(120), subtitle: text(300), buttonLabel: text(40), buttonLink: link, image: img })).min(1).max(5),
+});
+/** Colonnes avec icône, titre et texte (« Multicolumn », « Icons row », « Features »). */
+const multicolumnSection = z.object({
+  id: z.string(), type: z.literal("multicolumn"), title: text(120),
+  columns: z.array(z.object({ icon: text(4), title: text(80), text: text(300) })).max(6),
+});
+/** Témoignages clients (« Testimonials », « Press »). */
+const testimonialsSection = z.object({
+  id: z.string(), type: z.literal("testimonials"), title: text(120),
+  items: z.array(z.object({ quote: text(400), author: text(80), rating: z.number().int().min(0).max(5).default(5) })).max(8),
+});
+/** Inscription à la newsletter. */
+const newsletterSection = z.object({ id: z.string(), type: z.literal("newsletter"), title: text(120), body: text(300) });
+/** Questions fréquentes (« FAQ », « Collapsible content »). */
+const faqSection = z.object({
+  id: z.string(), type: z.literal("faq"), title: text(120),
+  items: z.array(z.object({ question: text(200), answer: text(1000) })).max(12),
+});
+/** Texte qui défile en bandeau (« Scrolling text », « Marquee »). */
+const marqueeSection = z.object({ id: z.string(), type: z.literal("marquee"), body: text(200) });
+/** Un produit mis en avant en grand (« Featured product »). */
+const featuredProductSection = z.object({ id: z.string(), type: z.literal("featuredProduct"), title: text(120), productHandle: z.string().max(80).nullable().default(null) });
+/** Compte à rebours vers une date (« Countdown timer »). */
+const countdownSection = z.object({ id: z.string(), type: z.literal("countdown"), title: text(120), endsAt: text(30), buttonLabel: text(40), buttonLink: link });
+/** Galerie d'images (« Media grid », « Image collage »). */
+const gallerySection = z.object({ id: z.string(), type: z.literal("gallery"), title: text(120), images: z.array(z.string().max(300)).max(8) });
+/** Vidéo YouTube ou Vimeo. */
+const videoSection = z.object({ id: z.string(), type: z.literal("video"), title: text(120), url: text(300) });
+/** Derniers articles du blog (« Blog posts », « Featured blog »). */
+const blogSection = z.object({ id: z.string(), type: z.literal("blog"), title: text(120), limit: z.number().int().min(1).max(6).default(3) });
+
 export const sectionSchema = z.discriminatedUnion("type", [
   heroSection,
   featuredSection,
   textSection,
   bannerSection,
   collectionsSection,
+  slideshowSection,
+  multicolumnSection,
+  testimonialsSection,
+  newsletterSection,
+  faqSection,
+  marqueeSection,
+  featuredProductSection,
+  countdownSection,
+  gallerySection,
+  videoSection,
+  blogSection,
 ]);
 export type Section = z.infer<typeof sectionSchema>;
 export type SectionType = Section["type"];
@@ -79,6 +127,17 @@ export const SECTION_LABELS: Record<SectionType, string> = {
   text: "Texte",
   banner: "Image avec texte",
   collections: "Liste des collections",
+  slideshow: "Diaporama",
+  multicolumn: "Colonnes avec icônes",
+  testimonials: "Témoignages",
+  newsletter: "Newsletter",
+  faq: "Questions fréquentes",
+  marquee: "Texte défilant",
+  featuredProduct: "Produit vedette",
+  countdown: "Compte à rebours",
+  gallery: "Galerie d'images",
+  video: "Vidéo",
+  blog: "Articles du blog",
 };
 
 export const PRESETS: Record<string, { label: string; colors: Theme["colors"]; font: FontKey; radius: Theme["radius"] }> = {
@@ -160,6 +219,64 @@ export function blankSection(type: SectionType): Section {
       return { id, type, title: "Nouvelle collection", buttonLabel: "Voir", buttonLink: "/products", image: null };
     case "collections":
       return { id, type, title: "Nos collections" };
+    case "slideshow":
+      return { id, type, slides: [{ title: "Nouvelle collection", subtitle: "Découvrez nos dernières pièces.", buttonLabel: "Découvrir", buttonLink: "/products", image: null }, { title: "Livraison offerte", subtitle: "Dès 50 € d'achat, partout en France.", buttonLabel: "Voir la boutique", buttonLink: "/products", image: null }] };
+    case "multicolumn":
+      return { id, type, title: "Pourquoi nous choisir", columns: [{ icon: "🚚", title: "Livraison rapide", text: "Expédition sous 24 h, suivi en temps réel." }, { icon: "↩️", title: "Retours faciles", text: "30 jours pour changer d'avis." }, { icon: "🔒", title: "Paiement sécurisé", text: "Carte, Apple Pay, Google Pay." }] };
+    case "testimonials":
+      return { id, type, title: "Ils nous font confiance", items: [{ quote: "Qualité au rendez-vous et livraison très rapide. Je recommande !", author: "Camille", rating: 5 }, { quote: "Le service client a répondu en quelques minutes. Parfait.", author: "Mehdi", rating: 5 }, { quote: "Des produits magnifiques, conformes aux photos.", author: "Léa", rating: 5 }] };
+    case "newsletter":
+      return { id, type, title: "Restez informé", body: "Inscrivez-vous pour recevoir nos nouveautés et offres en avant-première." };
+    case "faq":
+      return { id, type, title: "Questions fréquentes", items: [{ question: "Quels sont les délais de livraison ?", answer: "Vos commandes sont expédiées sous 24 à 48 h et livrées en 2 à 4 jours ouvrés." }, { question: "Puis-je retourner un article ?", answer: "Oui, vous avez 30 jours après réception pour nous le renvoyer." }, { question: "Comment suivre ma commande ?", answer: "Un e-mail avec le lien de suivi vous est envoyé dès l'expédition." }] };
+    case "marquee":
+      return { id, type, body: "Livraison offerte dès 50 € · Retours sous 30 jours · Paiement sécurisé" };
+    case "featuredProduct":
+      return { id, type, title: "Notre coup de cœur", productHandle: null };
+    case "countdown":
+      return { id, type, title: "Offre de lancement : −20 % sur tout", endsAt: new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10), buttonLabel: "J'en profite", buttonLink: "/products" };
+    case "gallery":
+      return { id, type, title: "En images", images: [] };
+    case "video":
+      return { id, type, title: "Découvrez l'atelier", url: "" };
+    case "blog":
+      return { id, type, title: "Le journal", limit: 3 };
+  }
+}
+
+type S = Extract<Section, { type: "hero" }>;
+/**
+ * Page d'accueil livrée avec chaque modèle, comme les sections préinstallées d'un thème Shopify
+ * (ordre relevé sur la page d'accueil du thème d'origine, adapté à nos sections).
+ */
+export function presetSections(key: string, storeName: string, tagline = ""): Section[] {
+  const hero = (title: string, subtitle: string, buttonLabel = "Découvrir"): Section => ({ ...(blankSection("hero") as S), title, subtitle, buttonLabel });
+  const b = blankSection;
+  const withTitle = <T extends SectionType>(type: T, title: string) => ({ ...b(type), title }) as Section;
+  const intro = hero(storeName, tagline || "Bienvenue dans notre boutique.");
+  switch (key) {
+    case "concept": // Concept : diaporama, texte de marque, collections, produit vedette, défilant, témoignages, meilleures ventes, blog
+      return [b("slideshow"), withTitle("text", `Parlons de ${storeName}`), b("collections"), b("featuredProduct"), b("marquee"), b("testimonials"), withTitle("featured", "Meilleures ventes"), withTitle("blog", "Dernières histoires")];
+    case "digital": // Digital : héros, grille de collections, colonnes, produits populaires, image + texte, témoignages, blog, FAQ
+      return [intro, b("collections"), b("multicolumn"), withTitle("featured", "Produits populaires"), b("banner"), b("testimonials"), withTitle("blog", "Derniers articles"), b("faq"), b("newsletter")];
+    case "impact": // Impact : diaporama, défilant, collections, collection vedette, texte impact, image + texte, galerie, presse, produit vedette, FAQ
+      return [b("slideshow"), b("marquee"), b("collections"), withTitle("featured", "Collection vedette"), withTitle("text", "Des produits qui marquent"), b("banner"), b("gallery"), b("testimonials"), b("featuredProduct"), b("faq")];
+    case "paloalto": // Palo Alto : diaporama, compte à rebours, texte, galerie, défilant, collection, témoignages, histoire, presse, newsletter, icônes
+      return [b("slideshow"), b("countdown"), withTitle("text", "Notre histoire, notre promesse"), b("gallery"), b("marquee"), withTitle("featured", "Meilleures ventes"), b("testimonials"), b("banner"), b("newsletter"), b("multicolumn")];
+    case "prestige": // Prestige : diaporama, collections vedettes, colonnes images, liste de collections, image + texte, newsletter, blog
+      return [b("slideshow"), withTitle("featured", "Sélection"), b("multicolumn"), b("collections"), b("banner"), b("newsletter"), b("blog")];
+    case "mysah": // Dawn personnalisé : diaporama, texte riche, produit vedette, bandeau défilant, deux images + texte, avantages
+      return [b("slideshow"), withTitle("text", storeName), b("featuredProduct"), b("marquee"), b("banner"), withTitle("banner", "Fabriqué avec soin"), b("multicolumn")];
+    case "argile":
+      return [intro, withTitle("featured", "Nos pièces"), withTitle("text", "Fait main, avec soin"), b("banner"), b("collections"), b("testimonials"), b("newsletter")];
+    case "minuit":
+      return [b("slideshow"), b("marquee"), withTitle("featured", "Nouveautés"), b("featuredProduct"), b("collections"), b("video"), b("faq")];
+    case "menthe":
+      return [intro, b("multicolumn"), withTitle("featured", "Nos produits"), b("banner"), b("testimonials"), b("collections"), b("newsletter")];
+    case "papier":
+      return [intro, withTitle("featured", "Sélection"), b("collections"), withTitle("text", "À propos"), b("gallery"), b("blog")];
+    default:
+      return [intro, b("featured"), b("collections")];
   }
 }
 

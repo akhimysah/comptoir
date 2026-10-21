@@ -1,7 +1,7 @@
 import "server-only";
 import type { Store, StoreTheme } from "@prisma/client";
 import { db } from "./db";
-import { defaultTheme, PRESETS, readTheme, type Theme } from "./theme";
+import { defaultTheme, PRESETS, presetSections, readTheme, type Theme } from "./theme";
 
 /**
  * Bibliothèque de thèmes (comme sur Shopify) : un thème publié et des brouillons.
@@ -61,7 +61,7 @@ export async function duplicateTheme(storeId: string, id: string) {
 export function themeFromPreset(key: string, store: Pick<Store, "name" | "tagline">): Theme | null {
   const p = PRESETS[key];
   if (!p) return null;
-  return { ...defaultTheme(store.name, store.tagline), colors: p.colors, font: p.font, radius: p.radius };
+  return { ...defaultTheme(store.name, store.tagline), colors: p.colors, font: p.font, radius: p.radius, sections: presetSections(key, store.name, store.tagline) };
 }
 
 /** Nom libre dans la bibliothèque (« Horizon », puis « Horizon 2 »…). */

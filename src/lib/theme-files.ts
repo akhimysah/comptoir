@@ -11,7 +11,8 @@ export function parseThemeJson(json: string): { theme: Theme } | { error: string
   try { raw = JSON.parse(json); } catch { return { error: "Thème illisible (JSON invalide)." }; }
   const parsed = themeSchema.safeParse(raw);
   if (!parsed.success) return { error: `Thème invalide : ${parsed.error.issues[0].path.join(".")} ${parsed.error.issues[0].message}` };
-  for (const s of parsed.data.sections) if ("image" in s && s.image && !isImageUrl(s.image)) return { error: "Une image du thème n'est pas valide." };
+  const images = (s: Record<string, unknown>) => [s.image, ...(Array.isArray(s.images) ? s.images : []), ...(Array.isArray(s.slides) ? (s.slides as { image?: unknown }[]).map((x) => x.image) : [])];
+  for (const s of parsed.data.sections) if (images(s as Record<string, unknown>).some((i) => typeof i === "string" && i && !isImageUrl(i))) return { error: "Une image du thème n'est pas valide." };
   return { theme: parsed.data };
 }
 

@@ -97,3 +97,9 @@ export const getCatalog = cache(async (storeId: string, locale: Locale = "fr") =
   const cols: CardCollection[] = collections.map((c) => ({ handle: c.handle, title: translate(c, locale, ["title"]).title, image: c.image, count: c.products.length }));
   return { products: cards, collections: cols };
 });
+
+/** Derniers articles publiés du blog, pour la section « Articles du blog » de la page d'accueil. */
+export async function latestPosts(storeId: string, limit = 6): Promise<import("@/components/store/types").CardPost[]> {
+  const posts = await db.blogPost.findMany({ where: { storeId, published: true }, orderBy: { publishedAt: "desc" }, take: limit, select: { handle: true, title: true, excerpt: true, image: true, publishedAt: true } });
+  return posts.map((p) => ({ ...p, publishedAt: p.publishedAt?.toISOString() ?? null }));
+}

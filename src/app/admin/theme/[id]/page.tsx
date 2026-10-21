@@ -7,7 +7,7 @@ import { ThemeEditor } from "@/components/admin/ThemeEditor";
 import { GithubIcon } from "@/components/admin/ThemeImportMenu";
 import { PageHeader, Pill } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
-import { getCatalog } from "@/lib/storefront";
+import { latestPosts, getCatalog } from "@/lib/storefront";
 import { readTheme } from "@/lib/theme";
 import { ownTheme } from "@/lib/themes";
 import { formatDateTime } from "@/lib/utils";
@@ -37,7 +37,7 @@ export default async function ThemeEditPage({ params }: { params: Promise<{ id: 
         }
       />
       {theme.githubError && <p role="alert" className="rounded-lg border border-[#fedad9] bg-[#fff4f4] px-4 py-3 text-[13px] text-[#8e0b21]">{theme.githubError}</p>}
-      <ThemeEditor themeId={theme.id} published={published} initial={readTheme(theme.theme, store.name)} store={{ slug: store.slug, name: store.name, currency: store.currency }} products={products} collections={collections} />
+      <ThemeEditor themeId={theme.id} published={published} initial={readTheme(theme.theme, store.name)} store={{ slug: store.slug, name: store.name, currency: store.currency }} products={products} collections={collections} posts={await latestPosts(store.id)} />
       <CustomCssForm css={theme.customCss} slug={store.slug} themeId={theme.id} />
     </>
   );
