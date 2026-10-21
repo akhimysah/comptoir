@@ -1,5 +1,6 @@
 import { deleteMarket, saveMarket, toggleMarket } from "./actions";
 import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
+import { MARKET_COLORS, WorldMap } from "@/components/admin/WorldMap";
 import { PageHeader, Pill } from "@/components/ui";
 import { requireOwner } from "@/lib/auth";
 import { COUNTRIES } from "@/lib/countries";
@@ -45,13 +46,17 @@ export default async function MarketsPage({ searchParams }: { searchParams: Prom
       <PageHeader back="/admin/settings" title="Marchés" subtitle="Adaptez la boutique par pays : devise, langue et prix. Le visiteur est rattaché au marché de son pays (choisi dans l'en-tête, ou détecté), et le paiement utilise le marché du pays de livraison." />
       {ok && <p role="status" className="rounded-lg border border-[#b4fed2] bg-[#ecfdf3] px-4 py-3 text-[#0c5132]">{ok}</p>}
       {err && <p role="alert" className="rounded-lg border border-[#fedad9] bg-[#fff4f4] px-4 py-3 text-[#8e0b21]">{err}</p>}
+      <section className="card p-4">
+        <WorldMap markets={markets.map((m) => ({ id: m.id, name: m.name, countries: marketCountries(m), enabled: m.enabled }))} defaultLabel="Marché par défaut" />
+      </section>
       <section className="card overflow-hidden">
         <div className="card-h"><h2 className="text-sm font-[650]">Marché par défaut de la boutique</h2><Pill tone="ok">Actif</Pill></div>
         <p className="px-4 py-3 text-[13px] text-muted">Tous les pays qui ne sont dans aucun marché : devise {store.currency}, langue principale, prix de la boutique.</p>
       </section>
-      {markets.map((m) => (
+      {markets.map((m, i) => (
         <details key={m.id} className="card" open={Boolean(err)}>
           <summary className="flex cursor-pointer flex-wrap items-center gap-2 px-4 py-3">
+            <i className="inline-block h-3 w-3 rounded-sm" style={{ background: MARKET_COLORS[i % MARKET_COLORS.length] }} aria-hidden />
             <span className="flex-1 font-[650]">{m.name}</span>
             <span className="text-xs text-muted">{marketCountries(m).length} pays · {m.currency || store.currency} · {m.locale ? LOCALES[m.locale as keyof typeof LOCALES] : "langue principale"} · prix {m.priceAdjustBps === 0 ? "inchangés" : `${m.priceAdjustBps > 0 ? "+" : "−"}${Math.abs(m.priceAdjustBps / 100).toLocaleString("fr-FR")} %`}</span>
             {m.enabled ? <Pill tone="ok">Actif</Pill> : <Pill>Désactivé</Pill>}
