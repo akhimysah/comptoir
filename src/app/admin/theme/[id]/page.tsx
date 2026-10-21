@@ -23,6 +23,7 @@ export default async function ThemeEditPage({ params }: { params: Promise<{ id: 
     const sample = { product: products[0]?.handle, collection: collections[0]?.handle, page: pages[0]?.handle, article: posts[0]?.handle };
     return (
       <LiquidThemeEditor
+        key={`${theme.id}-${theme.version}`}
         themeId={theme.id} name={theme.name} published={published} slug={store.slug} data={data}
         templates={EDITABLE_TEMPLATES.map(({ key, label }) => ({ key, label })).filter((t) => data.templates[t.key])}
         previews={Object.fromEntries(EDITABLE_TEMPLATES.map((t) => [t.key, t.preview(sample)]))}

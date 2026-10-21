@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { publish, saveLiquidFiles } from "@/app/admin/theme/actions";
+import { fillDemoContent, publish, saveLiquidFiles } from "@/app/admin/theme/actions";
 import type { EDITABLE_TEMPLATES, SchemaSetting, SectionSchema, TemplateJson } from "@/lib/liquid/editor-data";
 import { schemaLabel } from "@/lib/liquid/schema-label";
 import { cx } from "@/lib/utils";
@@ -295,6 +295,7 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
         <button type="button" onClick={redo} disabled={!history.current.future.length} className={iconBtn()} aria-label="Rétablir" title="Rétablir (⇧⌘Z)"><I n="redo" /></button>
         <MenuPopover label="Plus d'actions" buttonClassName={iconBtn()}>
           <a href={`/s/${slug}/preview?theme=${themeId}`} target="_blank" className={menuItem}>Aperçu dans un nouvel onglet</a>
+          <form action={fillDemoContent} onSubmit={(e) => { if (dirty) { e.preventDefault(); setError("Enregistrez vos modifications avant d'ajouter le contenu d'exemple."); } else if (!confirm("Remplir les images vides de la page d'accueil avec des visuels d'exemple, et les sections qui le demandent avec vos produits et collections ?")) e.preventDefault(); }}><input type="hidden" name="id" value={themeId} /><button className={menuItem}>Remplir avec du contenu d'exemple</button></form>
           <Link href={`/admin/theme/${themeId}/code`} className={menuItem}>Modifier le code</Link>
           <Link href="/admin/theme" className={menuItem}>Bibliothèque de thèmes</Link>
         </MenuPopover>

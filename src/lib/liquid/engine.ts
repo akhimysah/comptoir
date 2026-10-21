@@ -272,7 +272,14 @@ async function buildState(engine: Engine, source: ThemeSource, data: PageData): 
     article: (h) => data.articles?.[h] ?? data.articles?.[h.split("/").pop() ?? h],
     linklist: (h) => data.linklists?.[h],
     // Image de la bibliothèque (adresse connue), sinon toute adresse http(s) ou /uploads/… (dimensions par défaut).
-    image: (name) => data.images?.[name] ?? (/^(https?:)?\//.test(name) ? { id: name, src: name, alt: "", width: 1600, height: 1600, aspect_ratio: 1, media_type: "image" as const } : null),
+    image: (name) => {
+      if (data.images?.[name]) return data.images[name];
+      if (!/^(https?:)?\//.test(name)) return null;
+      // Dimensions lisibles dans le nom (« scene-1-1600x1000.svg », visuels d'exemple), sinon un carré.
+      const m = /-(\d{2,5})x(\d{2,5})\.\w+(\?.*)?$/.exec(name);
+      const width = m ? Number(m[1]) : 1600, height = m ? Number(m[2]) : 1600;
+      return { id: name, src: name, alt: "", width, height, aspect_ratio: Math.round((width / height) * 1000) / 1000, media_type: "image" as const };
+    },
     scheme: schemeById,
     font: (f) => state.fonts.add(f),
     root,

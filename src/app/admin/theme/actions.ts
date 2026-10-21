@@ -10,6 +10,7 @@ import { pushThemeLater } from "@/lib/github";
 import { defaultTheme } from "@/lib/theme";
 import { parseThemeJson, storeUpdateFromFiles, THEME_FILES } from "@/lib/theme-files";
 import { installPlatformTheme, isTextPath, putThemeFiles, themePath } from "@/lib/liquid/source";
+import { liquidEditorData, type SchemaSetting, type TemplateJson } from "@/lib/liquid/editor-data";
 import { createTheme, duplicateTheme, ownTheme, publishTheme, saveThemeRow, themeFromPreset, uniqueThemeName } from "@/lib/themes";
 
 const refresh = (slug: string) => { revalidatePath("/admin/theme"); revalidatePath(`/s/${slug}`, "layout"); };
@@ -146,4 +147,59 @@ export async function saveLiquidFiles(themeId: string, files: Record<string, str
   await logActivity(store.publishedThemeId === themeId ? "Thème publié modifié" : "Brouillon de thème enregistré", `/admin/theme/${themeId}`);
   refresh(store.slug);
   return { ok: true };
+}
+
+/** Visuels d'exemple livrés avec l'app (SVG abstraits, dimensions dans le nom). */
+const SAMPLE_IMAGES = { landscape: [1, 2, 3, 4, 5, 6].map((i) => `/samples/scene-${i}-1600x1000.svg`), portrait: [7, 8, 9].map((i) => `/samples/portrait-${i}-1200x1500.svg`), square: [10, 11].map((i) => `/samples/square-${i}-1200x1200.svg`) };
+
+/**
+ * « Remplir avec du contenu d'exemple » : sur un thème Shopify fraîchement installé, les images vides des sections
+ * et des blocs de la page d'accueil (et des groupes d'en-tête / pied de page) reçoivent des visuels d'exemple,
+ * et les sections qui demandent un produit ou une collection reçoivent ceux de la boutique.
+ */
+export async function fillDemoContent(form: FormData) {
+  const { store } = await requirePerm("content");
+  const themeId = String(form.get("id") ?? "");
+  const theme = await ownTheme(store.id, themeId);
+  if (!theme || theme.engine !== "liquid") back("err", "Thème introuvable.");
+  const data = await liquidEditorData(themeId);
+  const [products, collections] = await Promise.all([
+    db.product.findMany({ where: { storeId: store.id, status: "active" }, select: { handle: true }, orderBy: { createdAt: "desc" }, take: 8 }),
+    db.collection.findMany({ where: { storeId: store.id }, select: { handle: true }, orderBy: { title: "asc" }, take: 6 }),
+  ]);
+  let n = 0;
+  const pick = (id: string) => { const list = /mobile|portrait|vertical/i.test(id) ? SAMPLE_IMAGES.portrait : /logo|icon|square|avatar/i.test(id) ? SAMPLE_IMAGES.square : SAMPLE_IMAGES.landscape; return list[n++ % list.length]; };
+  const empty = (v: unknown) => v === undefined || v === null || v === "" || (typeof v === "string" && v.startsWith("shopify://"));
+  const fill = (defs: SchemaSetting[] | undefined, settings: Record<string, unknown>) => {
+    let changed = false;
+    for (const d of defs ?? []) {
+      if (!d.id) continue;
+      const v = settings[d.id];
+      if (d.type === "image_picker" && empty(v)) { settings[d.id] = pick(d.id); changed = true; }
+      else if (d.type === "product" && empty(v) && products[0]) { settings[d.id] = products[0].handle; changed = true; }
+      else if (d.type === "collection" && empty(v) && collections[0]) { settings[d.id] = collections[0].handle; changed = true; }
+      else if (d.type === "product_list" && (!Array.isArray(v) || !v.length) && products.length) { settings[d.id] = products.slice(0, d.limit ?? 4).map((p) => p.handle); changed = true; }
+      else if (d.type === "collection_list" && (!Array.isArray(v) || !v.length) && collections.length) { settings[d.id] = collections.slice(0, d.limit ?? 3).map((c) => c.handle); changed = true; }
+    }
+    return changed;
+  };
+  const docs: [string, TemplateJson][] = [["templates/index.json", data.templates.index], ...Object.entries(data.groups).map(([k, g]) => [`sections/${k}.json`, g] as [string, TemplateJson])].filter((x): x is [string, TemplateJson] => Boolean(x[1]));
+  const files: { path: string; data: Uint8Array }[] = [];
+  for (const [path, doc] of docs) {
+    let changed = false;
+    for (const sec of Object.values(doc.sections)) {
+      const schema = data.sections[sec.type];
+      sec.settings ??= {};
+      if (fill(schema?.settings, sec.settings)) changed = true;
+      for (const b of Object.values(sec.blocks ?? {})) { b.settings ??= {}; if (fill(schema?.blocks?.find((x) => x.type === b.type)?.settings, b.settings)) changed = true; }
+    }
+    if (changed) files.push({ path, data: new TextEncoder().encode(JSON.stringify(doc, null, 2)) });
+  }
+  if (files.length) {
+    await putThemeFiles(themeId, files);
+    await db.storeTheme.update({ where: { id: themeId }, data: { version: { increment: 1 } } });
+    await logActivity(`Contenu d'exemple ajouté au thème « ${theme!.name} »`, `/admin/theme/${themeId}`);
+    refresh(store.slug);
+  }
+  redirect(`/admin/theme/${themeId}`);
 }
