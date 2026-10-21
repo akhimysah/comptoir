@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { publish, saveLiquidFiles } from "@/app/admin/theme/actions";
 import type { EDITABLE_TEMPLATES, SchemaSetting, SectionSchema, TemplateJson } from "@/lib/liquid/editor-data";
+import { schemaLabel } from "@/lib/liquid/schema-label";
 import { cx } from "@/lib/utils";
 import { ImageField } from "./ImageField";
 import { MenuPopover } from "./MenuPopover";
@@ -12,7 +13,7 @@ import { I } from "./ThemeEditor";
 type Pick = { handle: string; title: string };
 type Props = {
   themeId: string; name: string; published: boolean; slug: string;
-  data: { sections: Record<string, SectionSchema>; groups: Record<string, TemplateJson>; templates: Record<string, TemplateJson>; schema: ({ name: string; settings?: SchemaSetting[] } & Record<string, unknown>)[]; settings: Record<string, unknown>; settingsData: { current?: string | Record<string, unknown>; presets?: Record<string, Record<string, unknown>> } };
+  data: { sections: Record<string, SectionSchema>; groups: Record<string, TemplateJson>; templates: Record<string, TemplateJson>; schema: ({ name: string; settings?: SchemaSetting[] } & Record<string, unknown>)[]; settings: Record<string, unknown>; settingsData: { current?: string | Record<string, unknown>; presets?: Record<string, Record<string, unknown>> }; labels: Record<string, string> };
   templates: typeof EDITABLE_TEMPLATES extends (infer T)[] ? Omit<T, "preview">[] : never;
   previews: Record<string, string>;
   pickers: { products: Pick[]; collections: Pick[]; pages: Pick[]; blogs: Pick[]; menus: Pick[] };
@@ -22,10 +23,12 @@ type Inspector = { group: string | null; id: string; blockId?: string } | null;
 const DEVICES = { desktop: { label: "Ordinateur", width: "100%" }, tablet: { label: "Tablette", width: "768px" }, mobile: { label: "Mobile", width: "390px" } } as const;
 type Device = keyof typeof DEVICES;
 const uid = () => Math.random().toString(36).slice(2, 10);
+const GROUP_NAMES: Record<string, string> = { "Header group": "Groupe d'en-tête", "Footer group": "Groupe de pied de page", "Overlay group": "Groupe de superposition", "Aside group": "Groupe latéral", "": "" };
 const menuItem = "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] hover:bg-[#f1f1f1]";
 const FONTS = ["inter_n4", "dm_sans_n4", "manrope_n4", "poppins_n4", "montserrat_n4", "lato_n4", "roboto_n4", "open_sans_n4", "work_sans_n4", "nunito_n4", "raleway_n4", "playfair_display_n4", "cormorant_garamond_n4", "lora_n4", "merriweather_n4", "libre_baskerville_n4", "fraunces_n4", "syne_n4", "space_grotesk_n4", "figtree_n4", "jost_n4", "outfit_n4", "karla_n4", "rubik_n4", "archivo_n4", "oswald_n4", "josefin_sans_n4", "quicksand_n4", "barlow_n4", "din_next_n4", "futura_n4", "helvetica_n4"];
 const fontLabel = (v: string) => v.replace(/_n\d$/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-const tr = (s?: string) => (s ?? "").replace(/^t:.*\.(\w+)$/, "$1").replace(/_/g, " ");
+let LABELS: Record<string, string> = {};
+const tr = (s?: string) => schemaLabel(LABELS, s);
 
 /**
  * Éditeur visuel d'un thème Shopify importé, sur le modèle de l'éditeur Shopify : arborescence à gauche,
@@ -33,6 +36,7 @@ const tr = (s?: string) => (s ?? "").replace(/^t:.*\.(\w+)$/, "$1").replace(/_/g
  * réglages de la section ou du bloc sélectionné à droite. Survol et clic dans l'aperçu, « + » entre les sections.
  */
 export function LiquidThemeEditor({ themeId, name, published, slug, data, templates, previews, pickers }: Props) {
+  LABELS = data.labels;
   const [tpl, setTpl] = useState<Record<string, TemplateJson>>(() => structuredClone(data.templates));
   const [groups, setGroups] = useState<Record<string, TemplateJson>>(() => structuredClone(data.groups));
   const [settings, setSettings] = useState<Record<string, unknown>>(() => structuredClone(data.settings));
@@ -159,7 +163,7 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
         <div className={cx("group flex items-center gap-1 rounded-lg pr-1 hover:bg-[#f1f1f1]", (active || hover === id) && "bg-[#ebebeb]", s.disabled && "opacity-50")} draggable onDragStart={() => { dragFrom.current = { group, i }; }} onDragOver={(e) => e.preventDefault()} onDrop={() => { const f = dragFrom.current; dragFrom.current = null; if (!f || f.group !== group || f.i === i) return; setDoc(group, (dd) => { const o = [...dd.order]; const [x] = o.splice(f.i, 1); o.splice(i, 0, x); return { ...dd, order: o }; }); }}>
           <button type="button" onClick={() => setInspector(active && !inspector?.blockId ? null : { group, id })} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-2 text-left text-[13px]">
             <I n="chevron" className={cx("h-3.5 w-3.5 shrink-0 text-[#8a8a8a] transition", active && "rotate-90")} /><I n="sections" className="h-4 w-4 shrink-0 text-[#4a4a4a]" />
-            <span className="min-w-0 flex-1 truncate capitalize">{label(s.type)}</span>
+            <span className="min-w-0 flex-1 truncate ">{label(s.type)}</span>
           </button>
           <span className="cursor-grab text-[#b5b5b5] opacity-0 group-hover:opacity-100" aria-hidden><I n="grip" className="h-4 w-4" /></span>
           <button type="button" onClick={() => setDoc(group, (dd) => ({ ...dd, sections: { ...dd.sections, [id]: { ...s, disabled: !s.disabled } } }))} className={cx("grid h-7 w-7 place-items-center rounded-md text-[#6b6b6b] hover:bg-[#e3e3e3]", !s.disabled && "opacity-0 group-hover:opacity-100")} aria-label={s.disabled ? "Afficher" : "Masquer"}><I n={s.disabled ? "eyeOff" : "eye"} className="h-4 w-4" /></button>
@@ -168,13 +172,13 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
           <div className="ml-6 border-l border-line pl-1">
             {blockOrder.map((bid) => { const b = s.blocks?.[bid]; if (!b) return null; const bs = sc.blocks!.find((x) => x.type === b.type); return (
               <div key={bid} className={cx("group flex items-center rounded-lg hover:bg-[#f1f1f1]", inspector?.blockId === bid && "bg-[#ebebeb]", b.disabled && "opacity-50")}>
-                <button type="button" onClick={() => setInspector({ group, id, blockId: bid })} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-left text-[13px]"><I n="text" className="h-3.5 w-3.5 text-[#8a8a8a]" /><span className="truncate capitalize">{tr(bs?.name) || b.type}</span></button>
+                <button type="button" onClick={() => setInspector({ group, id, blockId: bid })} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1 text-left text-[13px]"><I n="text" className="h-3.5 w-3.5 text-[#8a8a8a]" /><span className="truncate ">{tr(bs?.name) || b.type}</span></button>
                 <button type="button" onClick={() => setDoc(group, (dd) => ({ ...dd, sections: { ...dd.sections, [id]: { ...s, blocks: { ...s.blocks, [bid]: { ...b, disabled: !b.disabled } } } } }))} className={cx("grid h-6 w-6 place-items-center rounded-md text-[#6b6b6b] hover:bg-[#e3e3e3]", !b.disabled && "opacity-0 group-hover:opacity-100")} aria-label={b.disabled ? "Afficher" : "Masquer"}><I n={b.disabled ? "eyeOff" : "eye"} className="h-3.5 w-3.5" /></button>
               </div>
             ); })}
             {blockOrder.length < (sc.max_blocks ?? 50) && (
               <details><summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-1 text-[13px] font-[550] text-[#005bd3] hover:underline"><I n="plus" className="h-3.5 w-3.5" />Ajouter un bloc</summary>
-                <div className="ml-2 flex flex-col gap-0.5 rounded-lg border border-line p-1">{sc.blocks.filter((bt) => bt.type !== "@app").map((bt) => <button key={bt.type} type="button" onClick={() => { const bid = `${bt.type}_${uid()}`; setDoc(group, (dd) => ({ ...dd, sections: { ...dd.sections, [id]: { ...s, blocks: { ...s.blocks, [bid]: { type: bt.type, settings: Object.fromEntries((bt.settings ?? []).filter((x) => x.id && x.default !== undefined).map((x) => [x.id!, x.default])) } }, block_order: [...blockOrder, bid] } } })); setInspector({ group, id, blockId: bid }); }} className="rounded px-2 py-1 text-left text-[13px] capitalize hover:bg-[#f1f1f1]">{tr(bt.name) || bt.type}</button>)}</div>
+                <div className="ml-2 flex flex-col gap-0.5 rounded-lg border border-line p-1">{sc.blocks.filter((bt) => bt.type !== "@app").map((bt) => <button key={bt.type} type="button" onClick={() => { const bid = `${bt.type}_${uid()}`; setDoc(group, (dd) => ({ ...dd, sections: { ...dd.sections, [id]: { ...s, blocks: { ...s.blocks, [bid]: { type: bt.type, settings: Object.fromEntries((bt.settings ?? []).filter((x) => x.id && x.default !== undefined).map((x) => [x.id!, x.default])) } }, block_order: [...blockOrder, bid] } } })); setInspector({ group, id, blockId: bid }); }} className="rounded px-2 py-1 text-left text-[13px] hover:bg-[#f1f1f1]">{tr(bt.name) || bt.type}</button>)}</div>
               </details>
             )}
           </div>
@@ -207,7 +211,7 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
         <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
           {allowed.map(([type, sc]) => (
             <div key={type}>
-              <button type="button" onClick={() => addSection(group, index, type, sc.presets?.[0])} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] capitalize hover:bg-[#f1f1f1]"><I n="sections" className="h-4 w-4 text-[#4a4a4a]" />{label(type)}</button>
+              <button type="button" onClick={() => addSection(group, index, type, sc.presets?.[0])} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-[#f1f1f1]"><I n="sections" className="h-4 w-4 text-[#4a4a4a]" />{label(type)}</button>
               {(sc.presets?.length ?? 0) > 1 && <div className="ml-6 flex flex-col">{sc.presets!.slice(1).map((p, i) => <button key={i} type="button" onClick={() => addSection(group, index, type, p)} className="rounded px-2 py-1 text-left text-xs text-muted hover:bg-[#f1f1f1]">{tr(p.name)}</button>)}</div>}
             </div>
           ))}
@@ -228,7 +232,7 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
       if (!b) return null;
       return (
         <aside className="flex w-[320px] shrink-0 flex-col border-l border-line bg-white">
-          <div className="flex items-center gap-1 border-b border-line px-2 py-2"><button type="button" onClick={() => setInspector({ group: inspector.group, id: inspector.id })} className={iconBtn()} aria-label="Retour à la section"><I n="back" /></button><span className="min-w-0 flex-1 truncate text-[13px] font-[650] capitalize">{tr(bs?.name) || b.type}</span><button type="button" onClick={close} className={iconBtn()} aria-label="Fermer">✕</button></div>
+          <div className="flex items-center gap-1 border-b border-line px-2 py-2"><button type="button" onClick={() => setInspector({ group: inspector.group, id: inspector.id })} className={iconBtn()} aria-label="Retour à la section"><I n="back" /></button><span className="min-w-0 flex-1 truncate text-[13px] font-[650] ">{tr(bs?.name) || b.type}</span><button type="button" onClick={close} className={iconBtn()} aria-label="Fermer">✕</button></div>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"><SettingsForm schema={bs?.settings ?? []} values={b.settings ?? {}} pickers={pickers} schemes={schemes(settings)} onChange={(k, v) => setDoc(inspector.group, (dd) => ({ ...dd, sections: { ...dd.sections, [inspector.id]: { ...s, blocks: { ...s.blocks, [bid]: { ...b, settings: { ...b.settings, [k]: v } } } } } }))} /></div>
           <div className="flex justify-end border-t border-line p-2"><button type="button" onClick={() => { setDoc(inspector.group, (dd) => { const blocks = { ...s.blocks }; delete blocks[bid]; return { ...dd, sections: { ...dd.sections, [inspector.id]: { ...s, blocks, block_order: (s.block_order ?? Object.keys(s.blocks ?? {})).filter((x) => x !== bid) } } }; }); setInspector({ group: inspector.group, id: inspector.id }); }} className="btn h-8 gap-1.5 text-[13px] text-[#8e0b21]"><I n="trash" className="h-4 w-4" />Retirer le bloc</button></div>
         </aside>
@@ -236,7 +240,7 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
     }
     return (
       <aside className="flex w-[320px] shrink-0 flex-col border-l border-line bg-white">
-        <div className="flex items-center gap-1 border-b border-line px-3 py-2"><span className="min-w-0 flex-1 truncate text-[13px] font-[650] capitalize">{label(s.type)}</span><button type="button" onClick={close} className={iconBtn()} aria-label="Fermer">✕</button></div>
+        <div className="flex items-center gap-1 border-b border-line px-3 py-2"><span className="min-w-0 flex-1 truncate text-[13px] font-[650] ">{label(s.type)}</span><button type="button" onClick={close} className={iconBtn()} aria-label="Fermer">✕</button></div>
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
           <SettingsForm schema={sc?.settings ?? []} values={s.settings ?? {}} pickers={pickers} schemes={schemes(settings)} onChange={(k, v) => setDoc(inspector.group, (dd) => ({ ...dd, sections: { ...dd.sections, [inspector.id]: { ...s, settings: { ...s.settings, [k]: v } } } }))} />
           {!sc?.settings?.length && <p className="text-[13px] text-muted">Cette section n&apos;a pas de réglages.</p>}
@@ -256,7 +260,7 @@ export function LiquidThemeEditor({ themeId, name, published, slug, data, templa
   const generalSchema = data.schema.filter((g) => g.name !== "theme_info");
   const groupBlock = (k: string, g: TemplateJson, fallback: string) => (
     <div key={k} className="border-b border-line p-2">
-      <div className="px-2 pb-1 pt-1 text-xs font-[650] text-[#4a4a4a]">{tr(g.name) || fallback}</div>
+      <div className="px-2 pb-1 pt-1 text-xs font-[650] text-[#4a4a4a]">{GROUP_NAMES[tr(g.name)] ?? tr(g.name) ?? fallback}</div>
       {g.order.map((id, i) => <Row key={id} group={k} id={id} i={i} />)}
       <AddLink group={k} index={g.order.length} />
     </div>
@@ -330,7 +334,7 @@ const schemes = (settings: Record<string, unknown>) => Object.keys((settings.col
 
 /** Formulaire généré depuis un schéma Shopify (settings d'une section, d'un bloc ou du thème). */
 function SettingsForm({ schema, values, onChange, pickers, schemes }: { schema: SchemaSetting[]; values: Record<string, unknown>; onChange: (key: string, value: unknown) => void; pickers: Props["pickers"]; schemes: string[] }) {
-  const t = (s?: string) => (s ?? "").replace(/^t:.*\.(\w+)$/, "$1").replace(/_/g, " ");
+  const t = (s?: string) => schemaLabel(LABELS, s);
   return (
     <>
       {schema.map((s, i) => {
@@ -339,7 +343,7 @@ function SettingsForm({ schema, values, onChange, pickers, schemes }: { schema: 
         if (!s.id) return null;
         const v = values[s.id] ?? s.default;
         const set = (x: unknown) => onChange(s.id!, x);
-        const lab = <span className="capitalize">{t(s.label) || s.id}</span>;
+        const lab = <span className="">{t(s.label) || s.id}</span>;
         const field = (() => {
           switch (s.type) {
             case "checkbox": return <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={Boolean(v)} onChange={(e) => set(e.target.checked)} className="h-4 w-4 accent-[#7c3aed]" />{lab}</label>;
@@ -356,7 +360,7 @@ function SettingsForm({ schema, values, onChange, pickers, schemes }: { schema: 
             case "page": return <label className="label">{lab}<select value={String(v ?? "")} onChange={(e) => set(e.target.value)} className="input"><option value="">—</option>{pickers.pages.map((p) => <option key={p.handle} value={p.handle}>{p.title}</option>)}</select></label>;
             case "blog": return <label className="label">{lab}<select value={String(v ?? "")} onChange={(e) => set(e.target.value)} className="input"><option value="">—</option>{pickers.blogs.map((p) => <option key={p.handle} value={p.handle}>{p.title}</option>)}</select></label>;
             case "link_list": return <label className="label">{lab}<select value={String(v ?? "")} onChange={(e) => set(e.target.value)} className="input"><option value="">—</option>{pickers.menus.map((p) => <option key={p.handle} value={p.handle}>{p.title}</option>)}</select></label>;
-            case "product_list": case "collection_list": { const list = s.type === "product_list" ? pickers.products : pickers.collections; const cur = Array.isArray(v) ? (v as string[]) : []; return <fieldset><legend className="mb-1 text-[13px] capitalize">{t(s.label)}</legend><div className="max-h-40 overflow-y-auto rounded-lg border border-line p-2">{list.map((p) => <label key={p.handle} className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={cur.includes(p.handle)} onChange={(e) => set(e.target.checked ? [...cur, p.handle].slice(0, s.limit ?? 50) : cur.filter((x) => x !== p.handle))} className="h-4 w-4 accent-[#7c3aed]" />{p.title}</label>)}</div></fieldset>; }
+            case "product_list": case "collection_list": { const list = s.type === "product_list" ? pickers.products : pickers.collections; const cur = Array.isArray(v) ? (v as string[]) : []; return <fieldset><legend className="mb-1 text-[13px] ">{t(s.label)}</legend><div className="max-h-40 overflow-y-auto rounded-lg border border-line p-2">{list.map((p) => <label key={p.handle} className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={cur.includes(p.handle)} onChange={(e) => set(e.target.checked ? [...cur, p.handle].slice(0, s.limit ?? 50) : cur.filter((x) => x !== p.handle))} className="h-4 w-4 accent-[#7c3aed]" />{p.title}</label>)}</div></fieldset>; }
             case "url": case "video_url": case "text": return <label className="label">{lab}<input value={String(v ?? "")} onChange={(e) => set(e.target.value)} placeholder={t(s.placeholder)} className="input" /></label>;
             case "article": case "video": case "metaobject": case "metaobject_list": case "color_scheme_group": case "style.layout_panel": case "style.size_panel": case "style.spacing_panel": return <p className="text-xs text-muted">{t(s.label)} : réglage géré dans « Modifier le code ».</p>;
             default: return <label className="label">{lab}<input value={typeof v === "object" ? JSON.stringify(v) : String(v ?? "")} onChange={(e) => set(e.target.value)} className="input" /></label>;

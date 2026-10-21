@@ -31,7 +31,10 @@ export function readSectionSchema(liquid: string): SectionSchema | null {
 
 /** Tout ce dont l'éditeur visuel a besoin pour un thème Shopify. */
 export async function liquidEditorData(themeId: string) {
-  const files = await db.themeFile.findMany({ where: { themeId, OR: [{ path: { startsWith: "sections/" } }, { path: { startsWith: "templates/" } }, { path: { startsWith: "config/" } }] }, select: { path: true, text: true } });
+  const files = await db.themeFile.findMany({ where: { themeId, OR: [{ path: { startsWith: "sections/" } }, { path: { startsWith: "templates/" } }, { path: { startsWith: "config/" } }, { path: { endsWith: ".schema.json" } }] }, select: { path: true, text: true } });
+  // Libellés des schémas (« t:sections.hero.name ») : français si le thème le fournit, sinon l'anglais par défaut.
+  const schemaLocale = (name: string) => parseJson<Record<string, unknown>>(files.find((f) => f.path === `locales/${name}`)?.text, {});
+  const labels = flatten({ ...schemaLocale("en.default.schema.json"), ...deepMerge(schemaLocale("en.default.schema.json"), schemaLocale("fr.schema.json")) });
   const text = (p: string) => files.find((f) => f.path === p)?.text ?? null;
   const sections: Record<string, SectionSchema> = {};
   const groups: Record<string, TemplateJson> = {};
@@ -44,5 +47,17 @@ export async function liquidEditorData(themeId: string) {
   const schema = parseJson<({ name: string; settings?: SchemaSetting[] } & Record<string, unknown>)[]>(text("config/settings_schema.json"), []);
   const data = parseJson<{ current?: string | Record<string, unknown>; presets?: Record<string, Record<string, unknown>> }>(text("config/settings_data.json"), {});
   const current = typeof data.current === "string" ? data.presets?.[data.current] ?? {} : data.current ?? {};
-  return { sections, groups, templates, schema, settings: current, settingsData: data };
+  return { sections, groups, templates, schema, settings: current, settingsData: data, labels };
 }
+
+function deepMerge(a: Record<string, unknown>, b: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...a };
+  for (const [k, v] of Object.entries(b)) out[k] = v && typeof v === "object" && !Array.isArray(v) && out[k] && typeof out[k] === "object" ? deepMerge(out[k] as Record<string, unknown>, v as Record<string, unknown>) : v;
+  return out;
+}
+/** { sections: { hero: { name: "Héros" } } } → { "sections.hero.name": "Héros" }. */
+function flatten(o: Record<string, unknown>, prefix = "", out: Record<string, string> = {}): Record<string, string> {
+  for (const [k, v] of Object.entries(o)) { const key = prefix ? `${prefix}.${k}` : k; if (v && typeof v === "object" && !Array.isArray(v)) flatten(v as Record<string, unknown>, key, out); else if (typeof v === "string") out[key] = v; }
+  return out;
+}
+
