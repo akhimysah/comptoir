@@ -1,7 +1,8 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { logActivity } from "@/lib/activity";
-import { requirePerm } from "@/lib/auth";
+import { requirePerm, requireUser } from "@/lib/auth";
+import { isPlatformAdmin } from "@/lib/errors";
 import { db } from "@/lib/db";
 import { IMPORT_LIMITS, putThemeFiles, themePath } from "@/lib/liquid/source";
 import { fetchShopifyImageInfo } from "@/lib/image-store";
@@ -19,9 +20,59 @@ import { ownTheme, uniqueThemeName } from "@/lib/themes";
  */
 const SHOP_IMAGE = /shopify:\/\/shop_images\/([\w.%@-]+)/g;
 const CDN_BASE = /cdn\.shopify\.com\/s\/files\/(\d+\/\d{4}\/\d{4}\/\d{4})\//;
+/** Bibliothèque de la plateforme (?platform=1) : mêmes étapes, réservées à l'administrateur, vers PlatformTheme. */
+async function platformImport(req: Request, step: string | null) {
+  const user = await requireUser();
+  if (!isPlatformAdmin(user.email)) return NextResponse.json({ error: "Réservé à l'administrateur de la plateforme." }, { status: 403 });
+  if (step === "start") {
+    const b = (await req.json().catch(() => null)) as { name?: string; files?: number; bytes?: number } | null;
+    if (!b || typeof b.files !== "number" || typeof b.bytes !== "number") return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
+    if (b.files > IMPORT_LIMITS.files || b.bytes > IMPORT_LIMITS.totalBytes) return NextResponse.json({ error: "Thème trop lourd." }, { status: 413 });
+    const row = await db.platformTheme.create({ data: { name: String(b.name ?? "").replace(/\.zip$/i, "").replace(/[-_]+/g, " ").trim().slice(0, 60) || "Thème Shopify" } });
+    return NextResponse.json({ id: row.id });
+  }
+  if (step === "files") {
+    const form = await req.formData().catch(() => null);
+    const id = String(form?.get("id") ?? "");
+    const theme = await db.platformTheme.findUnique({ where: { id } });
+    if (!form || !theme || theme.ready) return NextResponse.json({ error: "Import introuvable." }, { status: 404 });
+    const paths = form.getAll("path").map(String);
+    const blobs = form.getAll("file");
+    const files: { path: string; data: Uint8Array }[] = [];
+    for (let i = 0; i < paths.length; i++) {
+      const p = themePath(paths[i]);
+      const f = blobs[i];
+      if (!p || !(f instanceof Blob) || f.size > IMPORT_LIMITS.fileBytes) continue;
+      files.push({ path: p, data: new Uint8Array(await f.arrayBuffer()) });
+    }
+    await putThemeFiles(id, files, "platform");
+    return NextResponse.json({ ok: true, stored: files.length });
+  }
+  if (step === "finish") {
+    const b = (await req.json().catch(() => null)) as { id?: string } | null;
+    const theme = b?.id ? await db.platformTheme.findUnique({ where: { id: b.id } }) : null;
+    if (!theme || theme.ready) return NextResponse.json({ error: "Import introuvable." }, { status: 404 });
+    const paths = (await db.platformThemeFile.findMany({ where: { themeId: theme.id }, select: { path: true } })).map((f) => f.path);
+    if (!paths.includes("layout/theme.liquid") || !paths.includes("config/settings_schema.json")) {
+      await db.platformTheme.delete({ where: { id: theme.id } });
+      return NextResponse.json({ error: "Ce .zip n'est pas un thème Shopify complet." }, { status: 422 });
+    }
+    let { name } = theme; let version = "", author = "";
+    try {
+      const info = (JSON.parse((await db.platformThemeFile.findUnique({ where: { themeId_path: { themeId: theme.id, path: "config/settings_schema.json" } } }))?.text ?? "[]") as { name?: string; theme_name?: string; theme_version?: string; theme_author?: string }[]).find((x) => x.name === "theme_info");
+      if (info?.theme_name) { name = info.theme_name.slice(0, 60); version = info.theme_version ?? ""; author = info.theme_author ?? ""; }
+    } catch {}
+    await db.platformTheme.update({ where: { id: theme.id }, data: { ready: true, name, version, author, position: Date.now() % 1_000_000 } });
+    revalidatePath("/admin/platform/themes"); revalidatePath("/admin/theme");
+    return NextResponse.json({ ok: true, url: `/admin/platform/themes?ok=${encodeURIComponent(`« ${name} » ajouté à la bibliothèque de la plateforme.`)}`, images: null });
+  }
+  return NextResponse.json({ error: "Étape inconnue." }, { status: 400 });
+}
+
 export async function POST(req: Request) {
-  const { store } = await requirePerm("content");
   const step = new URL(req.url).searchParams.get("step");
+  if (new URL(req.url).searchParams.get("platform")) return platformImport(req, step);
+  const { store } = await requirePerm("content");
   if (step === "start") {
     const b = (await req.json().catch(() => null)) as { name?: string; files?: number; bytes?: number } | null;
     if (!b || typeof b.files !== "number" || typeof b.bytes !== "number") return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
@@ -107,8 +158,13 @@ export async function POST(req: Request) {
 
 /** Abandon d'un import en cours (fermeture de la fenêtre). */
 export async function DELETE(req: Request) {
-  const { store } = await requirePerm("content");
   const id = new URL(req.url).searchParams.get("id") ?? "";
+  if (new URL(req.url).searchParams.get("platform")) {
+    const user = await requireUser();
+    if (isPlatformAdmin(user.email)) await db.platformTheme.deleteMany({ where: { id, ready: false } });
+    return NextResponse.json({ ok: true });
+  }
+  const { store } = await requirePerm("content");
   const theme = await ownTheme(store.id, id);
   if (theme && theme.engine === "importing") await db.storeTheme.delete({ where: { id } });
   return NextResponse.json({ ok: true });

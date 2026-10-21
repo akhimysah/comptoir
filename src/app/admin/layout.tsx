@@ -58,6 +58,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/account" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Sécurité du compte</Link>
             {isPlatformAdmin(user.email) && <Link href="/admin/platform/errors" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Erreurs de la plateforme</Link>}
             {isPlatformAdmin(user.email) && <Link href="/admin/platform/github" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Application GitHub</Link>}
+            {isPlatformAdmin(user.email) && <Link href="/admin/platform/themes" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Bibliothèque de thèmes</Link>}
             {isOwner && <Link href="/admin/settings" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Paramètres</Link>}
             <a href={`/s/${store.slug}`} target="_blank" className="block rounded-lg px-2.5 py-1.5 hover:bg-[#f1f1f1]">Voir la boutique</a>
             <form action={logout}><button className="w-full rounded-lg px-2.5 py-1.5 text-left hover:bg-[#f1f1f1]">Se déconnecter</button></form>

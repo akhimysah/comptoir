@@ -1089,6 +1089,34 @@ model StoreCreditEntry {
 }
 
 /// Bibliothèque de fichiers (Contenu → Fichiers) : chaque image ou vidéo envoyée.
+/// Bibliothèque de thèmes de la plateforme (comme le Theme Store de Shopify) : thèmes Shopify déposés par
+/// l'administrateur, proposés dans « Découvrir des thèmes » de chaque boutique et copiés à l'installation.
+model PlatformTheme {
+  id          String              @id @default(cuid())
+  name        String
+  version     String              @default("")
+  author      String              @default("")
+  description String              @default("")
+  thumbnail   String? // capture d'écran affichée dans la galerie
+  ready       Boolean             @default(false) // import terminé
+  position    Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  files       PlatformThemeFile[]
+}
+
+model PlatformThemeFile {
+  id          String        @id @default(cuid())
+  themeId     String
+  theme       PlatformTheme @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  path        String
+  text        String?
+  bytes       Bytes?
+  contentType String        @default("")
+  size        Int           @default(0)
+
+  @@unique([themeId, path])
+}
+
 /// Fichier d'un thème Shopify importé (layout/, templates/, sections/, snippets/, config/, locales/, assets/).
 model ThemeFile {
   id          String     @id @default(cuid())

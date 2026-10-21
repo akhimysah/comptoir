@@ -121,13 +121,19 @@ const image_tag: F = function (v, ...args) {
   return `<img${attrs(a)}>`;
 };
 
+/** Illustrations de substitution, dessinées ici en gris (paysage, produit, collection, vêtement), comme celles de Shopify. */
+const PLACEHOLDERS: Record<string, string> = {
+  lifestyle: `<rect width="525.5" height="525.5" fill="#d6d6d6"/><circle cx="330" cy="130" r="48" fill="#ededed"/><path d="M0 330c60-40 110-130 180-120s90 70 150 50 110-90 195-60v325H0z" fill="#b5b5b5"/><path d="M0 420c70-60 120-80 190-60s120 10 170-30 110-40 165-10v206H0z" fill="#9a9a9a"/><path d="M0 470c90-30 160-10 240 0s150-30 285-10v66H0z" fill="#7d7d7d"/><path d="M60 290l40-70 40 70zM130 300l30-50 30 50zM350 320l50-90 50 90z" fill="#8f8f8f"/><path d="M200 120l-20 10 20 4-16 6 24-2zM250 150l-18 8 18 4-14 5 22-2z" fill="#9a9a9a"/>`,
+  image: `<rect width="525.5" height="525.5" fill="#e3e3e3"/><circle cx="360" cy="150" r="42" fill="#f3f3f3"/><path d="M0 400l120-150 110 120 70-70 225 160V525H0z" fill="#c4c4c4"/><path d="M0 460l140-90 90 60 80-50 215 100V525H0z" fill="#a9a9a9"/>`,
+  product: `<rect width="525.5" height="525.5" fill="#e6e6e6"/><rect x="170" y="110" width="186" height="310" rx="26" fill="#c2c2c2"/><rect x="205" y="60" width="116" height="70" rx="12" fill="#b0b0b0"/><rect x="195" y="210" width="136" height="130" rx="10" fill="#f0f0f0"/><rect x="215" y="240" width="96" height="10" rx="5" fill="#cfcfcf"/><rect x="215" y="265" width="70" height="10" rx="5" fill="#cfcfcf"/>`,
+  collection: `<rect width="525.5" height="525.5" fill="#e3e3e3"/><rect x="60" y="120" width="190" height="260" rx="14" fill="#c9c9c9"/><rect x="275" y="120" width="190" height="260" rx="14" fill="#bdbdbd"/><rect x="90" y="300" width="120" height="12" rx="6" fill="#f0f0f0"/><rect x="305" y="300" width="120" height="12" rx="6" fill="#f0f0f0"/><rect x="90" y="330" width="80" height="10" rx="5" fill="#f0f0f0"/><rect x="305" y="330" width="80" height="10" rx="5" fill="#f0f0f0"/>`,
+  apparel: `<rect width="525.5" height="525.5" fill="#e3e3e3"/><path d="M190 120l-90 50 30 70 50-20v230h165V220l50 20 30-70-90-50c-10 30-40 45-72 45s-62-15-73-45z" fill="#bcbcbc"/><path d="M226 118c8 18 22 28 37 28s29-10 37-28" fill="none" stroke="#9c9c9c" stroke-width="8"/>`,
+};
 const placeholder_svg_tag: F = function (name, cls) {
   const klass = cls != null ? esc(cls) : "placeholder-svg";
   const kind = toStr(name);
-  const inner = /collection|product|image|lifestyle|hero/.test(kind)
-    ? `<rect width="525.5" height="525.5" fill="#f3f3f3"/><path d="M324.5 212.7h-149c-1.1 0-2 .9-2 2v118.8c0 1.1.9 2 2 2h149c1.1 0 2-.9 2-2V214.7c0-1.1-.9-2-2-2zm-2 2v79.4l-28.4-28.4c-1.6-1.6-4.1-1.6-5.7 0l-18.1 18.1-36.7-36.7c-1.6-1.6-4.1-1.6-5.7 0L177.5 297.5V214.7h145zm-145 118.8v-31.2l54.6-54.6 60.1 60.1c.8.8 1.8 1.2 2.8 1.2s2-.4 2.8-1.2l20.8-20.8 30.9 30.9v15.7h-172z" fill="#e0e0e0"/><circle cx="288.8" cy="251.1" r="13.7" fill="#e0e0e0"/>`
-    : `<rect width="525.5" height="525.5" fill="#f3f3f3"/><path d="M262.8 177.9c-46.9 0-84.9 38-84.9 84.9s38 84.9 84.9 84.9 84.9-38 84.9-84.9-38-84.9-84.9-84.9zm0 155.8c-39.1 0-70.9-31.8-70.9-70.9s31.8-70.9 70.9-70.9 70.9 31.8 70.9 70.9-31.8 70.9-70.9 70.9z" fill="#e0e0e0"/>`;
-  return `<svg class="${klass}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">${inner}</svg>`;
+  const key = /lifestyle|hero/.test(kind) ? "lifestyle" : /apparel/.test(kind) ? "apparel" : /collection/.test(kind) ? "collection" : /product/.test(kind) ? "product" : "image";
+  return `<svg class="${klass}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525.5 525.5" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">${PLACEHOLDERS[key]}</svg>`;
 };
 
 /* ------------------------------------------------------------------ Assets */

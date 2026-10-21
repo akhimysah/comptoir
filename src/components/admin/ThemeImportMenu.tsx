@@ -53,7 +53,8 @@ function DialogHeader({ title, onClose }: { title: string; onClose: () => void }
   );
 }
 
-function ZipDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) {
+export function ZipDialog({ ref, platform = false }: { ref: React.RefObject<HTMLDialogElement | null>; platform?: boolean }) {
+  const qs = platform ? "&platform=1" : "";
   const form = useRef<HTMLFormElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
@@ -71,10 +72,10 @@ function ZipDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) 
     const entries = unzipSync(new Uint8Array(await file.arrayBuffer()), { filter: (f) => !f.name.includes("__MACOSX") && !f.name.endsWith("/") && f.originalSize <= 8 * 1024 * 1024 });
     const paths = Object.keys(entries);
     const isShopify = paths.some((p) => /(^|\/)layout\/theme\.liquid$/.test(p)) && paths.some((p) => /(^|\/)config\/settings_schema\.json$/.test(p));
-    if (!isShopify) return false;
+    if (!isShopify) { if (platform) throw new Error("Ce .zip n'est pas un thème Shopify complet."); return false; }
     const files = paths.filter((p) => /(^|\/)(layout|templates|sections|snippets|config|locales|assets|blocks)\//.test(p));
     const bytes = files.reduce((n, p) => n + entries[p].length, 0);
-    const start = await fetch("/admin/theme/import?step=start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, files: files.length, bytes }) });
+    const start = await fetch(`/admin/theme/import?step=start${qs}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, files: files.length, bytes }) });
     const { id, error } = (await start.json()) as { id?: string; error?: string };
     if (!id) throw new Error(error ?? "Import impossible.");
     try {
@@ -85,7 +86,7 @@ function ZipDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) 
         const fd = new FormData();
         fd.set("id", id);
         for (const p of batch) { fd.append("path", p); fd.append("file", new Blob([entries[p] as BlobPart]), p.split("/").pop()); }
-        const res = await fetch("/admin/theme/import?step=files", { method: "POST", body: fd });
+        const res = await fetch(`/admin/theme/import?step=files${qs}`, { method: "POST", body: fd });
         const r = (await res.json()) as { ok?: boolean; error?: string };
         if (!r.ok) throw new Error(r.error ?? "Envoi interrompu.");
         done += batch.length; setProgress({ done, total: files.length });
@@ -96,7 +97,7 @@ function ZipDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) 
         batch.push(p); size += entries[p].length;
       }
       await flush();
-      const fin = await fetch("/admin/theme/import?step=finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      const fin = await fetch(`/admin/theme/import?step=finish${qs}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
       const r = (await fin.json()) as { ok?: boolean; url?: string; error?: string; images?: { base: string; names: string[] } | null };
       if (!r.ok || !r.url) throw new Error(r.error ?? "Import impossible.");
       // Photos du marchand référencées par le thème : récupérées par lots depuis le CDN Shopify (progression affichée).
@@ -113,7 +114,7 @@ function ZipDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) 
       }
       window.location.href = r.url;
     } catch (e) {
-      await fetch(`/admin/theme/import?id=${id}`, { method: "DELETE" }).catch(() => {});
+      await fetch(`/admin/theme/import?id=${id}${qs}`, { method: "DELETE" }).catch(() => {});
       throw e;
     }
     return true;
@@ -140,7 +141,7 @@ function ZipDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) 
     <dialog ref={ref} className={dialogClass}>
       <DialogHeader title="Charger un fichier zip" onClose={() => ref.current?.close()} />
       <form ref={form} action="/admin/theme/zip" method="post" encType="multipart/form-data" className="flex flex-col gap-3 p-5">
-        <p className="text-[13px] text-muted">Thème Shopify (.zip exporté depuis Shopify ou acheté sur le Theme Store) ou thème Revolution Ecom. Il est ajouté à vos brouillons : vous pourrez le prévisualiser avant de le publier.</p>
+        <p className="text-[13px] text-muted">{platform ? "Thème Shopify (.zip) ajouté à la bibliothèque de la plateforme : chaque boutique pourra l'installer depuis « Découvrir des thèmes »." : "Thème Shopify (.zip exporté depuis Shopify ou acheté sur le Theme Store) ou thème Revolution Ecom. Il est ajouté à vos brouillons : vous pourrez le prévisualiser avant de le publier."}</p>
         {problem && <p role="alert" className="rounded-lg bg-[#fff4f4] px-3 py-2 text-[13px] text-[#8e0b21]">{problem}</p>}
         <label
           onDragOver={(e) => { e.preventDefault(); setOver(true); }}

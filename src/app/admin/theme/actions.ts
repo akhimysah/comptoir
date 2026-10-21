@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 import { pushThemeLater } from "@/lib/github";
 import { defaultTheme } from "@/lib/theme";
 import { parseThemeJson, storeUpdateFromFiles, THEME_FILES } from "@/lib/theme-files";
-import { isTextPath, putThemeFiles, themePath } from "@/lib/liquid/source";
+import { installPlatformTheme, isTextPath, putThemeFiles, themePath } from "@/lib/liquid/source";
 import { createTheme, duplicateTheme, ownTheme, publishTheme, saveThemeRow, themeFromPreset, uniqueThemeName } from "@/lib/themes";
 
 const refresh = (slug: string) => { revalidatePath("/admin/theme"); revalidatePath(`/s/${slug}`, "layout"); };
@@ -34,6 +34,18 @@ export async function newTheme() {
   const row = await createTheme(store.id, { name: await uniqueThemeName(store.id, "Nouveau thème"), theme: defaultTheme(store.name, store.tagline) });
   await logActivity(`Thème « ${row.name} » créé`, `/admin/theme/${row.id}`);
   redirect(`/admin/theme/${row.id}`);
+}
+
+/** « Ajouter » un thème Shopify de la bibliothèque de la plateforme : copie complète dans les brouillons. */
+export async function addPlatformTheme(form: FormData) {
+  const { store } = await requirePerm("content");
+  const t = await db.platformTheme.findFirst({ where: { id: String(form.get("id") ?? ""), ready: true } });
+  if (!t) back("err", "Thème introuvable.");
+  if ((await db.storeTheme.count({ where: { storeId: store.id } })) >= 20) back("err", "20 thèmes au maximum dans la bibliothèque : supprimez-en un d'abord.");
+  const row = await installPlatformTheme(store.id, t!.id, await uniqueThemeName(store.id, t!.name));
+  await logActivity(`Thème Shopify « ${row.name} » ajouté depuis la galerie`, `/admin/theme/${row.id}`);
+  revalidatePath("/admin/theme");
+  back("ok", `« ${row.name} » ajouté à vos brouillons.`);
 }
 
 /** « Ajouter » dans la galerie : brouillon créé depuis un modèle. */

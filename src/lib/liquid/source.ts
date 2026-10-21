@@ -68,13 +68,22 @@ export async function themeFile(themeId: string, path: string) {
   return db.themeFile.findUnique({ where: { themeId_path: { themeId, path } } });
 }
 
-/** Enregistre un lot de fichiers importés (création ou remplacement). */
-export async function putThemeFiles(themeId: string, files: { path: string; data: Uint8Array }[]) {
+/** Enregistre un lot de fichiers importés (création ou remplacement), dans un thème de boutique ou de la plateforme. */
+export async function putThemeFiles(themeId: string, files: { path: string; data: Uint8Array }[], table: "store" | "platform" = "store") {
   for (const f of files) {
     const text = isTextPath(f.path) ? Buffer.from(f.data).toString("utf8") : null;
     const data = { contentType: contentTypeOf(f.path), size: f.data.length, text, bytes: text === null ? Buffer.from(f.data) : null };
-    await db.themeFile.upsert({ where: { themeId_path: { themeId, path: f.path } }, create: { themeId, path: f.path, ...data }, update: data });
+    if (table === "platform") await db.platformThemeFile.upsert({ where: { themeId_path: { themeId, path: f.path } }, create: { themeId, path: f.path, ...data }, update: data });
+    else await db.themeFile.upsert({ where: { themeId_path: { themeId, path: f.path } }, create: { themeId, path: f.path, ...data }, update: data });
   }
+}
+
+/** Installe un thème de la plateforme dans une boutique : copie de tous ses fichiers dans un nouveau brouillon. */
+export async function installPlatformTheme(storeId: string, platformThemeId: string, name: string) {
+  const files = await db.platformThemeFile.findMany({ where: { themeId: platformThemeId }, select: { path: true, text: true, bytes: true, contentType: true, size: true } });
+  const row = await db.storeTheme.create({ data: { storeId, name, theme: "{}", source: "preset", engine: "liquid" } });
+  for (let i = 0; i < files.length; i += 100) await db.themeFile.createMany({ data: files.slice(i, i + 100).map((f) => ({ ...f, themeId: row.id })) });
+  return row;
 }
 
 /** Source avec des fichiers remplacés en mémoire (aperçu en direct de l'éditeur, avant enregistrement). */

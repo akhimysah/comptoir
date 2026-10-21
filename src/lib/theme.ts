@@ -170,43 +170,6 @@ export const PRESETS: Record<string, { label: string; colors: Theme["colors"]; f
     font: "classique",
     radius: "none",
   },
-  // Modèles inspirés des thèmes Shopify du marchand (couleurs, polices et arrondis relevés dans leurs réglages).
-  concept: {
-    label: "Concept",
-    colors: { background: "#FFFFFF", surface: "#FAFAFA", text: "#171717", muted: "#6B6B6B", accent: "#171717", accentText: "#FFFFFF" },
-    font: "moderne",
-    radius: "large",
-  },
-  digital: {
-    label: "Digital",
-    colors: { background: "#FFFFFF", surface: "#F7F8F8", text: "#011624", muted: "#67737C", accent: "#1566E0", accentText: "#FFFFFF" },
-    font: "moderne",
-    radius: "small",
-  },
-  impact: {
-    label: "Impact",
-    colors: { background: "#F0F0F0", surface: "#FFFFFF", text: "#1A1A1A", muted: "#5C5C5C", accent: "#F0C417", accentText: "#1A1A1A" },
-    font: "geometrique",
-    radius: "large",
-  },
-  paloalto: {
-    label: "Palo Alto",
-    colors: { background: "#FFFFFF", surface: "#F4F3F1", text: "#0B0B0B", muted: "#6B6B6B", accent: "#000000", accentText: "#FFFFFF" },
-    font: "geometrique",
-    radius: "large",
-  },
-  prestige: {
-    label: "Prestige",
-    colors: { background: "#FFFFFF", surface: "#F3F3F3", text: "#1C1C1C", muted: "#5C5C5C", accent: "#1C1C1C", accentText: "#FFFFFF" },
-    font: "classique",
-    radius: "none",
-  },
-  mysah: {
-    label: "Mysah le BG",
-    colors: { background: "#FFFFFF", surface: "#F3F3F3", text: "#121212", muted: "#6E6E6E", accent: "#334FB4", accentText: "#FFFFFF" },
-    font: "editorial",
-    radius: "none",
-  },
 };
 
 export const newSectionId = () => Math.random().toString(36).slice(2, 10);
