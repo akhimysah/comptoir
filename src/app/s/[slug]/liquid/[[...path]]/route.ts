@@ -15,7 +15,9 @@ import { accessibleStores, getUser } from "@/lib/auth";
 import type { PageData, ShopifyProduct } from "@/lib/liquid/types";
 import { getLocale } from "@/lib/locale";
 import { subscribe } from "@/lib/marketing";
-import { currentMarket } from "@/lib/markets";
+import { currentMarket, marketCookie, marketForCountry, storeMarkets } from "@/lib/markets";
+import { ALPHA2_TO_NAME } from "@/lib/geo";
+import { cookieName as currencyCookie, storeCurrencies } from "@/lib/currency";
 import { searchProducts } from "@/lib/search";
 import { passCookie, passValue, passwordMatches, storeAccess } from "@/lib/store-access";
 import { complementaryProducts } from "@/lib/recommendations";
@@ -79,7 +81,7 @@ const wantsJson = (req: Request, path: string) => /\.(js|json)$/.test(path) || /
 async function page(c: Ctx, req: Request, template: PageData["template"], extra: Partial<BuildOpts> & { status?: number; setCookie?: string[] } = {}): Promise<Response> {
   const data = await buildPageData({
     store: c.store, root: c.root, origin: c.origin, path: `${c.root}${c.path}`, locale: c.locale, template, cart: c.cart, customer: c.customer,
-    priceAdjustBps: c.market?.priceAdjustBps ?? 0, display: c.display, variantId: c.url.searchParams.get("variant"), currentPage: Math.max(1, Number(c.url.searchParams.get("page")) || 1),
+    priceAdjustBps: c.market?.priceAdjustBps ?? 0, display: c.display, markets: await storeMarkets(c.store.id), market: c.market, variantId: c.url.searchParams.get("variant"), currentPage: Math.max(1, Number(c.url.searchParams.get("page")) || 1),
     contentForHeader: contentForHeader(c), designMode: Boolean(c.design), ...extra,
   });
   data.request_query = c.url.search.replace(/^\?/, "");
@@ -296,10 +298,22 @@ async function post(req: Request, c: Ctx): Promise<Response> {
     if (Array.isArray(updates)) lines = lines.map((l, i) => ({ ...l, q: Math.max(0, Math.floor(Number(updates[i])) || 0) }));
     return withCart(lines.filter((l) => l.q > 0));
   }
-  if (path === "/localization") {
+  if (path === "/localization" || path === "/currency") {
+    // Sélecteur du thème : langue, pays (→ marché et sa devise) ou devise seule.
     const res = NextResponse.redirect(new URL(str(b.return_to) && str(b.return_to).startsWith("/") ? str(b.return_to) : `${root}/`, url.origin), 303);
+    const year = { path: "/", maxAge: 365 * 86400, sameSite: "lax" as const };
     const lang = str(b.language_code).toLowerCase();
-    if (lang === "fr" || lang === "en") res.cookies.set(`lang_${c.store.id}`, lang, { path: "/", maxAge: 365 * 86400, sameSite: "lax" });
+    if (lang === "fr" || lang === "en") res.cookies.set(`lang_${c.store.id}`, lang, year);
+    const countryCode = str(b.country_code).toUpperCase();
+    if (countryCode) {
+      const name = ALPHA2_TO_NAME[countryCode];
+      const market = marketForCountry(await storeMarkets(c.store.id), name);
+      res.cookies.set(marketCookie(c.store.id), market?.id ?? "", market ? year : { ...year, maxAge: 0 });
+      const cur = market?.currency && storeCurrencies(c.store).some((x) => x.code === market.currency) ? market.currency : null;
+      res.cookies.set(currencyCookie(c.store.id), cur ?? "", cur ? year : { ...year, maxAge: 0 });
+    }
+    const currency = str(b.currency_code).toUpperCase();
+    if (currency && storeCurrencies(c.store).some((x) => x.code === currency)) res.cookies.set(currencyCookie(c.store.id), currency, year);
     return res;
   }
   if (path === "/password") {

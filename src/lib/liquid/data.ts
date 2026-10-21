@@ -6,7 +6,10 @@ import { db } from "../db";
 import { POLICY_KEYS, POLICY_LABELS, readPolicies } from "../checkout-settings";
 import { translate, type Locale } from "../i18n";
 import { storeLocales } from "../locale";
-import { adjustPrice } from "../markets";
+import { adjustPrice, marketCountries } from "../markets";
+import type { Market } from "@prisma/client";
+import { ALPHA2_TO_NAME } from "../geo";
+import { storeCurrencies } from "../currency";
 import { resolveMenus, type ResolvedLink } from "../navigation";
 import { parseJson } from "../utils";
 import type { PageData, ShopifyAddress, ShopifyOrder, ShopifyArticle, ShopifyBlog, ShopifyCart, ShopifyCollection, ShopifyCollectionRef, ShopifyCustomer, ShopifyImage, ShopifyLink, ShopifyLinklist, ShopifyPage, ShopifyProduct, ShopifyShop, ShopifyVariant } from "./types";
@@ -160,6 +163,10 @@ const MONEY: Record<string, { format: string; withCurrency: string }> = {
 };
 export const moneyFormat = (currency: string) => MONEY[currency] ?? { format: `{{amount_with_comma_separator}} ${currency}`, withCurrency: `{{amount_with_comma_separator}} ${currency}` };
 
+const CURRENCY_SYMBOL: Record<string, string> = { EUR: "€", USD: "$", GBP: "£", CHF: "CHF", CAD: "$", MAD: "MAD", XOF: "CFA", DZD: "DA", TND: "DT", AED: "AED", SAR: "SAR", JPY: "¥" };
+const CURRENCY_NAME: Record<string, { fr: string; en: string }> = { EUR: { fr: "Euro", en: "Euro" }, USD: { fr: "Dollar américain", en: "US Dollar" }, GBP: { fr: "Livre sterling", en: "British Pound" }, CHF: { fr: "Franc suisse", en: "Swiss Franc" }, CAD: { fr: "Dollar canadien", en: "Canadian Dollar" }, MAD: { fr: "Dirham marocain", en: "Moroccan Dirham" }, XOF: { fr: "Franc CFA", en: "CFA Franc" }, DZD: { fr: "Dinar algérien", en: "Algerian Dinar" }, TND: { fr: "Dinar tunisien", en: "Tunisian Dinar" }, AED: { fr: "Dirham des Émirats", en: "UAE Dirham" }, SAR: { fr: "Riyal saoudien", en: "Saudi Riyal" }, JPY: { fr: "Yen", en: "Japanese Yen" } };
+export const NAME_TO_ALPHA2: Record<string, string> = Object.fromEntries(Object.entries(ALPHA2_TO_NAME).map(([k, v]) => [v, k]));
+
 export type BuildOpts = {
   store: Store;
   /** Racine publique de la boutique : "/s/<slug>" ou "" sur un domaine. */
@@ -176,6 +183,9 @@ export type BuildOpts = {
   display?: { code: string; rate: number };
   designMode?: boolean;
   contentForHeader?: string;
+  /** Marchés de la boutique et marché du visiteur (sélecteur pays / devise des thèmes). */
+  markets?: Market[];
+  market?: Market | null;
   /** Identifiant de variante demandé (?variant=). */
   variantId?: string | null;
   currentPage?: number;
@@ -229,7 +239,17 @@ export async function buildPageData(o: BuildOpts): Promise<PageData> {
   const policy = (k: string) => { const p = policyList.find((x) => x.handle === k); return p ? { title: p.title, url: p.url, body: p.body } : null; };
   const languages = storeLocales(store);
   const langs = languages.map((l) => ({ iso_code: l, name: l === "fr" ? "Français" : "English", endonym_name: l === "fr" ? "Français" : "English", primary: l === languages[0], root_url: root || "/", shop_locale: { locale: l } }));
-  const currency = { iso_code: o.display?.code ?? store.currency, symbol: { EUR: "€", USD: "$", GBP: "£", CHF: "CHF", CAD: "$", JPY: "¥" }[o.display?.code ?? store.currency] ?? (o.display?.code ?? store.currency), name: o.display?.code ?? store.currency };
+  const currencyObj = (code: string) => ({ iso_code: code, symbol: CURRENCY_SYMBOL[code] ?? code, name: CURRENCY_NAME[code]?.[locale === "en" ? "en" : "fr"] ?? code });
+  const currency = currencyObj(o.display?.code ?? store.currency);
+  // Pays proposés par le sélecteur : ceux des marchés (avec leur devise), puis les autres pays livrables avec la devise de la boutique.
+  const shown = new Set(storeCurrencies(store).map((c) => c.code));
+  const marketCurrency = (m: Market | null | undefined) => (m?.currency && shown.has(m.currency) ? m.currency : store.currency);
+  const countryEntry = (name: string, m: Market | null) => ({ iso_code: NAME_TO_ALPHA2[name] ?? name.slice(0, 2).toUpperCase(), name, currency: currencyObj(marketCurrency(m)), market: { handle: m ? handleize(m.name) : "default", id: m?.id ?? "default" }, unit_system: "metric", available_languages: [] as never[] });
+  const marketsList = o.markets ?? [];
+  const inMarket = new Set(marketsList.flatMap((m) => marketCountries(m)));
+  const available_countries = [...marketsList.flatMap((m) => marketCountries(m).map((c) => countryEntry(c, m))), ...COUNTRIES.filter((c) => !inMarket.has(c)).map((c) => countryEntry(c, null))];
+  const currentCountryName = o.market ? marketCountries(o.market)[0] ?? "France" : "France";
+  const country = { ...countryEntry(currentCountryName, o.market ?? null), currency, available_languages: [] as never[] };
   const domain = store.domain && store.domainVerifiedAt ? store.domain : new URL(o.origin).host;
   const shop: ShopifyShop = {
     id: store.id, name: store.name, description: store.tagline, email: "", domain, permanent_domain: domain, url: `${o.origin}${root}`, secure_url: `${o.origin}${root}`,
@@ -257,14 +277,15 @@ export async function buildPageData(o: BuildOpts): Promise<PageData> {
   return {
     template: o.template, template_suffix: o.templateSuffix, shop, routes,
     request: { host: domain, origin: o.origin, path: o.path, page_type: pageType, design_mode: Boolean(o.designMode), visual_preview_mode: false, locale: language },
-    localization: { language, available_languages: langs, country: { iso_code: "FR", name: "France", currency, market: { handle: "fr", id: "fr" }, unit_system: "metric", available_languages: langs }, available_countries: [{ iso_code: "FR", name: "France", currency }], market: { handle: "fr", id: "fr" } },
+    localization: { language, available_languages: langs, country: { ...country, available_languages: langs }, available_countries, market: country.market },
     cart: o.cart, customer: await (async () => (o.customer ? shopifyCustomer(o.customer, root, await customerOrders(store, o.customer.id, root, locale)) : null))(), linklists, collections: catalog.collections,
     all_products: Object.fromEntries(catalog.products.slice(0, 20).map((p) => [p.handle, p])),
     pages: Object.fromEntries(pages.map((p) => [p.handle, shopifyPage(p, root, locale)])),
     images, blogs: { news: blog, blog: blog }, articles: Object.fromEntries(blog.articles.map((a) => [`news/${a.handle}`, a])),
     ...pageObjects,
     page_title: title, page_description: pageObjects.page_description ?? store.tagline, canonical_url: `${o.origin}${o.path}`, current_page: o.currentPage ?? 1, current_tags: null,
-    content_for_header: o.contentForHeader ?? "", locale, money: { format: moneyFormat(store.currency).format, formatWithCurrency: moneyFormat(store.currency).withCurrency, currency: o.display?.code ?? store.currency, rate: o.display?.rate ?? 1 },
+    // Les prix s'affichent au format de la devise choisie par le visiteur (symbole et séparateurs), convertis au taux du jour.
+    content_for_header: o.contentForHeader ?? "", locale, money: { format: moneyFormat(o.display?.code ?? store.currency).format, formatWithCurrency: moneyFormat(o.display?.code ?? store.currency).withCurrency, currency: o.display?.code ?? store.currency, rate: o.display?.rate ?? 1 },
     design_mode: Boolean(o.designMode), form_results: o.formResults, country_option_tags: countryOptionTags(),
   };
 }
