@@ -1,13 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { MediaPicker } from "./MediaPicker";
 import { uploadImage } from "./upload";
 
-/** Une image unique : aperçu, remplacement et retrait. */
+/** Une image unique : aperçu, envoi d'un fichier ou choix dans la bibliothèque, retrait. */
 export function ImageField({ value, onChange, label = "Image", id }: { value: string | null; onChange: (url: string | null) => void; label?: string; id: string }) {
   const ref = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [library, setLibrary] = useState(false);
   return (
     <div className="flex flex-col gap-1.5 text-sm font-semibold">
       <span>{label}</span>
@@ -19,7 +21,8 @@ export function ImageField({ value, onChange, label = "Image", id }: { value: st
           <div className="grid h-16 w-24 place-items-center rounded-lg border-2 border-dashed border-line text-xs font-normal text-muted">Aucune</div>
         )}
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn btn-sm" disabled={busy} onClick={() => ref.current?.click()}>{busy ? "Envoi…" : value ? "Remplacer" : "Choisir une image"}</button>
+          <button type="button" className="btn btn-sm" disabled={busy} onClick={() => ref.current?.click()}>{busy ? "Envoi…" : value ? "Remplacer" : "Envoyer un fichier"}</button>
+          <button type="button" className="btn btn-sm" disabled={busy} onClick={() => setLibrary(true)}>Bibliothèque</button>
           {value && <button type="button" className="btn btn-sm btn-danger" onClick={() => onChange(null)}>Retirer</button>}
         </div>
       </div>
@@ -38,6 +41,7 @@ export function ImageField({ value, onChange, label = "Image", id }: { value: st
         }}
       />
       {error && <span className="font-normal text-red-700">{error}</span>}
+      <MediaPicker open={library} onClose={() => setLibrary(false)} onPick={(url) => onChange(url)} />
     </div>
   );
 }
