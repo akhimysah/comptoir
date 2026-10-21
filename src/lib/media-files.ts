@@ -6,12 +6,12 @@ import { db } from "./db";
 /** Bibliothèque de fichiers de la boutique (Contenu › Fichiers) : chaque image envoyée y est référencée. */
 
 /** Enregistre (ou met à jour) un fichier envoyé. Une même adresse n'apparaît qu'une fois par boutique. */
-export async function registerMediaFile(storeId: string, file: { url: string; name: string; mime?: string; size?: number }) {
+export async function registerMediaFile(storeId: string, file: { url: string; name: string; mime?: string; size?: number; width?: number; height?: number }) {
   const name = (file.name || path.basename(file.url)).trim().slice(0, 200) || "image";
   return db.mediaFile.upsert({
     where: { storeId_url: { storeId, url: file.url } },
-    create: { storeId, url: file.url, name, mime: file.mime ?? "", size: file.size ?? 0 },
-    update: { name, mime: file.mime ?? "", size: file.size ?? 0 },
+    create: { storeId, url: file.url, name, mime: file.mime ?? "", size: file.size ?? 0, width: file.width ?? 0, height: file.height ?? 0 },
+    update: { name, mime: file.mime ?? "", size: file.size ?? 0, ...(file.width ? { width: file.width, height: file.height ?? 0 } : {}) },
   });
 }
 

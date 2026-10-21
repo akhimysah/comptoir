@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getUser, STORE_COOKIE, storesWithPerm } from "@/lib/auth";
-import { MAX_IMAGE_BYTES as MAX, saveImage, sniffImage } from "@/lib/image-store";
+import { imageSize, MAX_IMAGE_BYTES as MAX, saveImage, sniffImage } from "@/lib/image-store";
 import { registerMediaFile } from "@/lib/media-files";
 
 const TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
@@ -26,6 +26,6 @@ export async function POST(req: Request) {
   if (sniffImage(bytes) !== ext) return NextResponse.json({ error: "Ce fichier n'est pas une image valide." }, { status: 400 });
   const url = await saveImage(bytes);
   if (!url) return NextResponse.json({ error: "Ce fichier n'est pas une image valide." }, { status: 400 });
-  try { await registerMediaFile(store.id, { url, name: file.name, mime: file.type, size: file.size }); } catch {}
+  try { await registerMediaFile(store.id, { url, name: file.name, mime: file.type, size: file.size, ...(imageSize(bytes) ?? {}) }); } catch {}
   return NextResponse.json({ url });
 }

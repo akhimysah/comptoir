@@ -153,12 +153,20 @@ export async function liquidCatalog(store: Store, root: string, locale: Locale, 
 /** Données complètes d'une page pour le moteur Liquid. */
 export async function buildPageData(o: BuildOpts): Promise<PageData> {
   const { store, root, locale } = o;
-  const [catalog, menus, pages, posts] = await Promise.all([
+  const [catalog, menus, pages, posts, media] = await Promise.all([
     liquidCatalog(store, root, locale, o.priceAdjustBps ?? 0, o.variantId),
     resolveMenus(store, locale),
     db.page.findMany({ where: { storeId: store.id, published: true } }),
     db.blogPost.findMany({ where: { storeId: store.id, published: true }, orderBy: { publishedAt: "desc" } }),
+    db.mediaFile.findMany({ where: { storeId: store.id }, select: { url: true, name: true, alt: true, width: true, height: true } }),
   ]);
+  // Images choisies dans l'éditeur (Contenu › Fichiers) : accessibles par leur adresse, avec leurs vraies dimensions.
+  const images: Record<string, ShopifyImage> = {};
+  for (const m of media) { const w = m.width || 1600, h = m.height || 1600; images[m.url] = { id: m.url, src: m.url, alt: m.alt || m.name, width: w, height: h, aspect_ratio: Math.round((w / h) * 1000) / 1000, media_type: "image" }; }
+  // Photos de produits : leurs vraies dimensions quand elles viennent de la bibliothèque.
+  const fix = (i: ShopifyImage | null) => { if (!i) return i; const m = images[i.src]; if (m) { i.width = m.width; i.height = m.height; i.aspect_ratio = m.aspect_ratio; } return i; };
+  for (const p of catalog.products) { p.images.forEach(fix); p.variants.forEach((v) => fix(v.featured_image)); fix(p.featured_image); }
+  for (const c of catalog.collections) fix(c.image);
   const policies = readPolicies(store.policies);
   const policyList = POLICY_KEYS.filter((k) => policies[k].published && policies[k].body).map((k) => ({ title: POLICY_LABELS[k][locale], url: `${root}/policies/${k}`, handle: k, body: policies[k].body }));
   const policy = (k: string) => { const p = policyList.find((x) => x.handle === k); return p ? { title: p.title, url: p.url, body: p.body } : null; };
@@ -196,7 +204,7 @@ export async function buildPageData(o: BuildOpts): Promise<PageData> {
     cart: o.cart, customer: shopifyCustomer(o.customer), linklists, collections: catalog.collections,
     all_products: Object.fromEntries(catalog.products.slice(0, 20).map((p) => [p.handle, p])),
     pages: Object.fromEntries(pages.map((p) => [p.handle, shopifyPage(p, root, locale)])),
-    blogs: { news: blog, blog: blog }, articles: Object.fromEntries(blog.articles.map((a) => [`news/${a.handle}`, a])),
+    images, blogs: { news: blog, blog: blog }, articles: Object.fromEntries(blog.articles.map((a) => [`news/${a.handle}`, a])),
     ...pageObjects,
     page_title: title, page_description: pageObjects.page_description ?? store.tagline, canonical_url: `${o.origin}${o.path}`, current_page: o.currentPage ?? 1, current_tags: null,
     content_for_header: o.contentForHeader ?? "", locale, money: { format: moneyFormat(store.currency).format, formatWithCurrency: moneyFormat(store.currency).withCurrency, currency: o.display?.code ?? store.currency, rate: o.display?.rate ?? 1 },

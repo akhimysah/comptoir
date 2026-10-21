@@ -1113,6 +1113,8 @@ model MediaFile {
   alt       String   @default("")
   mime      String   @default("")
   size      Int      @default(0)
+  width     Int      @default(0) // dimensions lues dans l'en-tête du fichier (ratio des images dans les thèmes)
+  height    Int      @default(0)
   createdAt DateTime @default(now())
 
   @@unique([storeId, url])

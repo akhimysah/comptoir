@@ -271,7 +271,8 @@ async function buildState(engine: Engine, source: ThemeSource, data: PageData): 
     blog: (h) => data.blogs?.[h],
     article: (h) => data.articles?.[h] ?? data.articles?.[h.split("/").pop() ?? h],
     linklist: (h) => data.linklists?.[h],
-    image: (name) => data.images?.[name] ?? null,
+    // Image de la bibliothèque (adresse connue), sinon toute adresse http(s) ou /uploads/… (dimensions par défaut).
+    image: (name) => data.images?.[name] ?? (/^(https?:)?\//.test(name) ? { id: name, src: name, alt: "", width: 1600, height: 1600, aspect_ratio: 1, media_type: "image" as const } : null),
     scheme: schemeById,
     font: (f) => state.fonts.add(f),
     root,

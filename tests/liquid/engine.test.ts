@@ -227,3 +227,19 @@ describe("filtres", () => {
     expect(html).toContain('"@type":"Product"');
   });
 });
+
+describe("images choisies dans l'éditeur", () => {
+  it("affiche une image de la bibliothèque (dimensions réelles) ou une simple adresse", async () => {
+    const source = memorySource({
+      "layout/theme.liquid": "{{ content_for_layout }}",
+      "templates/index.json": JSON.stringify({ sections: { hero: { type: "hero", settings: { image: "/uploads/a.jpg", other: "https://cdn.exemple.fr/b.png" } } }, order: ["hero"] }),
+      "sections/hero.liquid": `{{ section.settings.image.width }}x{{ section.settings.image.height }}|{{ section.settings.image | image_url: width: 800 | image_tag }}|{{ section.settings.other.aspect_ratio }}{% schema %}{"name":"Hero","settings":[{"type":"image_picker","id":"image"},{"type":"image_picker","id":"other"}]}{% endschema %}`,
+    });
+    const data = samplePageData({ images: { "/uploads/a.jpg": { id: "a", src: "/uploads/a.jpg", alt: "Atelier", width: 2000, height: 1000, aspect_ratio: 2 } } });
+    const { html } = await renderPage(source, data);
+    expect(html).toContain("2000x1000");
+    expect(html).toContain('alt="Atelier"');
+    expect(html).toMatch(/src="\/uploads\/a\.jpg\?width=800/);
+    expect(html).toContain("|1");
+  });
+});

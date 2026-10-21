@@ -60,3 +60,18 @@ describe("objets Shopify", () => {
     expect(moneyFormat("XOF").format).toContain("XOF");
   });
 });
+
+describe("dimensions des images", async () => {
+  const { imageSize } = await import("@/lib/image-store");
+  it("lit l'en-tête PNG, GIF et JPEG", () => {
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from("0000000d49484452", "hex"), Buffer.alloc(8)]);
+    png.writeUInt32BE(640, 16); png.writeUInt32BE(360, 20);
+    expect(imageSize(png)).toEqual({ width: 640, height: 360 });
+    const gif = Buffer.concat([Buffer.from("GIF89a"), Buffer.alloc(4)]); gif.writeUInt16LE(12, 6); gif.writeUInt16LE(34, 8);
+    expect(imageSize(gif)).toEqual({ width: 12, height: 34 });
+    // JPEG minimal : SOI, APP0 vide, SOF0 avec 480x320
+    const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x02]), Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08]), Buffer.from([0x01, 0x40, 0x01, 0xe0]), Buffer.alloc(12)]);
+    expect(imageSize(jpg)).toEqual({ width: 480, height: 320 });
+    expect(imageSize(Buffer.from("pas une image"))).toBeNull();
+  });
+});
