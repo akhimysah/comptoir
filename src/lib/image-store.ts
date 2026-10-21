@@ -61,6 +61,11 @@ export async function saveImage(bytes: Buffer): Promise<string | null> {
  * (jamais une adresse quelconque venue d'un fichier : notre serveur ne doit pas pouvoir être envoyé vers des adresses internes).
  */
 export async function fetchShopifyImage(url: string): Promise<string | null> {
+  return (await fetchShopifyImageInfo(url))?.url ?? null;
+}
+
+/** Même chose, avec les dimensions lues dans le fichier (bibliothèque de fichiers, thèmes). */
+export async function fetchShopifyImageInfo(url: string): Promise<{ url: string; width: number; height: number; size: number } | null> {
   let u: URL;
   try { u = new URL(url); } catch { return null; }
   if (u.protocol !== "https:" || u.hostname !== "cdn.shopify.com" || u.port) return null;
@@ -81,7 +86,11 @@ export async function fetchShopifyImage(url: string): Promise<string | null> {
       if (size > MAX_IMAGE_BYTES) { ctrl.abort(); return null; }
       chunks.push(value);
     }
-    return await saveImage(Buffer.concat(chunks));
+    const bytes = Buffer.concat(chunks);
+    const saved = await saveImage(bytes);
+    if (!saved) return null;
+    const dims = imageSize(bytes) ?? { width: 0, height: 0 };
+    return { url: saved, size: bytes.length, ...dims };
   } catch {
     return null;
   } finally {

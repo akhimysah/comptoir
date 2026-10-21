@@ -4,6 +4,8 @@ import { logActivity } from "@/lib/activity";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { IMPORT_LIMITS, putThemeFiles, themePath } from "@/lib/liquid/source";
+import { fetchShopifyImageInfo } from "@/lib/image-store";
+import { registerMediaFile } from "@/lib/media-files";
 import { defaultTheme } from "@/lib/theme";
 import { ownTheme, uniqueThemeName } from "@/lib/themes";
 
@@ -12,8 +14,11 @@ import { ownTheme, uniqueThemeName } from "@/lib/themes";
  * (l'hébergeur limite chaque requête à quelques Mo) :
  *   POST ?step=start   { name, files: number, bytes: number }      → { id }
  *   POST ?step=files   multipart : id, puis path[] / file[]          → { ok }
- *   POST ?step=finish  { id }                                        → { ok, url }
+ *   POST ?step=finish  { id }                                        → { ok, url, images?: { base, names } }
+ *   POST ?step=images  { id, base, names }                           → { ok, done: number } (photos du marchand récupérées sur le CDN Shopify)
  */
+const SHOP_IMAGE = /shopify:\/\/shop_images\/([\w.%@-]+)/g;
+const CDN_BASE = /cdn\.shopify\.com\/s\/files\/(\d+\/\d{4}\/\d{4}\/\d{4})\//;
 export async function POST(req: Request) {
   const { store } = await requirePerm("content");
   const step = new URL(req.url).searchParams.get("step");
@@ -69,7 +74,33 @@ export async function POST(req: Request) {
     await db.storeTheme.update({ where: { id: theme.id }, data: { engine: "liquid", name, version: { increment: 1 } } });
     await logActivity(`Thème Shopify « ${name} » importé (${paths.length} fichiers)`, `/admin/theme/${theme.id}`);
     revalidatePath("/admin/theme");
-    return NextResponse.json({ ok: true, url: `/admin/theme?ok=${encodeURIComponent(`« ${name} » ajouté à vos brouillons.`)}` });
+    // Thème exporté depuis une boutique Shopify : ses réglages pointent vers des images du marchand (shopify://shop_images/…)
+    // hébergées sur le CDN de Shopify, dont l'adresse de base est lisible dans les fichiers du thème. Elles sont récupérées ensuite, par lots.
+    const texts = await db.themeFile.findMany({ where: { themeId: theme.id, text: { not: null } }, select: { path: true, text: true } });
+    const names = [...new Set(texts.filter((f) => f.path.endsWith(".json")).flatMap((f) => [...(f.text ?? "").matchAll(SHOP_IMAGE)].map((m) => m[1])))].slice(0, 80);
+    const base = texts.map((f) => f.text?.match(CDN_BASE)?.[1]).find(Boolean) ?? null;
+    return NextResponse.json({ ok: true, url: `/admin/theme?ok=${encodeURIComponent(`« ${name} » ajouté à vos brouillons.`)}`, images: base && names.length ? { base, names } : null });
+  }
+  if (step === "images") {
+    const b = (await req.json().catch(() => null)) as { id?: string; base?: string; names?: string[] } | null;
+    const theme = b?.id ? await ownTheme(store.id, b.id) : null;
+    if (!theme || theme.engine !== "liquid" || !b?.base || !/^\d+\/\d{4}\/\d{4}\/\d{4}$/.test(b.base) || !Array.isArray(b.names)) return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
+    const found = new Map<string, string>();
+    for (const raw of b.names.slice(0, 6)) {
+      const name = String(raw);
+      if (!/^[\w.%@-]+$/.test(name)) continue;
+      const info = await fetchShopifyImageInfo(`https://cdn.shopify.com/s/files/${b.base}/files/${name}`);
+      if (!info) continue;
+      found.set(name, info.url);
+      try { await registerMediaFile(store.id, { url: info.url, name: decodeURIComponent(name), mime: "image/*", size: info.size, width: info.width, height: info.height }); } catch {}
+    }
+    if (found.size) {
+      const files = await db.themeFile.findMany({ where: { themeId: theme.id, path: { endsWith: ".json" } }, select: { path: true, text: true } });
+      const changed = files.filter((f) => f.text && [...found.keys()].some((n) => f.text!.includes(`shopify://shop_images/${n}`)));
+      await putThemeFiles(theme.id, changed.map((f) => ({ path: f.path, data: new TextEncoder().encode([...found].reduce((t, [n, url]) => t.split(`shopify://shop_images/${n}`).join(url), f.text!)) })));
+      await db.storeTheme.update({ where: { id: theme.id }, data: { version: { increment: 1 } } });
+    }
+    return NextResponse.json({ ok: true, done: found.size });
   }
   return NextResponse.json({ error: "Étape inconnue." }, { status: 400 });
 }

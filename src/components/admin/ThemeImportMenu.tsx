@@ -60,6 +60,7 @@ function ZipDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) 
   const [name, setName] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [images, setImages] = useState<{ done: number; total: number } | null>(null);
 
   /**
    * Thème Shopify complet (layout/, sections/, assets/…) : décompressé ici, dans le navigateur, puis envoyé par lots
@@ -96,8 +97,20 @@ function ZipDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) 
       }
       await flush();
       const fin = await fetch("/admin/theme/import?step=finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-      const r = (await fin.json()) as { ok?: boolean; url?: string; error?: string };
+      const r = (await fin.json()) as { ok?: boolean; url?: string; error?: string; images?: { base: string; names: string[] } | null };
       if (!r.ok || !r.url) throw new Error(r.error ?? "Import impossible.");
+      // Photos du marchand référencées par le thème : récupérées par lots depuis le CDN Shopify (progression affichée).
+      if (r.images) {
+        const { base, names } = r.images;
+        let got = 0;
+        setImages({ done: 0, total: names.length });
+        for (let i = 0; i < names.length; i += 6) {
+          const res = await fetch("/admin/theme/import?step=images", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, base, names: names.slice(i, i + 6) }) }).then((x) => x.json() as Promise<{ done?: number }>).catch(() => ({ done: 0 }));
+          got += res.done ?? 0;
+          setImages({ done: Math.min(names.length, i + 6), total: names.length });
+        }
+        void got;
+      }
       window.location.href = r.url;
     } catch (e) {
       await fetch(`/admin/theme/import?id=${id}`, { method: "DELETE" }).catch(() => {});
@@ -137,7 +150,7 @@ function ZipDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) 
         >
           <span className="text-[13px] font-[550]">{name ? `Import de ${name}…` : "Déposez un thème .zip ici, ou cliquez pour le choisir"}</span>
           {progress ? (
-            <span className="mt-1 flex w-full max-w-xs flex-col gap-1 text-xs text-muted"><span className="h-1.5 w-full overflow-hidden rounded-full bg-[#e3e3e3]"><span className="block h-full bg-[#7c3aed] transition-[width]" style={{ width: `${Math.round((progress.done / Math.max(1, progress.total)) * 100)}%` }} /></span>{progress.done} / {progress.total} fichiers envoyés</span>
+            <span className="mt-1 flex w-full max-w-xs flex-col gap-1 text-xs text-muted"><span className="h-1.5 w-full overflow-hidden rounded-full bg-[#e3e3e3]"><span className="block h-full bg-[#7c3aed] transition-[width]" style={{ width: `${Math.round(((images ? images.done : progress.done) / Math.max(1, images ? images.total : progress.total)) * 100)}%` }} /></span>{images ? `Récupération de vos photos depuis Shopify : ${images.done} / ${images.total}` : `${progress.done} / ${progress.total} fichiers envoyés`}</span>
           ) : (
             <span className="text-xs text-muted">Thème Shopify complet (layout, sections, assets…) jusqu'à 60 Mo, ou theme.json</span>
           )}
