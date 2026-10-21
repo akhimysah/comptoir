@@ -320,6 +320,8 @@ export type PageData = {
   settings?: Record<string, unknown>;
   /** Mode éditeur de thème : contours et attributs de sections. */
   design_mode?: boolean;
+  /** Paramètres de la requête courante (filtres, tri) conservés par la pagination. */
+  request_query?: string;
   /** Message d'erreur / succès des formulaires (contact, newsletter, login…), par type de formulaire. */
   form_results?: Record<string, { posted_successfully: boolean; errors: string[]; fields: Record<string, string> }>;
 };

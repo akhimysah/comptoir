@@ -411,7 +411,8 @@ export class PaginateTag extends Tag {
     // Déjà paginé en amont (pas plus d'une page d'éléments) : on ne découpe pas.
     const page = all.length > size ? all.slice((current - 1) * size, current * size) : all;
     const path = state?.data.request?.path ?? "/";
-    const url = (n: number) => `${path.split("?")[0]}?page=${n}`;
+    // Les filtres et le tri de la requête courante restent dans les liens de pagination.
+    const url = (n: number) => { const q = new URLSearchParams(state?.data.request_query ?? ""); q.set("page", String(n)); return `${path.split("?")[0]}?${q.toString()}`; };
     const window = Math.max(1, Math.round(toNum(params.window_size) || 3));
     const partsList: ShopifyPaginate["parts"] = [];
     let prevShown = 0;

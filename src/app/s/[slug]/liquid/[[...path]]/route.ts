@@ -18,6 +18,7 @@ import { searchProducts } from "@/lib/search";
 import { passCookie, passValue, passwordMatches, storeAccess } from "@/lib/store-access";
 import { complementaryProducts } from "@/lib/recommendations";
 import { POLICY_LABELS, isPolicyKey, readPolicies } from "@/lib/checkout-settings";
+import { applyFilters, SORT_OPTIONS } from "@/lib/liquid/collection-filters";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +74,7 @@ async function page(c: Ctx, req: Request, template: PageData["template"], extra:
     priceAdjustBps: c.market?.priceAdjustBps ?? 0, display: c.display, variantId: c.url.searchParams.get("variant"), currentPage: Math.max(1, Number(c.url.searchParams.get("page")) || 1),
     contentForHeader: contentForHeader(c), designMode: Boolean(c.design), ...extra,
   });
+  data.request_query = c.url.search.replace(/^\?/, "");
   const headers: Record<string, string> = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store" };
   // Section Rendering API : ?sections=a,b → JSON { a: html }, ?section_id=a → fragment HTML.
   const sections = c.url.searchParams.get("sections");
@@ -136,14 +138,8 @@ async function get(req: Request, c: Ctx): Promise<Response> {
     const collection = collections.find((x) => x.handle === m![1]);
     if (!collection) return m[2] ? NextResponse.json({ products: [] }, { status: 404 }) : page(c, req, "404", { status: 404 });
     if (m[2]) return NextResponse.json({ products: collection.products.map(productJson) }, { headers: jsonHeaders() });
-    const sortBy = url.searchParams.get("sort_by") ?? collection.default_sort_by;
-    const sorted = [...collection.products];
-    if (sortBy === "price-ascending") sorted.sort((a, b) => a.price - b.price);
-    else if (sortBy === "price-descending") sorted.sort((a, b) => b.price - a.price);
-    else if (sortBy === "title-ascending") sorted.sort((a, b) => a.title.localeCompare(b.title));
-    else if (sortBy === "title-descending") sorted.sort((a, b) => b.title.localeCompare(a.title));
-    else if (sortBy === "created-ascending") sorted.sort((a, b) => a.created_at.localeCompare(b.created_at));
-    return page(c, req, "collection", { pageObjects: { collection: { ...collection, products: sorted, sort_by: sortBy } } });
+    const { products: filtered, filters, sort_by } = applyFilters(collection.products, url.searchParams, `${root}${path}`, locale, collection.default_sort_by);
+    return page(c, req, "collection", { pageObjects: { collection: { ...collection, products: filtered, products_count: filtered.length, all_products_count: collection.products.length, filters, sort_by, sort_options: SORT_OPTIONS(locale) } } });
   }
   if ((m = path.match(/^\/collections\/([^/]+)\/products\/([^/]+)$/))) return redirect(`/products/${m[2]}`);
   if (path === "/search" || path === "/search/suggest" || path === "/search/suggest.json") {
@@ -158,8 +154,9 @@ async function get(req: Request, c: Ctx): Promise<Response> {
       const lim = Math.min(10, Number(url.searchParams.get("resources[limit]") ?? url.searchParams.get("limit")) || 4);
       return NextResponse.json({ resources: { results: { products: found.slice(0, lim).map(productJson), collections: cols.slice(0, lim).map((x) => ({ id: x.id, title: x.title, handle: x.handle, url: x.url, image: x.image?.src ?? null, featured_image: x.image ? { url: x.image.src, alt: x.image.alt } : null })), pages: pages.slice(0, lim).map((p) => ({ id: p.id, title: p.title, handle: p.handle, url: p.url, body: p.content })), articles: posts.slice(0, lim).map((a) => ({ id: a.id, title: a.title, handle: a.handle, url: a.url, image: a.image?.src ?? null, summary_html: a.excerpt, published_at: a.published_at })), queries: [] } } }, { headers: jsonHeaders() });
     }
-    const results = [...found, ...posts, ...pages];
-    return page(c, req, "search", { pageObjects: { search: { performed: Boolean(q), terms: q, results, results_count: results.length, types: ["product", "article", "page"], default_sort_by: "relevance", sort_by: "relevance", sort_options: [{ name: "Pertinence", value: "relevance" }], filters: [] }, predictive_search: { performed: Boolean(q), terms: q, resources: { products: found.slice(0, 6), collections: cols.slice(0, 3), pages: pages.slice(0, 3), articles: posts.slice(0, 3), queries: [] } }, page_title: q ? `${locale === "en" ? "Search results for" : "Résultats pour"} « ${q} »` : locale === "en" ? "Search" : "Recherche" } });
+    const { products: filteredFound, filters, sort_by } = applyFilters(found, url.searchParams, `${root}${path}`, locale, "relevance");
+    const results = [...filteredFound, ...posts, ...pages];
+    return page(c, req, "search", { pageObjects: { search: { performed: Boolean(q), terms: q, results, results_count: results.length, types: ["product", "article", "page"], default_sort_by: "relevance", sort_by, sort_options: [{ name: locale === "en" ? "Relevance" : "Pertinence", value: "relevance" }, ...SORT_OPTIONS(locale).slice(2)], filters }, predictive_search: { performed: Boolean(q), terms: q, resources: { products: found.slice(0, 6), collections: cols.slice(0, 3), pages: pages.slice(0, 3), articles: posts.slice(0, 3), queries: [] } }, page_title: q ? `${locale === "en" ? "Search results for" : "Résultats pour"} « ${q} »` : locale === "en" ? "Search" : "Recherche" } });
   }
   if ((m = path.match(/^\/pages\/([^/]+)$/))) {
     const row = await db.page.findFirst({ where: { storeId: c.store.id, handle: m[1], published: true } });
