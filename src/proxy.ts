@@ -17,6 +17,9 @@ export async function proxy(req: NextRequest) {
   const pt = req.nextUrl.searchParams.get("pt");
   if (pt && /^[A-Za-z0-9]{1,40}$/.test(pt)) headers.set("x-preview-theme", pt);
   else headers.delete("x-preview-theme");
+  const ppt = req.nextUrl.searchParams.get("ppt");
+  if (ppt && /^[A-Za-z0-9]{1,40}$/.test(ppt)) headers.set("x-preview-platform-theme", ppt);
+  else headers.delete("x-preview-platform-theme");
   const passthrough = () => NextResponse.next({ request: { headers } });
   /** Thème Shopify importé : la page est rendue par le moteur Liquid (/s/<boutique>/liquid/…) au lieu des pages React. */
   const liquidRewrite = async (slug: string, path: string, search: string) => {

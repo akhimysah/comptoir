@@ -63,9 +63,29 @@ export function dbThemeSource(theme: ThemeRef, root: string): ThemeSource {
   };
 }
 
-/** Fichier brut d'un thème (service des assets). */
+/** Fichier brut d'un thème (service des assets) ; « p_<id> » désigne un thème de la bibliothèque de la plateforme. */
 export async function themeFile(themeId: string, path: string) {
+  if (themeId.startsWith("p_")) return db.platformThemeFile.findUnique({ where: { themeId_path: { themeId: themeId.slice(2), path } } });
   return db.themeFile.findUnique({ where: { themeId_path: { themeId, path } } });
+}
+
+/** Thème de la bibliothèque de la plateforme lu directement (aperçu dans la galerie, avant installation). */
+export function platformThemeSource(theme: ThemeRef, root: string): ThemeSource {
+  const key = `p_${theme.id}:${theme.version}`;
+  const list = async () => {
+    const hit = listings.get(key);
+    if (hit && hit.until > Date.now()) return hit.paths;
+    const paths = (await db.platformThemeFile.findMany({ where: { themeId: theme.id }, select: { path: true } })).map((r) => r.path).sort();
+    listings.set(key, { until: Date.now() + 60_000, paths });
+    return paths;
+  };
+  return {
+    id: `p_${theme.id}`,
+    version: String(theme.version),
+    async get(path) { const row = await db.platformThemeFile.findUnique({ where: { themeId_path: { themeId: theme.id, path } }, select: { text: true, bytes: true } }); return row ? row.text ?? (row.bytes ? Buffer.from(row.bytes).toString("utf8") : "") : null; },
+    async list(prefix) { return (await list()).filter((p) => p.startsWith(prefix)); },
+    assetUrl(name) { return `${root}/assets/${encodeURIComponent(name).replace(/%2F/g, "/")}?v=${theme.version}&t=p_${theme.id}`; },
+  };
 }
 
 /** Enregistre un lot de fichiers importés (création ou remplacement), dans un thème de boutique ou de la plateforme. */

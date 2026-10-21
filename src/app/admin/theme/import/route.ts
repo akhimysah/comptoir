@@ -22,8 +22,26 @@ const SHOP_IMAGE = /shopify:\/\/shop_images\/([\w.%@-]+)/g;
 const CDN_BASE = /cdn\.shopify\.com\/s\/files\/(\d+\/\d{4}\/\d{4}\/\d{4})\//;
 /** Bibliothèque de la plateforme (?platform=1) : mêmes étapes, réservées à l'administrateur, vers PlatformTheme. */
 async function platformImport(req: Request, step: string | null) {
-  const user = await requireUser();
-  if (!isPlatformAdmin(user.email)) return NextResponse.json({ error: "Réservé à l'administrateur de la plateforme." }, { status: 403 });
+  // Administrateur connecté, ou script de dépôt muni du jeton PLATFORM_IMPORT_TOKEN (scripts/seed-platform-theme.mjs).
+  const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  const byToken = Boolean(process.env.PLATFORM_IMPORT_TOKEN) && bearer.length > 20 && bearer === process.env.PLATFORM_IMPORT_TOKEN;
+  if (!byToken) {
+    const user = await requireUser();
+    if (!isPlatformAdmin(user.email)) return NextResponse.json({ error: "Réservé à l'administrateur de la plateforme." }, { status: 403 });
+  }
+  if (step === "thumbnail") {
+    // Capture d'écran de la galerie, gardée avec les fichiers du thème (servie par /admin/platform/themes/thumb/<id>).
+    const form = await req.formData().catch(() => null);
+    const id = String(form?.get("id") ?? "");
+    const file = form?.get("file");
+    const theme = await db.platformTheme.findUnique({ where: { id } });
+    if (!form || !theme || !(file instanceof Blob) || file.size > 3_000_000) return NextResponse.json({ error: "Capture invalide." }, { status: 400 });
+    const bytes = Buffer.from(await file.arrayBuffer());
+    await db.platformThemeFile.upsert({ where: { themeId_path: { themeId: id, path: "thumbnail.png" } }, create: { themeId: id, path: "thumbnail.png", bytes, contentType: "image/png", size: bytes.length }, update: { bytes, size: bytes.length } });
+    await db.platformTheme.update({ where: { id }, data: { thumbnail: `/admin/platform/themes/thumb/${id}`, ...(form.get("description") ? { description: String(form.get("description")).slice(0, 200) } : {}) } });
+    revalidatePath("/admin/theme");
+    return NextResponse.json({ ok: true });
+  }
   if (step === "start") {
     const b = (await req.json().catch(() => null)) as { name?: string; files?: number; bytes?: number } | null;
     if (!b || typeof b.files !== "number" || typeof b.bytes !== "number") return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
@@ -60,7 +78,10 @@ async function platformImport(req: Request, step: string | null) {
     let { name } = theme; let version = "", author = "";
     try {
       const info = (JSON.parse((await db.platformThemeFile.findUnique({ where: { themeId_path: { themeId: theme.id, path: "config/settings_schema.json" } } }))?.text ?? "[]") as { name?: string; theme_name?: string; theme_version?: string; theme_author?: string }[]).find((x) => x.name === "theme_info");
-      if (info?.theme_name) { name = info.theme_name.slice(0, 60); version = info.theme_version ?? ""; author = info.theme_author ?? ""; }
+      // Certains fichiers préfixent le nom d'un « A » parasite ; un thème Dawn personnalisé garde le nom du fichier déposé.
+      const clean = (x: string) => x.replace(/^A\s+(?=[A-Z])/, "").trim();
+      if (info?.theme_name && !(info.theme_author === "Shopify" && info.theme_name === "Dawn")) name = clean(info.theme_name).slice(0, 60);
+      version = info?.theme_version ?? ""; author = clean(info?.theme_author ?? "");
     } catch {}
     await db.platformTheme.update({ where: { id: theme.id }, data: { ready: true, name, version, author, position: Date.now() % 1_000_000 } });
     revalidatePath("/admin/platform/themes"); revalidatePath("/admin/theme");

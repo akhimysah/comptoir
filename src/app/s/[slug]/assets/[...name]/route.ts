@@ -11,7 +11,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const store = await db.store.findUnique({ where: { slug }, select: { id: true, publishedThemeId: true } });
   // ?t=<thème> : fichier d'un thème précis de la boutique (brouillon en aperçu) ; sinon le thème en vigueur.
   const t = new URL(req.url).searchParams.get("t");
-  const theme = store && ((t && /^[A-Za-z0-9]{1,40}$/.test(t) ? await db.storeTheme.findFirst({ where: { id: t, storeId: store.id }, select: { id: true, version: true } }) : null) ?? (await activeThemeRow(store, req)));
+  const theme = store && ((t && /^p_[A-Za-z0-9]{1,40}$/.test(t) ? await db.platformTheme.findFirst({ where: { id: t.slice(2), ready: true }, select: { id: true } }).then((r) => (r ? { id: `p_${r.id}`, version: 1 } : null)) : t && /^[A-Za-z0-9]{1,40}$/.test(t) ? await db.storeTheme.findFirst({ where: { id: t, storeId: store.id }, select: { id: true, version: true } }) : null) ?? (await activeThemeRow(store, req)));
   const file = theme && (await themeFile(theme.id, path));
   if (!file) return new NextResponse(null, { status: 404 });
   const body = file.text !== null ? (/\.(js|mjs|css)$/.test(path) ? rewriteShopifyCdn(file.text, theme, `/s/${slug}`) : file.text) : Buffer.from(file.bytes!);

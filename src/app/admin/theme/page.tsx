@@ -95,7 +95,7 @@ export default async function ThemesPage({ searchParams }: { searchParams: Promi
         )}
       </section>
 
-      <PresetGallery platform={(await db.platformTheme.findMany({ where: { ready: true }, orderBy: { position: "asc" }, select: { id: true, name: true, version: true, author: true, description: true, thumbnail: true } }))} />
+      <PresetGallery base={base} platform={(await db.platformTheme.findMany({ where: { ready: true }, orderBy: { position: "asc" }, select: { id: true, name: true, version: true, author: true, description: true, thumbnail: true } }))} />
       <p className="text-xs text-muted">Thèmes créés le {formatDate(current.createdAt)} ou après : chaque enregistrement dans l'éditeur du thème publié met la boutique à jour immédiatement ; un brouillon ne change rien tant qu'il n'est pas publié.</p>
     </>
   );

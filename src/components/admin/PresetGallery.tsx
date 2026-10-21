@@ -1,5 +1,6 @@
 import { addPlatformTheme, addPresetTheme } from "@/app/admin/theme/actions";
 import { PRESETS } from "@/lib/theme";
+import { ThemeThumb } from "./ThemeThumb";
 
 const DESCRIPTIONS: Record<string, string> = {
   argile: "Chaleureux et artisanal : céramique, décoration, épicerie fine.",
@@ -27,7 +28,7 @@ function Mock({ k }: { k: keyof typeof PRESETS }) {
 /** « Découvrir des thèmes » : modèles prêts à l'emploi ajoutés aux brouillons en un clic. */
 export type GalleryTheme = { id: string; name: string; version: string; author: string; description: string; thumbnail: string | null };
 
-export function PresetGallery({ platform = [] }: { platform?: GalleryTheme[] }) {
+export function PresetGallery({ platform = [], base = "" }: { platform?: GalleryTheme[]; base?: string }) {
   return (
     <section className="card p-4">
       <div className="mb-4 flex items-center justify-between gap-2"><h2 className="text-base font-[650]">Découvrir des thèmes</h2><span className="text-xs text-muted">Chaque modèle s'ajoute à vos brouillons, à personnaliser dans l'éditeur.</span></div>
@@ -35,7 +36,7 @@ export function PresetGallery({ platform = [] }: { platform?: GalleryTheme[] }) 
         {platform.map((t) => (
           <div key={t.id} className="flex flex-col rounded-xl border border-line">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            {t.thumbnail ? <img src={t.thumbnail} alt="" className="aspect-[4/3] w-full rounded-t-xl object-cover object-top" /> : <div className="grid aspect-[4/3] w-full place-items-center rounded-t-xl bg-[#f1f1f1] text-sm font-[650] text-muted">{t.name}</div>}
+            {t.thumbnail ? <img src={t.thumbnail} alt="" className="aspect-[4/3] w-full rounded-t-xl object-cover object-top" /> : base ? <ThemeThumb src={`${base}?ppt=${t.id}`} width={320} height={240} className="w-full !max-w-full rounded-t-xl" /> : <div className="grid aspect-[4/3] w-full place-items-center rounded-t-xl bg-[#f1f1f1] text-sm font-[650] text-muted">{t.name}</div>}
             <div className="flex items-center justify-between gap-2 p-3">
               <div className="min-w-0"><div className="flex items-center gap-1.5 font-[650]">{t.name}<span className="rounded-full bg-[#e0f0ff] px-1.5 py-0.5 text-[10px] font-[550] text-[#0a3a7a]">Shopify</span></div><div className="truncate text-xs text-muted" title={t.description}>{t.description || [t.author, t.version].filter(Boolean).join(" · ") || "Thème Shopify complet"}</div></div>
               <form action={addPlatformTheme}><input type="hidden" name="id" value={t.id} /><button className="btn">Ajouter</button></form>

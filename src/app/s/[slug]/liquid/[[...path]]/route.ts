@@ -7,7 +7,7 @@ import { activeThemeRow } from "@/lib/liquid/active";
 import { cartCookieHeader, lineKey, readCartCookie, shopifyCart, type CookieLine } from "@/lib/liquid/cart";
 import { buildPageData, liquidCatalog, shopifyArticle, shopifyBlog, shopifyPage, type BuildOpts } from "@/lib/liquid/data";
 import { renderPage, renderSection } from "@/lib/liquid/engine";
-import { dbThemeSource, overlaySource, rewriteShopifyCdn } from "@/lib/liquid/source";
+import { dbThemeSource, overlaySource, platformThemeSource, rewriteShopifyCdn } from "@/lib/liquid/source";
 import { designModeScript } from "@/lib/liquid/design-mode";
 import { accessibleStores, getUser } from "@/lib/auth";
 import type { PageData, ShopifyProduct } from "@/lib/liquid/types";
@@ -41,7 +41,7 @@ async function context(req: Request, slug: string, path: string, design?: Design
     const user = await getUser();
     if (!user || !(await accessibleStores(user.id)).some((x) => x.id === store.id)) return null;
     const row = await db.storeTheme.findFirst({ where: { id: design.themeId, storeId: store.id } });
-    theme = row ? { ...row, preview: true } : null;
+    theme = row ? { ...row, preview: true, platform: false } : null;
   }
   if (!theme || theme.engine !== "liquid") return null;
   const onDomain = req.headers.get("x-store-domain") === store.domain && Boolean(store.domainVerifiedAt);
@@ -52,7 +52,7 @@ async function context(req: Request, slug: string, path: string, design?: Design
   const [customer, display, market, access] = await Promise.all([getCustomer(store.id), displayCurrency(store), currentMarket(store), storeAccess(store)]);
   const lines = readCartCookie(req.headers.get("cookie"), store.id);
   const { cart, lines: kept } = await shopifyCart(store, lines, root, { priceAdjustBps: market?.priceAdjustBps ?? 0, locale });
-  const base = dbThemeSource(theme, root);
+  const base = theme.platform ? platformThemeSource(theme, root) : dbThemeSource(theme, root);
   return { store, theme, root, origin, url, path, locale, customer, display, market, access, cart, lines: kept, source: design ? overlaySource(base, design.overrides) : base, onDomain, design };
 }
 
@@ -60,7 +60,7 @@ async function context(req: Request, slug: string, path: string, design?: Design
 function contentForHeader(c: Ctx) {
   const track = c.theme.preview || c.access.preview ? "" : `<script>(function(){var s=${JSON.stringify(c.store.slug)};var u={};new URLSearchParams(location.search).forEach(function(v,k){if(k.indexOf("utm_")===0)u[k]=v});var d=/Mobi|Android/i.test(navigator.userAgent)?(/iPad|Tablet/i.test(navigator.userAgent)?"tablet":"mobile"):"desktop";function send(t){fetch("/s/"+s+"/track",{method:"POST",keepalive:true,headers:{"Content-Type":"application/json"},body:JSON.stringify({type:t,path:location.pathname,referrer:document.referrer,utm:u,cartItems:${c.cart.item_count},device:d})}).catch(function(){})}send("view");setInterval(function(){if(document.visibilityState==="visible")send("ping")},30000)})();</script>`;
   if (c.design) return `<meta name="generator" content="Revolution Ecom"><meta name="robots" content="noindex">${designModeScript(c.design.names)}`;
-  const banner = c.theme.preview ? `<div style="position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#1a1a1a;color:#fff;font:13px system-ui;padding:8px 16px;display:flex;gap:12px;align-items:center;justify-content:center">Aperçu du brouillon « ${c.theme.name.replace(/</g, "&lt;")} » : seule votre équipe le voit. <a href="${c.root}/preview?exit=1" style="color:#fff;text-decoration:underline">Quitter l'aperçu</a></div>` : "";
+  const banner = c.theme.preview && !c.theme.platform ? `<div style="position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#1a1a1a;color:#fff;font:13px system-ui;padding:8px 16px;display:flex;gap:12px;align-items:center;justify-content:center">Aperçu du brouillon « ${c.theme.name.replace(/</g, "&lt;")} » : seule votre équipe le voit. <a href="${c.root}/preview?exit=1" style="color:#fff;text-decoration:underline">Quitter l'aperçu</a></div>` : "";
   return `<meta name="generator" content="Revolution Ecom">${track}${banner}`;
 }
 

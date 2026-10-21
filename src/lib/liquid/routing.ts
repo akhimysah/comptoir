@@ -33,6 +33,7 @@ export const forgetStoreEngine = (slug: string) => cache.delete(`s:${slug}`);
 export async function wantsLiquid(slug: string, path: string, search: URLSearchParams, cookie: string): Promise<boolean> {
   if (NATIVE.test(path || "/")) return false;
   if (path === "/cart" && search.get("checkout") === "1") return false; // paiement natif depuis un thème Shopify
+  if (/^[A-Za-z0-9]{1,40}$/.test(search.get("ppt") ?? "")) return true; // aperçu d'un thème de la plateforme (équipe vérifiée dans la route)
   const store = await storeInfo(slug);
   if (!store) return false;
   const pt = search.get("pt");
