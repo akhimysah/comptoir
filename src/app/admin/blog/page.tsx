@@ -9,7 +9,7 @@ export default async function ListPage() {
   const items = await db.blogPost.findMany({ where: { storeId: store.id }, orderBy: { updatedAt: "desc" } });
   return (
     <>
-      <PageHeader title="Articles de blog" actions={<Link href="/admin/blog/new" className="btn btn-primary">Créer un article</Link>} />
+      <PageHeader title="Articles de blog" actions={<><Link href="/admin/blog/comments" className="btn">Commentaires</Link><Link href="/admin/blog/new" className="btn btn-primary">Créer un article</Link></>} />
       <section className="card overflow-hidden">
         {items.length ? (
           <table className="w-full">

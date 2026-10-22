@@ -82,6 +82,7 @@ model Store {
   passwordEnabled          Boolean               @default(false) // boutique protégée par mot de passe (en préparation)
   storePassword            String                @default("") // mot de passe partagé, à donner aux visiteurs
   passwordMessage          String                @default("Notre boutique ouvre très bientôt. Revenez nous voir !")
+  blogComments             String                @default("off") // off | moderated (publiés après validation) | auto (publiés tout de suite)
   gaId                     String                @default("") // Google Analytics 4 (G-XXXXXXX)
   metaPixelId              String                @default("") // Meta (Facebook / Instagram) Pixel
   pickupEnabled            Boolean               @default(false) // retrait en boutique proposé au paiement
@@ -230,6 +231,7 @@ model BlogPost {
   seoDescription String    @default("")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  comments       BlogComment[]
 
   @@unique([storeId, handle])
 }
@@ -1095,6 +1097,23 @@ model StoreCreditEntry {
 }
 
 /// Bibliothèque de fichiers (Contenu → Fichiers) : chaque image ou vidéo envoyée.
+/// Commentaire d'un article de blog (comme sur Shopify : en attente de modération, publié ou indésirable).
+model BlogComment {
+  id        String   @id @default(cuid())
+  storeId   String
+  postId    String
+  post      BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    String
+  email     String
+  body      String
+  status    String   @default("pending") // pending | published | spam
+  ip        String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([storeId, status, createdAt])
+  @@index([postId, status])
+}
+
 /// Historique des versions d'un thème : à chaque enregistrement, l'état précédent des fichiers modifiés.
 /// Restaurer une version = rejouer ces états en remontant jusqu'à elle (et garder une trace, restaurable aussi).
 model ThemeRevision {

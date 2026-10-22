@@ -190,7 +190,8 @@ export type ShopifyCart = {
 export type ShopifyLink = { title: string; url: string; active: boolean; child_active: boolean; current: boolean; child_current: boolean; levels: number; links: ShopifyLink[]; type: string; handle: string; object?: unknown };
 export type ShopifyLinklist = { title: string; handle: string; levels: number; links: ShopifyLink[] };
 
-export type ShopifyArticle = { id: string; title: string; handle: string; url: string; author: string; content: string; excerpt: string; excerpt_or_content: string; image: ShopifyImage | null; published_at: string; created_at: string; tags: string[]; comments_count: number; comments_enabled?: boolean; moderated?: boolean; user: { first_name: string; last_name: string; name: string } };
+export type ShopifyComment = { id: string; author: string; email: string; content: string; status: string; created_at: string; updated_at: string; url: string };
+export type ShopifyArticle = { id: string; title: string; handle: string; url: string; author: string; content: string; excerpt: string; excerpt_or_content: string; image: ShopifyImage | null; published_at: string; created_at: string; tags: string[]; comments_count: number; comments_enabled?: boolean; moderated?: boolean; comments?: ShopifyComment[]; comment_post_url?: string; user: { first_name: string; last_name: string; name: string } };
 export type ShopifyBlog = { id: string; title: string; handle: string; url: string; articles: ShopifyArticle[]; articles_count: number; all_tags: string[]; tags: string[]; comments_enabled: boolean; moderated: boolean };
 export type ShopifyPage = { id: string; title: string; handle: string; url: string; content: string; author: string; published_at: string; template_suffix: string };
 

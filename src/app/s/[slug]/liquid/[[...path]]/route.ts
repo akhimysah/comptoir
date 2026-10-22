@@ -7,7 +7,8 @@ import { sendMail } from "@/lib/mail";
 import { db } from "@/lib/db";
 import { activeThemeRow } from "@/lib/liquid/active";
 import { cartCookieHeader, lineKey, readCartCookie, shopifyCart, type CookieLine } from "@/lib/liquid/cart";
-import { buildPageData, liquidCatalog, shopifyAddress, shopifyArticle, shopifyBlog, shopifyOrder, shopifyPage, type BuildOpts } from "@/lib/liquid/data";
+import { articleWithComments, buildPageData, liquidCatalog, shopifyAddress, shopifyArticle, shopifyBlog, shopifyOrder, shopifyPage, type BuildOpts } from "@/lib/liquid/data";
+import { commentsMode, postComment } from "@/lib/comments";
 import { renderPage, renderSection } from "@/lib/liquid/engine";
 import { dbThemeSource, overlaySource, platformThemeSource, rewriteShopifyCdn } from "@/lib/liquid/source";
 import { designModeScript } from "@/lib/liquid/design-mode";
@@ -186,7 +187,8 @@ async function get(req: Request, c: Ctx): Promise<Response> {
   if ((m = path.match(/^\/blogs\/([^/]+)\/([^/]+)$/))) {
     const [row, posts] = await Promise.all([db.blogPost.findFirst({ where: { storeId: c.store.id, handle: m[2], published: true } }), db.blogPost.findMany({ where: { storeId: c.store.id, published: true }, orderBy: { publishedAt: "desc" } })]);
     if (!row) return page(c, req, "404", { status: 404 });
-    return page(c, req, "article", { pageObjects: { article: shopifyArticle(row, root, locale, m[1]), blog: shopifyBlog(posts, root, locale, m[1]) } });
+    const blog = shopifyBlog(posts, root, locale, m[1]);
+    return page(c, req, "article", { pageObjects: { article: await articleWithComments(shopifyArticle(row, root, locale, m[1]), row.id, c.store), blog: { ...blog, comments_enabled: commentsMode(c.store) !== "off", moderated: commentsMode(c.store) === "moderated" } } });
   }
   if (path === "/recommendations/products" || path === "/recommendations/products.json") {
     const id = url.searchParams.get("product_id") ?? "";
@@ -365,6 +367,7 @@ async function post(req: Request, c: Ctx): Promise<Response> {
     if (r.customerId) { await openCustomerSession(c.store.id, r.customerId); return redirectTo("/account"); }
     return page(c, req, "customers/register", { formResults: { create_customer: { posted_successfully: false, errors: [r.error!], fields: { email: str(cust.email), first_name: str(cust.first_name), last_name: str(cust.last_name) } } } });
   }
+  let m2: RegExpMatchArray | null = null;
   const m = path.match(/^\/account\/reset\/([^/]+)\/([^/]+)$/);
   if (m) {
     if (str(cust.password) !== str(cust.password_confirmation)) return page(c, req, "customers/reset_password", { formResults: { reset_customer_password: { posted_successfully: false, errors: [L === "en" ? "Passwords don't match." : "Les deux mots de passe ne correspondent pas."], fields: {} } } });
@@ -384,6 +387,17 @@ async function post(req: Request, c: Ctx): Promise<Response> {
     return redirectTo("/account/addresses");
   }
   if (path === "/account/logout") { await logoutCustomer(c.store.id, c.store.slug); return redirectTo("/"); }
+  if ((m2 = path.match(/^\/blogs\/([^/]+)\/([^/]+)\/comments$/)) || formType === "new_comment") {
+    // Commentaire d'article (formulaire new_comment du thème) : publié ou en attente selon le réglage de la boutique.
+    const handle = m2?.[2] ?? "";
+    const cm = (b.comment ?? {}) as Record<string, string>;
+    const [row, posts] = await Promise.all([db.blogPost.findFirst({ where: { storeId: c.store.id, handle, published: true } }), db.blogPost.findMany({ where: { storeId: c.store.id, published: true }, orderBy: { publishedAt: "desc" } })]);
+    if (!row) return page(c, req, "404", { status: 404 });
+    const r = await postComment(c.store, row.id, { author: str(cm.author), email: str(cm.email), body: str(cm.body) }, L);
+    const blogHandle = m2?.[1] ?? "news";
+    const blog = shopifyBlog(posts, root, L, blogHandle);
+    return page(c, req, "article", { pageObjects: { article: await articleWithComments(shopifyArticle(row, root, L, blogHandle), row.id, c.store), blog: { ...blog, comments_enabled: true, moderated: commentsMode(c.store) === "moderated" } }, formResults: { new_comment: { posted_successfully: Boolean(r.ok), errors: r.error ? [r.error] : [], fields: r.ok ? {} : { author: str(cm.author), email: str(cm.email), body: str(cm.body) } } } });
+  }
   if (path.startsWith("/account")) return redirectTo("/account");
   return page(c, req, "404", { status: 404 });
 }

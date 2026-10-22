@@ -8,12 +8,13 @@ import { translate, type Locale } from "../i18n";
 import { storeLocales } from "../locale";
 import { adjustPrice, marketCountries } from "../markets";
 import { MetafieldDrop } from "./drops";
+import { commentsMode, publishedComments } from "../comments";
 import type { Market } from "@prisma/client";
 import { ALPHA2_TO_NAME } from "../geo";
 import { storeCurrencies } from "../currency";
 import { resolveMenus, type ResolvedLink } from "../navigation";
 import { parseJson } from "../utils";
-import type { PageData, ShopifyAddress, ShopifyOrder, ShopifyArticle, ShopifyBlog, ShopifyCart, ShopifyCollection, ShopifyCollectionRef, ShopifyCustomer, ShopifyImage, ShopifyLink, ShopifyLinklist, ShopifyPage, ShopifyProduct, ShopifyShop, ShopifyVariant } from "./types";
+import type { PageData, ShopifyAddress, ShopifyOrder, ShopifyArticle, ShopifyComment, ShopifyBlog, ShopifyCart, ShopifyCollection, ShopifyCollectionRef, ShopifyCustomer, ShopifyImage, ShopifyLink, ShopifyLinklist, ShopifyPage, ShopifyProduct, ShopifyShop, ShopifyVariant } from "./types";
 
 /** Produit de la base avec ses variantes et ses collections. */
 export type FullProduct = Product & { variants: Variant[]; collections: { collection: Pick<Collection, "handle"> }[] };
@@ -315,4 +316,12 @@ export async function buildPageData(o: BuildOpts): Promise<PageData> {
     content_for_header: o.contentForHeader ?? "", locale, money: { format: moneyFormat(o.display?.code ?? store.currency).format, formatWithCurrency: moneyFormat(o.display?.code ?? store.currency).withCurrency, currency: o.display?.code ?? store.currency, rate: o.display?.rate ?? 1 },
     design_mode: Boolean(o.designMode), form_results: o.formResults, country_option_tags: countryOptionTags(),
   };
+}
+
+/** Article avec ses commentaires publiés et le réglage de la boutique (page d'article). */
+export async function articleWithComments(a: ShopifyArticle, postId: string, store: Store): Promise<ShopifyArticle> {
+  const mode = commentsMode(store);
+  const rows = mode === "off" ? [] : await publishedComments(postId);
+  const comments: ShopifyComment[] = rows.map((c) => ({ id: c.id, author: c.author, email: c.email, content: c.body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>"), status: c.status, created_at: c.createdAt.toISOString(), updated_at: c.createdAt.toISOString(), url: `${a.url}#comment-${c.id}` }));
+  return { ...a, comments, comments_count: comments.length, comments_enabled: mode !== "off", moderated: mode === "moderated", comment_post_url: `${a.url}/comments` };
 }
