@@ -80,8 +80,8 @@ const T = dict(
 
 type V = { id: string; title: string; optionValues: string[]; priceCents: number; compareAtCents: number | null; stock: number; image?: string | null };
 
-export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null, initialVariant, specs = [], productId, delivery = null }: {
-  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null; initialVariant?: string; specs?: { name: string; value: string }[]; productId?: string; delivery?: { from: string; to: string } | null;
+export function ProductBuy({ slug, currency, rate = 1, title, description, images, hue, options, variants, rating, isGiftCard, preorder, contents = [], subscription = null, initialVariant, specs = [], productId, delivery = null, video = null }: {
+  slug: string; currency: string; rate?: number; title: string; description: string; images: string[]; hue: number; rating?: { avg: number; count: number } | null; isGiftCard?: boolean; preorder?: boolean; contents?: string[]; subscription?: { interval: string; discountBps: number } | null; initialVariant?: string; specs?: { name: string; value: string }[]; productId?: string; delivery?: { from: string; to: string } | null; /** Vidéo YouTube ou Vimeo (adresse d'intégration), affichée après les photos. */ video?: string | null;
   options: { name: string; values: string[] }[]; variants: V[];
 }) {
   const { add, items } = useCart(slug);
@@ -130,6 +130,7 @@ export function ProductBuy({ slug, currency, rate = 1, title, description, image
             ))}
           </div>
         )}
+        {video && <iframe src={video} title={title} className="aspect-video w-full rounded-[var(--t-radius)]" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen loading="lazy" />}
       </div>
 
       <div className="flex flex-col gap-6 md:sticky md:top-24 md:self-start">

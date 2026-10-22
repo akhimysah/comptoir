@@ -94,6 +94,7 @@ export default async function EditProductPage({ params, searchParams }: { params
           tags: product.tags.split(",").map((t) => t.trim()).filter(Boolean),
           taxable: product.taxable,
           templateSuffix: product.templateSuffix,
+          videoUrl: product.videoUrl,
         }}
       />
     </>

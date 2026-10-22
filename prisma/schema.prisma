@@ -376,6 +376,7 @@ model Product {
   category                String              @default("")
   taxable                 Boolean             @default(true)
   templateSuffix          String              @default("") // gabarit alternatif du thème (product.<suffixe>), comme le « Modèle de thème » de Shopify
+  videoUrl                String              @default("") // vidéo YouTube ou Vimeo de la galerie (product.media external_video)
 
   @@unique([storeId, handle])
 }

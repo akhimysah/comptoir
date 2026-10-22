@@ -8,6 +8,7 @@ import { translate, type Locale } from "../i18n";
 import { storeLocales } from "../locale";
 import { adjustPrice, marketCountries } from "../markets";
 import { MetafieldDrop } from "./drops";
+import { parseVideo } from "../video";
 import { commentsMode, publishedComments } from "../comments";
 import type { Market } from "@prisma/client";
 import { ALPHA2_TO_NAME } from "../geo";
@@ -46,6 +47,14 @@ export function metafieldObjects(raw: string, defs: MetafieldDefLite[]) {
   return { custom };
 }
 
+/** Vidéo YouTube / Vimeo du produit → média Shopify « external_video » (lu par media_tag, external_video_tag…). */
+function externalVideo(url: string, position: number, alt: string) {
+  const v = parseVideo(url);
+  if (!v) return [];
+  const preview = v.thumbnail ? { id: `video-${v.id}`, src: v.thumbnail, alt, width: 480, height: 360, aspect_ratio: 1.333, media_type: "image" as const } : null;
+  return [{ id: `video-${v.id}`, media_type: "external_video", host: v.host, external_id: v.id, alt, position, aspect_ratio: 1.778, preview_image: preview, src: preview?.src ?? "", width: 1280, height: 720 } as unknown as ShopifyImage];
+}
+
 /** Produit au format Shopify. `adj` : ajustement de prix du marché (points de base). */
 export function shopifyProduct(p: FullProduct, root: string, locale: Locale, adj = 0, selectedVariantId?: string | null, defs: MetafieldDefLite[] = []): ShopifyProduct {
   const t = translate(p, locale, ["title", "description"]);
@@ -74,7 +83,7 @@ export function shopifyProduct(p: FullProduct, root: string, locale: Locale, adj
     id: p.id, title: t.title, handle: p.handle, description: t.description, content: t.description, vendor: p.vendor, type: p.productType, tags,
     price: Math.min(...prices), price_min: Math.min(...prices), price_max: Math.max(...prices), price_varies: Math.min(...prices) !== Math.max(...prices),
     compare_at_price: Math.max(...compares) || null, compare_at_price_min: Math.min(...compares), compare_at_price_max: Math.max(...compares), compare_at_price_varies: Math.min(...compares) !== Math.max(...compares),
-    available: variants.some((v) => v.available), featured_image: images[0] ?? null, featured_media: images[0] ?? null, images, media: images, variants,
+    available: variants.some((v) => v.available), featured_image: images[0] ?? null, featured_media: images[0] ?? null, images, media: [...images, ...externalVideo(p.videoUrl, images.length + 1, t.title)], variants,
     options: options.length ? options.map((o) => o.name) : ["Title"], options_with_values: options.length ? optionsWithValues : [{ name: "Title", position: 1, values: [variants[0]?.title ?? "Default Title"] }],
     options_by_name: Object.fromEntries(optionsWithValues.map((o) => [o.name, o])), has_only_default_variant: variants.length === 1 && DEFAULT_TITLES.has(variants[0].title),
     selected_or_first_available_variant: selected ?? first ?? variants[0] ?? null, selected_variant: selected, first_available_variant: first, url,

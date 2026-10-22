@@ -12,6 +12,7 @@ import { addAutoRedirect } from "@/lib/navigation";
 import { notifyBackInStock } from "@/lib/stock-alerts";
 import { uniqueHandle } from "@/lib/handles";
 import { cleanMetafields } from "@/lib/metafields";
+import { parseVideo } from "@/lib/video";
 import { parseMoney } from "@/lib/money";
 import { PRIMARY } from "@/lib/locations";
 import { logAdjustment } from "@/lib/inventory-log";
@@ -49,6 +50,7 @@ const payloadSchema = z.object({
     .max(100),
   collectionIds: z.array(z.string()).max(50),
   templateSuffix: z.string().max(60).regex(/^[\w-]*$/).optional().default(""),
+  videoUrl: z.string().trim().max(300).optional().default(""),
   seoTitle: z.string().max(70).optional().default(""),
   seoDescription: z.string().max(320).optional().default(""),
   isGiftCard: z.boolean().optional().default(false),
@@ -123,7 +125,8 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
       position: i,
     });
   }
-  const organisation = { category: p.category, productType: p.productType, vendor: p.vendor, tags: [...new Set(p.tags)].join(", "), taxable: p.taxable, templateSuffix: p.templateSuffix ?? "" };
+  if (p.videoUrl && !parseVideo(p.videoUrl)) return { error: "Vidéo : indiquez une adresse YouTube ou Vimeo." };
+  const organisation = { category: p.category, productType: p.productType, vendor: p.vendor, tags: [...new Set(p.tags)].join(", "), taxable: p.taxable, templateSuffix: p.templateSuffix ?? "", videoUrl: p.videoUrl ?? "" };
   // Stock avant enregistrement, par variante : chaque écart est tracé dans l'historique des ajustements.
   const before = new Map<string, number>();
 

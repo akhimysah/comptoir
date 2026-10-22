@@ -5,6 +5,7 @@ import { ProductCard, ProductGrid } from "./ProductCard";
 import { conv, storeHref, type CardCollection, type CardPost, type CardProduct, type StoreInfo } from "./types";
 import { dict, intlLocale, type Locale } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
+import { embedUrl } from "@/lib/video";
 
 const T = dict(
   { none: "Aucune section. Ajoutez-en depuis l'éditeur de thème.", all: "Tout voir", empty: "Aucun produit en ligne pour le moment.", view: "Voir le produit", noPosts: "Aucun article pour le moment.", readMore: "Lire la suite", days: "jours", hours: "heures", minutes: "min", seconds: "sec", ended: "L'offre est terminée.", noImages: "Ajoutez des images à cette galerie depuis l'éditeur de thème.", noVideo: "Ajoutez l'adresse d'une vidéo YouTube ou Vimeo depuis l'éditeur de thème." },
@@ -271,19 +272,4 @@ function SectionView({ s, products, collections, posts, store, locale }: { s: Se
       );
     }
   }
-}
-
-/** Adresse d'intégration d'une vidéo YouTube ou Vimeo (seules sources acceptées), ou null. */
-export function embedUrl(url: string) {
-  try {
-    const u = new URL(url);
-    const host = u.hostname.replace(/^www\./, "");
-    if (host === "youtu.be") return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(u.pathname.slice(1))}`;
-    if (host === "youtube.com" || host === "m.youtube.com") {
-      const id = u.searchParams.get("v") ?? (u.pathname.startsWith("/embed/") || u.pathname.startsWith("/shorts/") ? u.pathname.split("/")[2] : null);
-      return id && /^[\w-]{6,20}$/.test(id) ? `https://www.youtube-nocookie.com/embed/${id}` : null;
-    }
-    if (host === "vimeo.com" || host === "player.vimeo.com") { const id = u.pathname.match(/(\d{6,12})/)?.[1]; return id ? `https://player.vimeo.com/video/${id}` : null; }
-  } catch {}
-  return null;
 }

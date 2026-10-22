@@ -12,6 +12,7 @@ import { complementaryProducts } from "@/lib/recommendations";
 import { getStore } from "@/lib/storefront";
 import { bundleStock } from "@/lib/bundles";
 import { parseJson } from "@/lib/utils";
+import { embedUrl } from "@/lib/video";
 import { deliveryWindow } from "@/lib/checkout-settings";
 import { adjustPrice, currentMarket } from "@/lib/markets";
 import { getCustomer } from "@/lib/customer-auth";
@@ -77,6 +78,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
       delivery={(() => { const w = deliveryWindow(store); return w ? { from: w.from.toISOString(), to: w.to.toISOString() } : null; })()}
       subscription={product.subscriptionInterval ? { interval: product.subscriptionInterval, discountBps: product.subscriptionDiscountBps } : null}
       isGiftCard={product.isGiftCard}
+      video={embedUrl(product.videoUrl)}
     />
     <Related slug={slug} storeId={store.id} productId={product.id} store={{ ...store, currency: cur.code, rate: cur.rate }} locale={locale} />
     <Reviews slug={slug} productId={product.id} locale={locale} />

@@ -15,7 +15,7 @@ import { uploadImage } from "./upload";
 type Option = { name: string; values: string[] };
 type VariantRow = ProductPayload["variants"][number];
 
-export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle" | "subscriptionInterval" | "subscriptionDiscountPct" | "metafields" | "complementaryIds" | "category" | "productType" | "vendor" | "tags" | "taxable" | "templateSuffix"> & { metafields?: Record<string, string>; complementaryIds?: string[]; id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[]; subscriptionInterval?: "" | "week" | "month"; subscriptionDiscountPct?: number; category?: string; productType?: string; vendor?: string; tags?: string[]; taxable?: boolean; templateSuffix?: string };
+export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle" | "subscriptionInterval" | "subscriptionDiscountPct" | "metafields" | "complementaryIds" | "category" | "productType" | "vendor" | "tags" | "taxable" | "templateSuffix" | "videoUrl"> & { videoUrl?: string; metafields?: Record<string, string>; complementaryIds?: string[]; id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[]; subscriptionInterval?: "" | "week" | "month"; subscriptionDiscountPct?: number; category?: string; productType?: string; vendor?: string; tags?: string[]; taxable?: boolean; templateSuffix?: string };
 export type BundleChoice = { id: string; label: string; stock: number };
 
 /** Catégories proposées dans la liste déroulante (saisie libre possible). */
@@ -55,6 +55,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
   const [tags, setTags] = useState<string[]>(initial.tags ?? []);
   const [taxable, setTaxable] = useState(initial.taxable ?? true);
   const [templateSuffix, setTemplateSuffix] = useState(initial.templateSuffix ?? "");
+  const [videoUrl, setVideoUrl] = useState(initial.videoUrl ?? "");
   const [bundleQ, setBundleQ] = useState("");
   const isBundle = bundle.length > 0;
   const [seo, setSeo] = useState({ seoTitle: initial.seoTitle ?? "", seoDescription: initial.seoDescription ?? "" });
@@ -92,7 +93,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
     }
   }
 
-  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle, subscriptionInterval: subInterval, subscriptionDiscountPct: subPct, metafields, complementaryIds, category, productType, vendor, tags, taxable, templateSuffix };
+  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle, subscriptionInterval: subInterval, subscriptionDiscountPct: subPct, metafields, complementaryIds, category, productType, vendor, tags, taxable, templateSuffix, videoUrl };
   const hasOptions = combos[0].length > 0;
   const [initialJson] = useState(() => JSON.stringify(payload));
   const dirty = !initial.id || JSON.stringify(payload) !== initialJson;
@@ -152,6 +153,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
                 <label className="label flex-1 text-xs text-muted">Couleur du visuel tant qu'il n'y a pas de photo<input id="hue" type="range" min={0} max={359} value={hue} onChange={(e) => setHue(Number(e.target.value))} className="accent-[#7c3aed]" /></label>
               </div>
             )}
+                      <label className="label mt-4">Vidéo <span className="hint">Adresse YouTube ou Vimeo, affichée dans la galerie après les photos (comme les médias Shopify).</span><input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=…" className="input" /></label>
           </section>
 
           {!hasOptions && single && (

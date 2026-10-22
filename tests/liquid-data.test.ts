@@ -31,7 +31,7 @@ describe("panier serveur des thèmes Shopify", () => {
 
 describe("objets Shopify", () => {
   const product = {
-    id: "p1", storeId: "s", title: "Bol", handle: "bol", description: "<p>Un bol</p>", translations: JSON.stringify({ en: { title: "Bowl" } }), status: "active", images: JSON.stringify(["/a.jpg", "/b.jpg"]), options: JSON.stringify([{ name: "Taille", values: ["S", "M"] }]), hue: 1, seoTitle: "", seoDescription: "", isGiftCard: false, continueSelling: false, subscriptionInterval: null, subscriptionDiscountBps: 0, createdAt: new Date("2026-01-01"), updatedAt: new Date(), metafields: "{}", complementaryIds: "[]", vendor: "Atelier", productType: "Céramique", tags: "fait-main, bleu", category: "", taxable: true, templateSuffix: "",
+    id: "p1", storeId: "s", title: "Bol", handle: "bol", description: "<p>Un bol</p>", translations: JSON.stringify({ en: { title: "Bowl" } }), status: "active", images: JSON.stringify(["/a.jpg", "/b.jpg"]), options: JSON.stringify([{ name: "Taille", values: ["S", "M"] }]), hue: 1, seoTitle: "", seoDescription: "", isGiftCard: false, continueSelling: false, subscriptionInterval: null, subscriptionDiscountBps: 0, createdAt: new Date("2026-01-01"), updatedAt: new Date(), metafields: "{}", complementaryIds: "[]", vendor: "Atelier", productType: "Céramique", tags: "fait-main, bleu", category: "", taxable: true, templateSuffix: "", videoUrl: "https://youtu.be/dQw4w9WgXcQ",
     variants: [
       { id: "v1", productId: "p1", title: "S", optionValues: JSON.stringify(["S"]), priceCents: 2000, compareAtCents: 2500, costCents: null, image: "/b.jpg", weightGrams: 300, sku: "B-S", stock: 0, position: 0, barcode: "", lengthMm: null, widthMm: null, heightMm: null },
       { id: "v2", productId: "p1", title: "M", optionValues: JSON.stringify(["M"]), priceCents: 2400, compareAtCents: null, costCents: null, image: null, weightGrams: 400, sku: "B-M", stock: 3, position: 1, barcode: "", lengthMm: null, widthMm: null, heightMm: null },
@@ -53,6 +53,8 @@ describe("objets Shopify", () => {
     expect(p.tags).toEqual(["fait-main", "bleu"]);
     expect(p.has_only_default_variant).toBe(false);
     expect(shopifyProduct(product, "/s/demo", "fr", 0, "v1").selected_variant?.id).toBe("v1");
+    const video = p.media[p.media.length - 1] as unknown as { media_type: string; host: string; external_id: string };
+    expect(video).toMatchObject({ media_type: "external_video", host: "youtube", external_id: "dQw4w9WgXcQ" });
   });
   it("formate les prix selon la devise", () => {
     expect(moneyFormat("EUR").format).toBe("{{amount_with_comma_separator}} €");
@@ -141,5 +143,16 @@ describe("modèle de thème (gabarits alternatifs)", async () => {
     expect(await templateSuffixes(published, "product")).toEqual(["bundle", "pre-order"]);
     expect(await templateSuffixes(published, "page", "ancien")).toEqual(["ancien", "contact"]);
     expect(await templateSuffixes({ publishedThemeId: null }, "collection")).toEqual([]);
+  });
+});
+
+describe("vidéos YouTube et Vimeo", async () => {
+  const { parseVideo } = await import("@/lib/video");
+  it("reconnaît les adresses courantes et refuse le reste", () => {
+    expect(parseVideo("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10")).toMatchObject({ host: "youtube", id: "dQw4w9WgXcQ" });
+    expect(parseVideo("https://youtube.com/shorts/dQw4w9WgXcQ")?.embed).toContain("youtube-nocookie.com/embed/dQw4w9WgXcQ");
+    expect(parseVideo("https://vimeo.com/123456789")).toMatchObject({ host: "vimeo", id: "123456789" });
+    expect(parseVideo("https://exemple.fr/video.mp4")).toBeNull();
+    expect(parseVideo("javascript:alert(1)")).toBeNull();
   });
 });
