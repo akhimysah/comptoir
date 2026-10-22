@@ -109,3 +109,22 @@ describe("mise à jour d'un thème de la plateforme", async () => {
     await db.platformTheme.delete({ where: { id: platform.id } });
   });
 });
+
+describe("métachamps au format Shopify", async () => {
+  const { metafieldObjects } = await import("@/lib/liquid/data");
+  const { renderPage } = await import("@/lib/liquid/engine");
+  const { memorySource } = await import("./liquid/memory-source");
+  const { samplePageData } = await import("./liquid/sample-data");
+  it("s'affichent comme leur valeur et exposent value / type, y compris dans un thème", async () => {
+    const mf = metafieldObjects(JSON.stringify({ matiere: "Grès", poids: "350", lavable: "true" }), [{ key: "poids", type: "number", unit: "g" }, { key: "lavable", type: "boolean", unit: "" }]);
+    expect(String(mf.custom.matiere)).toBe("Grès");
+    expect((mf.custom.poids as { value: number; type: string }).value).toBe(350);
+    expect(String(mf.custom.poids)).toBe("350 g");
+    expect((mf.custom.lavable as { value: boolean; type: string })).toMatchObject({ value: true, type: "boolean" });
+    const data = samplePageData();
+    const product = { ...data.collections[0].products[0], metafields: mf };
+    const source = memorySource({ "layout/theme.liquid": "{{ content_for_layout }}", "templates/product.liquid": "{{ product.metafields.custom.matiere }}|{{ product.metafields.custom.matiere.value }}|{% if product.metafields.custom.lavable.value %}lavable{% endif %}|{{ product.metafields.custom.absent.value | default: 'rien' }}" });
+    const { html } = await renderPage(source, { ...data, template: "product", product });
+    expect(html).toContain("Grès|Grès|lavable|rien");
+  });
+});

@@ -1,5 +1,5 @@
 import "server-only";
-import type { BlogPost, Collection, Customer, Order, OrderItem, Page, Product, Store, Variant } from "@prisma/client";
+import type { BlogPost, Collection, Customer, MetafieldDefinition, Order, OrderItem, Page, Product, Store, Variant } from "@prisma/client";
 import { orderNumber } from "../checkout-settings";
 import { COUNTRIES } from "../countries";
 import { db } from "../db";
@@ -7,6 +7,7 @@ import { POLICY_KEYS, POLICY_LABELS, readPolicies } from "../checkout-settings";
 import { translate, type Locale } from "../i18n";
 import { storeLocales } from "../locale";
 import { adjustPrice, marketCountries } from "../markets";
+import { MetafieldDrop } from "./drops";
 import type { Market } from "@prisma/client";
 import { ALPHA2_TO_NAME } from "../geo";
 import { storeCurrencies } from "../currency";
@@ -24,8 +25,28 @@ const handleize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLo
 export const image = (src: string | null | undefined, alt = "", id = "", position?: number): ShopifyImage | null =>
   src ? { id: id || src, src, alt, width: 1200, height: 1200, aspect_ratio: 1, position, media_type: "image" } : null;
 
+/**
+ * Métachamps au format Shopify : `product.metafields.custom.<clé>` s'affiche comme sa valeur et expose
+ * .value, .type, .namespace, .key (les thèmes écrivent indifféremment `{{ mf }}` ou `{{ mf.value }}`).
+ */
+type MetafieldDefLite = Pick<MetafieldDefinition, "key" | "type" | "unit">;
+const SHOPIFY_METAFIELD_TYPE: Record<string, string> = { text: "single_line_text_field", multiline: "multi_line_text_field", number: "number_decimal", boolean: "boolean", choice: "single_line_text_field" };
+export function metafieldObjects(raw: string, defs: MetafieldDefLite[]) {
+  const values = parseJson<Record<string, unknown>>(raw, {});
+  const custom: Record<string, unknown> = {};
+  for (const [key, v] of Object.entries(values)) {
+    if (v === undefined || v === null || v === "") continue;
+    const def = defs.find((d) => d.key === key);
+    const type = SHOPIFY_METAFIELD_TYPE[def?.type ?? "text"] ?? "single_line_text_field";
+    const value: unknown = def?.type === "number" ? Number(v) : def?.type === "boolean" ? v === "true" || v === true : String(v);
+    const text = def?.type === "boolean" ? (value ? "true" : "false") : `${value}${def?.unit && def.type === "number" ? ` ${def.unit}` : ""}`;
+    custom[key] = new MetafieldDrop(value, type, "custom", key, text);
+  }
+  return { custom };
+}
+
 /** Produit au format Shopify. `adj` : ajustement de prix du marché (points de base). */
-export function shopifyProduct(p: FullProduct, root: string, locale: Locale, adj = 0, selectedVariantId?: string | null): ShopifyProduct {
+export function shopifyProduct(p: FullProduct, root: string, locale: Locale, adj = 0, selectedVariantId?: string | null, defs: MetafieldDefLite[] = []): ShopifyProduct {
   const t = translate(p, locale, ["title", "description"]);
   const images = parseJson<string[]>(p.images, []).map((src, i) => image(src, t.title, `${p.id}-${i}`, i + 1)!);
   const options = parseJson<{ name: string; values: string[] }[]>(p.options, []).filter((o) => o.name?.trim());
@@ -57,7 +78,7 @@ export function shopifyProduct(p: FullProduct, root: string, locale: Locale, adj
     options_by_name: Object.fromEntries(optionsWithValues.map((o) => [o.name, o])), has_only_default_variant: variants.length === 1 && DEFAULT_TITLES.has(variants[0].title),
     selected_or_first_available_variant: selected ?? first ?? variants[0] ?? null, selected_variant: selected, first_available_variant: first, url,
     collections: p.collections.map((c) => ({ id: c.collection.handle, title: c.collection.handle, handle: c.collection.handle, url: `${root}/collections/${c.collection.handle}`, image: null, products_count: 0, description: "" })),
-    created_at: p.createdAt.toISOString(), published_at: p.createdAt.toISOString(), gift_card: p.isGiftCard, requires_selling_plan: false, template_suffix: "", metafields: { custom: parseJson<Record<string, unknown>>(p.metafields, {}) },
+    created_at: p.createdAt.toISOString(), published_at: p.createdAt.toISOString(), gift_card: p.isGiftCard, requires_selling_plan: false, template_suffix: "", metafields: metafieldObjects(p.metafields, defs),
   };
 }
 
@@ -195,12 +216,13 @@ export type BuildOpts = {
 
 /** Catalogue complet de la boutique au format Shopify (produits actifs et collections), chargé une fois par requête. */
 export async function liquidCatalog(store: Store, root: string, locale: Locale, adj = 0, variantId?: string | null) {
-  const [products, collections, ratings] = await Promise.all([
+  const [products, collections, ratings, defs] = await Promise.all([
     db.product.findMany({ where: { storeId: store.id, status: "active" }, include: { variants: true, collections: { include: { collection: { select: { handle: true } } } } }, orderBy: { createdAt: "desc" } }),
     db.collection.findMany({ where: { storeId: store.id }, include: { products: { select: { productId: true } } }, orderBy: { title: "asc" } }),
     db.review.groupBy({ by: ["productId"], where: { storeId: store.id, status: "published" }, _avg: { rating: true }, _count: true }),
+    db.metafieldDefinition.findMany({ where: { storeId: store.id }, select: { key: true, type: true, unit: true } }),
   ]);
-  const sp = products.filter((p) => p.variants.length).map((p) => shopifyProduct(p, root, locale, adj, variantId));
+  const sp = products.filter((p) => p.variants.length).map((p) => shopifyProduct(p, root, locale, adj, variantId, defs));
   // Avis publiés → métachamps « reviews » que les thèmes lisent (product.metafields.reviews.rating.value.rating, rating_count).
   for (const r of ratings) {
     const p = sp.find((x) => x.id === r.productId);

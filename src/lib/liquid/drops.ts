@@ -170,3 +170,12 @@ export function toStr(v: unknown): string {
   if (typeof v === "object" && !(v instanceof Date)) return "";
   return String(v);
 }
+
+/** Métachamp Shopify : s'affiche comme sa valeur formatée, expose .value .type .namespace .key. */
+export class MetafieldDrop extends Drop {
+  constructor(public value: unknown, public type: string, public namespace: string, public key: string, private text: string) { super(); }
+  valueOf() { return this.text; }
+  toString() { return this.text; }
+  toJSON() { return this.value; }
+  get list() { return Array.isArray(this.value) ? this.value : [this.value]; }
+}
