@@ -43,7 +43,7 @@ export default async function ProductPage({ params, searchParams }: { params: Pr
   const { variant: initialVariant } = await searchParams;
   const { slug, handle } = await params;
   const { store, product, locale } = await load(slug, handle);
-  const defs = await db.metafieldDefinition.findMany({ where: { storeId: store.id, showOnProduct: true }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
+  const defs = await db.metafieldDefinition.findMany({ where: { storeId: store.id, owner: "product", showOnProduct: true }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
   const values = parseJson<Record<string, string>>(product.metafields, {});
   const specs = defs.flatMap((d) => { const v = formatMetafield(d, values[d.key], locale); return v ? [{ name: d.name, value: v }] : []; });
   const parts = await db.bundleItem.findMany({ where: { bundleId: product.id } });

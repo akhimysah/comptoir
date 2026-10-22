@@ -2,13 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
+import { MetafieldInputs } from "./MetafieldInputs";
+import type { MetafieldDef } from "@/lib/metafields";
 import { saveContent, type ContentPayload } from "@/app/admin/content-actions";
 import { RichText } from "@/components/store/RichText";
 import { ImageField } from "./ImageField";
 import { SaveBar } from "./SaveBar";
 import { SeoCard } from "./SeoCard";
 
-export function ContentForm({ initial, storeUrl }: { initial: ContentPayload; storeUrl: string }) {
+export function ContentForm({ initial, storeUrl, fieldDefs = [] }: { initial: ContentPayload; storeUrl: string; fieldDefs?: MetafieldDef[] }) {
   const [state, action, pending] = useActionState(saveContent, undefined);
   const [c, setC] = useState(initial);
   const [preview, setPreview] = useState(false);
@@ -43,6 +45,7 @@ export function ContentForm({ initial, storeUrl }: { initial: ContentPayload; st
           </div>
           {isPost && <label className="label">Extrait<span className="hint">Affiché dans la liste des articles.</span><textarea className="input min-h-[60px]" maxLength={400} value={c.excerpt} onChange={(e) => set({ excerpt: e.target.value })} /></label>}
         </section>
+        {!isPost && <MetafieldInputs defs={fieldDefs} values={c.metafields ?? {}} onChange={(metafields) => set({ metafields })} />}
         <SeoCard title={c.seoTitle} description={c.seoDescription} fallbackTitle={c.title} fallbackDescription={c.excerpt || c.body.replace(/[#*\[\]()-]/g, "")} url={`${storeUrl}${path}`} onChange={(v) => set(v)} />
       </div>
       <aside className="flex flex-col gap-4">

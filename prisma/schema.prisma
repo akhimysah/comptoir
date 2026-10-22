@@ -82,6 +82,7 @@ model Store {
   passwordEnabled          Boolean               @default(false) // boutique protégée par mot de passe (en préparation)
   storePassword            String                @default("") // mot de passe partagé, à donner aux visiteurs
   passwordMessage          String                @default("Notre boutique ouvre très bientôt. Revenez nous voir !")
+  metafields               String                @default("{}") // JSON { clé: valeur } : champs personnalisés de la boutique (shop.metafields)
   blogComments             String                @default("off") // off | moderated (publiés après validation) | auto (publiés tout de suite)
   gaId                     String                @default("") // Google Analytics 4 (G-XXXXXXX)
   metaPixelId              String                @default("") // Meta (Facebook / Instagram) Pixel
@@ -209,6 +210,7 @@ model Page {
   showInFooter   Boolean  @default(true)
   seoTitle       String   @default("")
   seoDescription String   @default("")
+  metafields     String   @default("{}") // JSON { clé: valeur }
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -409,6 +411,7 @@ model Collection {
   image          String?
   seoTitle       String              @default("")
   seoDescription String              @default("")
+  metafields     String              @default("{}") // JSON { clé: valeur } des champs personnalisés
   createdAt      DateTime            @default(now())
   products       ProductCollection[]
 
@@ -860,6 +863,7 @@ model MetafieldDefinition {
   id            String   @id @default(cuid())
   storeId       String
   store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  owner         String   @default("product") // product | collection | page | shop : à quoi s'applique le champ (comme les métachamps Shopify)
   key           String // identifiant stable (ex. « matiere »)
   name          String // libellé affiché (ex. « Matière »)
   type          String   @default("text") // text | multiline | number | boolean | choice
@@ -870,7 +874,7 @@ model MetafieldDefinition {
   position      Int      @default(0)
   createdAt     DateTime @default(now())
 
-  @@unique([storeId, key])
+  @@unique([storeId, owner, key])
 }
 
 /// Connexion en attente du code de double authentification (mot de passe déjà vérifié).

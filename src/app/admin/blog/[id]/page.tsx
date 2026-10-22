@@ -32,6 +32,7 @@ export default async function EditPage({ params, searchParams }: { params: Promi
         storeUrl={`${storeBase(store)}`}
         initial={{
           kind: "post",
+          metafields: {},
           id: item?.id,
           title: item?.title ?? "",
           handle: item?.handle ?? "",

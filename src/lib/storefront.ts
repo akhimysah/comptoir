@@ -63,7 +63,7 @@ export const getCatalog = cache(async (storeId: string, locale: Locale = "fr") =
     db.review.groupBy({ by: ["productId"], where: { storeId, status: "published" }, _avg: { rating: true }, _count: true }),
   ]);
   // Champs personnalisés « filtrables » : ajoutés aux options pour apparaître dans les filtres de la boutique.
-  const filterDefs = await db.metafieldDefinition.findMany({ where: { storeId, filterable: true }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
+  const filterDefs = await db.metafieldDefinition.findMany({ where: { storeId, owner: "product", filterable: true }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
   const ratingBy = new Map(ratings.map((r) => [r.productId, { avg: r._avg.rating ?? 0, count: r._count }]));
   const bundles = await bundleComponents(products.map((p) => p.id));
   const cards: CardProduct[] = products

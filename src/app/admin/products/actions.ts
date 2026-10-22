@@ -88,7 +88,7 @@ export async function saveProduct(_: SaveState, form: FormData): Promise<SaveSta
   const parsed = payloadSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const p = parsed.data;
-  const defs = await db.metafieldDefinition.findMany({ where: { storeId: store.id } });
+  const defs = await db.metafieldDefinition.findMany({ where: { storeId: store.id, owner: "product" } });
   const meta = cleanMetafields(defs, p.metafields);
   if (meta.error) return { error: meta.error };
   // Produits complémentaires : seulement des produits de cette boutique, jamais lui-même, ordre conservé.

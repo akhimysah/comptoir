@@ -98,7 +98,7 @@ export type ShopifyProduct = {
   rating?: { value: number; count: number } | null;
 };
 
-export type ShopifyCollectionRef = { id: string; title: string; handle: string; url: string; image: ShopifyImage | null; products_count: number; description: string };
+export type ShopifyCollectionRef = { id: string; title: string; handle: string; url: string; image: ShopifyImage | null; products_count: number; description: string; metafields?: Record<string, Record<string, unknown>> };
 
 export type ShopifyCollection = ShopifyCollectionRef & {
   products: ShopifyProduct[];
@@ -193,7 +193,7 @@ export type ShopifyLinklist = { title: string; handle: string; levels: number; l
 export type ShopifyComment = { id: string; author: string; email: string; content: string; status: string; created_at: string; updated_at: string; url: string };
 export type ShopifyArticle = { id: string; title: string; handle: string; url: string; author: string; content: string; excerpt: string; excerpt_or_content: string; image: ShopifyImage | null; published_at: string; created_at: string; tags: string[]; comments_count: number; comments_enabled?: boolean; moderated?: boolean; comments?: ShopifyComment[]; comment_post_url?: string; user: { first_name: string; last_name: string; name: string } };
 export type ShopifyBlog = { id: string; title: string; handle: string; url: string; articles: ShopifyArticle[]; articles_count: number; all_tags: string[]; tags: string[]; comments_enabled: boolean; moderated: boolean };
-export type ShopifyPage = { id: string; title: string; handle: string; url: string; content: string; author: string; published_at: string; template_suffix: string };
+export type ShopifyPage = { id: string; title: string; handle: string; url: string; content: string; author: string; published_at: string; template_suffix: string; metafields?: Record<string, Record<string, unknown>> };
 
 export type ShopifyAddress = { id: string | null; first_name: string; last_name: string; name: string; company: string; address1: string; address2: string; city: string; zip: string; province: string; province_code: string; country: string; country_code: string; country_name: string; phone: string; summary: string; url: string; street: string };
 

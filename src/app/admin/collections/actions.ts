@@ -8,6 +8,7 @@ import { z } from "zod";
 import { isImageUrl } from "@/lib/images";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { cleanMetafields } from "@/lib/metafields";
 import { addAutoRedirect } from "@/lib/navigation";
 import { slugify } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ const schema = z.object({
   productIds: z.array(z.string()).max(500),
   seoTitle: z.string().max(70).optional().default(""),
   seoDescription: z.string().max(320).optional().default(""),
+  metafields: z.record(z.string()).optional().default({}),
 });
 export type CollectionPayload = z.infer<typeof schema>;
 
@@ -37,6 +39,10 @@ export async function saveCollection(_: { error?: string } | undefined, form: Fo
     if (!hit || hit.id === c.id) break;
     handle = `${base}-${i}`;
   }
+  const defs = await db.metafieldDefinition.findMany({ where: { storeId: store.id, owner: "collection" } });
+  const meta = cleanMetafields(defs, c.metafields);
+  if (meta.error) return { error: meta.error };
+  const metafields = JSON.stringify(meta.values ?? {});
   const products = await db.product.findMany({ where: { storeId: store.id, id: { in: c.productIds } }, select: { id: true } });
   const links = products.map((p) => ({ productId: p.id }));
 
@@ -47,10 +53,10 @@ export async function saveCollection(_: { error?: string } | undefined, form: Fo
     if (existing.handle !== handle) await addAutoRedirect(store.id, `/c/${existing.handle}`, `/c/${handle}`);
     await db.$transaction([
       db.productCollection.deleteMany({ where: { collectionId: id } }),
-      db.collection.update({ where: { id }, data: { title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, products: { create: links } } }),
+      db.collection.update({ where: { id }, data: { title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, metafields, products: { create: links } } }),
     ]);
   } else {
-    id = (await db.collection.create({ data: { storeId: store.id, title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, products: { create: links } } })).id;
+    id = (await db.collection.create({ data: { storeId: store.id, title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, metafields, products: { create: links } } })).id;
   }
   revalidatePath(`/s/${store.slug}`, "layout");
   await logActivity(`Collection « ${c.title} » enregistrée`, `/admin/collections/${id}`);

@@ -15,6 +15,7 @@ export default async function CollectionPage({ params, searchParams }: { params:
   const isNew = id === "new";
   const collection = isNew ? null : await db.collection.findFirst({ where: { id, storeId: store.id }, include: { products: true } });
   if (!isNew && !collection) notFound();
+  const fieldDefs = await db.metafieldDefinition.findMany({ where: { storeId: store.id, owner: "collection" }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
   const products = (await db.product.findMany({ where: { storeId: store.id }, orderBy: { title: "asc" } })).map((p) => ({ id: p.id, title: p.title, hue: p.hue, status: p.status, image: parseJson<string[]>(p.images, [])[0] ?? null }));
 
   return (
@@ -29,8 +30,9 @@ export default async function CollectionPage({ params, searchParams }: { params:
       <CollectionForm
         key={collection?.id ?? "new"}
         products={products}
+        fieldDefs={fieldDefs}
         storeUrl={`${storeBase(store)}`}
-        initial={{ id: collection?.id, title: collection?.title ?? "", description: collection?.description ?? "", image: collection?.image ?? null, productIds: collection?.products.map((p) => p.productId) ?? [], seoTitle: collection?.seoTitle ?? "", seoDescription: collection?.seoDescription ?? "" }}
+        initial={{ id: collection?.id, title: collection?.title ?? "", description: collection?.description ?? "", image: collection?.image ?? null, productIds: collection?.products.map((p) => p.productId) ?? [], seoTitle: collection?.seoTitle ?? "", seoDescription: collection?.seoDescription ?? "", metafields: parseJson<Record<string, string>>(collection?.metafields, {}) }}
       />
     </>
   );

@@ -5,6 +5,7 @@ import { ContentForm } from "@/components/admin/ContentForm";
 import { PageHeader } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { parseJson } from "@/lib/utils";
 import { appUrl } from "@/lib/stripe";
 import { storeBase } from "@/lib/domains";
 
@@ -13,6 +14,7 @@ export default async function EditPage({ params, searchParams }: { params: Promi
   const { store, user } = await requirePerm("content");
   const item = id === "new" ? null : await db.page.findFirst({ where: { id, storeId: store.id } });
   if (id !== "new" && !item) notFound();
+  const fieldDefs = await db.metafieldDefinition.findMany({ where: { storeId: store.id, owner: "page" }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
   const extra = item as (typeof item & { excerpt?: string; author?: string; image?: string | null; showInFooter?: boolean }) | null;
   return (
     <>
@@ -30,8 +32,10 @@ export default async function EditPage({ params, searchParams }: { params: Promi
       <ContentForm
         key={item?.updatedAt.toISOString() ?? "new"}
         storeUrl={`${storeBase(store)}`}
+        fieldDefs={fieldDefs}
         initial={{
           kind: "page",
+          metafields: parseJson<Record<string, string>>(item?.metafields, {}),
           id: item?.id,
           title: item?.title ?? "",
           handle: item?.handle ?? "",

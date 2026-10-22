@@ -11,7 +11,7 @@ export default async function NewProductPage() {
   const choices = await bundleChoicesFor(store.id);
   const collections = await db.collection.findMany({ where: { storeId: store.id }, orderBy: { title: "asc" }, select: { id: true, title: true } });
   const productChoices = await db.product.findMany({ where: { storeId: store.id, isGiftCard: false, status: { not: "archived" } }, orderBy: { title: "asc" }, select: { id: true, title: true } });
-  const fieldDefs = await db.metafieldDefinition.findMany({ where: { storeId: store.id }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
+  const fieldDefs = await db.metafieldDefinition.findMany({ where: { storeId: store.id, owner: "product" }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
   return (
     <>
       <PageHeader back="/admin/products" title="Ajouter un produit" />

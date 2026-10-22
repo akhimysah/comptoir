@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { MetafieldInputs } from "./MetafieldInputs";
+import type { MetafieldDef } from "@/lib/metafields";
 import { saveCollection, type CollectionPayload } from "@/app/admin/collections/actions";
 import { Thumb } from "@/components/ui";
 import { ImageField } from "./ImageField";
@@ -9,16 +11,17 @@ import { SeoCard } from "./SeoCard";
 
 type P = { id: string; title: string; image: string | null; hue: number; status: string };
 
-export function CollectionForm({ initial, products, storeUrl }: { initial: CollectionPayload; products: P[]; storeUrl: string }) {
+export function CollectionForm({ initial, products, storeUrl, fieldDefs = [] }: { initial: CollectionPayload; products: P[]; storeUrl: string; fieldDefs?: MetafieldDef[] }) {
   const [state, action, pending] = useActionState(saveCollection, undefined);
   const [title, setTitle] = useState(initial.title);
   const [description, setDescription] = useState(initial.description);
   const [image, setImage] = useState(initial.image);
   const [ids, setIds] = useState(initial.productIds);
   const [seo, setSeo] = useState({ seoTitle: initial.seoTitle ?? "", seoDescription: initial.seoDescription ?? "" });
+  const [metafields, setMetafields] = useState<Record<string, string>>(initial.metafields ?? {});
   const [q, setQ] = useState("");
   const shown = products.filter((p) => p.title.toLowerCase().includes(q.toLowerCase()));
-  const payload: CollectionPayload = { id: initial.id, title, description, image, productIds: ids, ...seo };
+  const payload: CollectionPayload = { id: initial.id, title, description, image, productIds: ids, ...seo, metafields };
 
   return (
     <form action={action} className="grid gap-5 lg:grid-cols-[1fr_1fr]">
@@ -34,6 +37,7 @@ export function CollectionForm({ initial, products, storeUrl }: { initial: Colle
           <button className="btn btn-primary" disabled={pending}>{pending ? "Enregistrement…" : "Enregistrer"}</button>
         </div>
       </section>
+      <MetafieldInputs defs={fieldDefs} values={metafields} onChange={setMetafields} />
       <SeoCard title={seo.seoTitle} description={seo.seoDescription} fallbackTitle={title} fallbackDescription={description} url={`${storeUrl}/c/…`} onChange={(v) => setSeo((x) => ({ ...x, ...v }))} />
       </div>
       <section className="card min-w-0">

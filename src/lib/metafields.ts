@@ -1,5 +1,9 @@
 /** Champs personnalisés des produits : définitions de la boutique et valeurs de chaque produit (JSON { clé: valeur }). */
 export type MetafieldType = "text" | "multiline" | "number" | "boolean" | "choice";
+/** À quoi s'applique un champ, comme les métachamps Shopify. */
+export type MetafieldOwner = "product" | "collection" | "page" | "shop";
+export const METAFIELD_OWNERS: Record<MetafieldOwner, { label: string; plural: string }> = { product: { label: "Produits", plural: "produits" }, collection: { label: "Collections", plural: "collections" }, page: { label: "Pages", plural: "pages" }, shop: { label: "Boutique", plural: "boutique" } };
+export const isMetafieldOwner = (v: unknown): v is MetafieldOwner => v === "product" || v === "collection" || v === "page" || v === "shop";
 export type MetafieldDef = { key: string; name: string; type: string; choices: string; unit: string; showOnProduct: boolean; filterable: boolean };
 
 export const METAFIELD_TYPES: Record<MetafieldType, string> = {

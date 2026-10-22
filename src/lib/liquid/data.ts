@@ -83,23 +83,23 @@ export function shopifyProduct(p: FullProduct, root: string, locale: Locale, adj
   };
 }
 
-export function shopifyCollection(c: Collection & { products?: { productId: string }[] }, products: ShopifyProduct[], root: string, locale: Locale, extra: Partial<ShopifyCollection> = {}): ShopifyCollection {
+export function shopifyCollection(c: Collection & { products?: { productId: string }[] }, products: ShopifyProduct[], root: string, locale: Locale, extra: Partial<ShopifyCollection> = {}, defs: MetafieldDefLite[] = []): ShopifyCollection {
   const t = translate(c, locale, ["title", "description"]);
   const ref: ShopifyCollectionRef = { id: c.id, title: t.title, handle: c.handle, url: `${root}/collections/${c.handle}`, image: image(c.image, t.title), products_count: products.length, description: t.description };
   return {
     ...ref, products, all_products_count: products.length, all_tags: [...new Set(products.flatMap((p) => p.tags))].sort(), all_types: [...new Set(products.map((p) => p.type).filter(Boolean))], all_vendors: [...new Set(products.map((p) => p.vendor).filter(Boolean))],
     sort_by: "manual", default_sort_by: "manual", sort_options: [{ name: "Fonctionnalités", value: "manual" }, { name: "Meilleures ventes", value: "best-selling" }, { name: "Alphabétique, de A à Z", value: "title-ascending" }, { name: "Alphabétique, de Z à A", value: "title-descending" }, { name: "Prix : faible à élevé", value: "price-ascending" }, { name: "Prix : élevé à faible", value: "price-descending" }, { name: "Date, de la plus ancienne à la plus récente", value: "created-ascending" }, { name: "Date, de la plus récente à la plus ancienne", value: "created-descending" }],
-    current_type: null, current_vendor: null, template_suffix: "", featured_image: image(c.image, t.title) ?? products[0]?.featured_image ?? null, filters: [], ...extra,
+    current_type: null, current_vendor: null, template_suffix: "", featured_image: image(c.image, t.title) ?? products[0]?.featured_image ?? null, filters: [], metafields: metafieldObjects(c.metafields ?? "{}", defs), ...extra,
   };
 }
 
 /** Collection virtuelle « all » : tous les produits, comme /collections/all sur Shopify. */
 export const allCollection = (products: ShopifyProduct[], root: string, locale: Locale): ShopifyCollection =>
-  shopifyCollection({ id: "all", storeId: "", title: locale === "en" ? "Products" : "Produits", handle: "all", description: "", translations: "{}", image: null, seoTitle: "", seoDescription: "", createdAt: new Date(0) }, products, root, locale);
+  shopifyCollection({ id: "all", storeId: "", title: locale === "en" ? "Products" : "Produits", handle: "all", description: "", translations: "{}", image: null, seoTitle: "", seoDescription: "", createdAt: new Date(0), metafields: "{}" }, products, root, locale);
 
-export function shopifyPage(p: Page, root: string, locale: Locale): ShopifyPage {
+export function shopifyPage(p: Page, root: string, locale: Locale, defs: MetafieldDefLite[] = []): ShopifyPage {
   const t = translate(p, locale, ["title", "body"]);
-  return { id: p.id, title: t.title, handle: p.handle, url: `${root}/pages/${p.handle}`, content: t.body, author: "", published_at: p.createdAt.toISOString(), template_suffix: "" };
+  return { id: p.id, title: t.title, handle: p.handle, url: `${root}/pages/${p.handle}`, content: t.body, author: "", published_at: p.createdAt.toISOString(), template_suffix: "", metafields: metafieldObjects(p.metafields ?? "{}", defs) };
 }
 
 export function shopifyArticle(a: BlogPost, root: string, locale: Locale, blogHandle = "news"): ShopifyArticle {
@@ -221,9 +221,10 @@ export async function liquidCatalog(store: Store, root: string, locale: Locale, 
     db.product.findMany({ where: { storeId: store.id, status: "active" }, include: { variants: true, collections: { include: { collection: { select: { handle: true } } } } }, orderBy: { createdAt: "desc" } }),
     db.collection.findMany({ where: { storeId: store.id }, include: { products: { select: { productId: true } } }, orderBy: { title: "asc" } }),
     db.review.groupBy({ by: ["productId"], where: { storeId: store.id, status: "published" }, _avg: { rating: true }, _count: true }),
-    db.metafieldDefinition.findMany({ where: { storeId: store.id }, select: { key: true, type: true, unit: true } }),
+    db.metafieldDefinition.findMany({ where: { storeId: store.id }, select: { key: true, type: true, unit: true, owner: true } }),
   ]);
-  const sp = products.filter((p) => p.variants.length).map((p) => shopifyProduct(p, root, locale, adj, variantId, defs));
+  const byOwner = (o: string) => defs.filter((d) => d.owner === o);
+  const sp = products.filter((p) => p.variants.length).map((p) => shopifyProduct(p, root, locale, adj, variantId, byOwner("product")));
   // Avis publiés → métachamps « reviews » que les thèmes lisent (product.metafields.reviews.rating.value.rating, rating_count).
   for (const r of ratings) {
     const p = sp.find((x) => x.id === r.productId);
@@ -233,11 +234,11 @@ export async function liquidCatalog(store: Store, root: string, locale: Locale, 
     p.metafields.reviews = { rating: { value: { rating: avg, scale_min: 1, scale_max: 5 } }, rating_count: { value: r._count } };
   }
   const byId = new Map(sp.map((p) => [p.id, p]));
-  const sc = collections.map((c) => shopifyCollection(c, c.products.map((x) => byId.get(x.productId)).filter((x): x is ShopifyProduct => Boolean(x)), root, locale));
+  const sc = collections.map((c) => shopifyCollection(c, c.products.map((x) => byId.get(x.productId)).filter((x): x is ShopifyProduct => Boolean(x)), root, locale, {}, byOwner("collection")));
   // Les références de collections des produits reçoivent leurs vrais titres.
   const colByHandle = new Map(sc.map((c) => [c.handle, c]));
   for (const p of sp) p.collections = p.collections.map((c) => { const full = colByHandle.get(c.handle); return full ? { id: full.id, title: full.title, handle: full.handle, url: full.url, image: full.image, products_count: full.products_count, description: full.description } : c; });
-  return { products: sp, collections: [...sc, allCollection(sp, root, locale)], raw: products };
+  return { products: sp, collections: [...sc, allCollection(sp, root, locale)], raw: products, defs };
 }
 
 /** Données complètes d'une page pour le moteur Liquid. */
@@ -281,7 +282,7 @@ export async function buildPageData(o: BuildOpts): Promise<PageData> {
     published_locales: langs, address: { address1: "", address2: "", city: "", zip: "", country: "France", country_code: "FR", province: "", summary: "", phone: "" }, phone: "",
     password_message: store.passwordMessage, products_count: catalog.products.length, collections_count: catalog.collections.length - 1, types: [...new Set(catalog.products.map((p) => p.type).filter(Boolean))], vendors: [...new Set(catalog.products.map((p) => p.vendor).filter(Boolean))],
     policies: policyList.map(({ title, url, handle, body }) => ({ title, url, handle, body })), privacy_policy: policy("privacy"), refund_policy: policy("returns"), shipping_policy: policy("shipping"), terms_of_service: policy("terms"), subscription_policy: null,
-    customer_accounts_enabled: true, customer_accounts_optional: true, brand: { logo: null, square_logo: null, colors: {}, slogan: store.tagline, short_description: store.tagline }, metafields: {}, taxes_included: true, checkout: { guest_login: true },
+    customer_accounts_enabled: true, customer_accounts_optional: true, brand: { logo: null, square_logo: null, colors: {}, slogan: store.tagline, short_description: store.tagline }, metafields: metafieldObjects(store.metafields, catalog.defs.filter((d) => d.owner === "shop")), taxes_included: true, checkout: { guest_login: true },
   };
   const r = root || "";
   const routes: PageData["routes"] = {
@@ -308,7 +309,7 @@ export async function buildPageData(o: BuildOpts): Promise<PageData> {
     localization: { language, available_languages: langs, country: { ...country, available_languages: langs }, available_countries, market: country.market },
     cart: o.cart, customer: await (async () => (o.customer ? shopifyCustomer(o.customer, root, await customerOrders(store, o.customer.id, root, locale)) : null))(), linklists, collections: catalog.collections,
     all_products: Object.fromEntries(catalog.products.slice(0, 20).map((p) => [p.handle, p])),
-    pages: Object.fromEntries(pages.map((p) => [p.handle, shopifyPage(p, root, locale)])),
+    pages: Object.fromEntries(pages.map((p) => [p.handle, shopifyPage(p, root, locale, catalog.defs.filter((d) => d.owner === "page"))])),
     images, blogs: { news: blog, blog: blog }, articles: Object.fromEntries(blog.articles.map((a) => [`news/${a.handle}`, a])),
     ...pageObjects,
     page_title: title, page_description: pageObjects.page_description ?? store.tagline, canonical_url: `${o.origin}${o.path}`, current_page: o.currentPage ?? 1, current_tags: null,
