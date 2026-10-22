@@ -30,8 +30,8 @@ export async function createGiftCard(_: GiftState, form: FormData): Promise<Gift
 
   let code = newCode();
   for (let i = 0; i < 5 && (await db.giftCard.findUnique({ where: { storeId_code: { storeId: store.id, code } } })); i++) code = newCode();
-  await db.giftCard.create({ data: { storeId: store.id, code, initialCents: amount, balanceCents: amount, email: emailRaw, note, expiresAt } });
-  if (emailRaw) await sendMail({ to: emailRaw, storeId: store.id, ...giftCardEmail(store, code, amount, note, expiresAt) });
+  const card = await db.giftCard.create({ data: { storeId: store.id, code, initialCents: amount, balanceCents: amount, email: emailRaw, note, expiresAt } });
+  if (emailRaw) await sendMail({ to: emailRaw, storeId: store.id, ...giftCardEmail(store, code, amount, note, expiresAt, "fr", card.id) });
   await logActivity(`Carte cadeau de ${(amount / 100).toFixed(2).replace(".", ",")} créée${emailRaw ? ` pour ${emailRaw}` : ""}`, "/admin/gift-cards");
   revalidatePath("/admin/gift-cards");
   return { code, emailed: emailRaw || undefined };

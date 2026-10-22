@@ -311,7 +311,7 @@ async function buildState(engine: Engine, source: ThemeSource, data: PageData): 
     powered_by_link: "", scripts: "", additional_checkout_buttons: false, content_for_additional_checkout_buttons: "", country_option_tags: data.country_option_tags ?? "", all_country_option_tags: data.country_option_tags ?? "",
     page_image: data.product?.featured_image ?? data.shop?.brand?.logo ?? null,
     metaobjects: {}, app: {}, closest: { product: data.product ?? null, collection: data.collection ?? null, article: data.article ?? null, blog: data.blog ?? null, page: data.page ?? null },
-    checkout: null, order: data.order ?? null, gift_card: null, comment: null, address: data.address ?? null,
+    checkout: null, order: data.order ?? null, gift_card: data.gift_card ?? null, comment: null, address: data.address ?? null,
   });
   delete globals.form_results;
   delete globals.money;

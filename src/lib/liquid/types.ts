@@ -338,6 +338,8 @@ export type PageData = {
   address?: ShopifyAddress;
   /** Balises <option> des pays livrables pour les formulaires d'adresse ({{ all_country_option_tags }}). */
   country_option_tags?: string;
+  /** Carte cadeau affichée (gabarit gift_card). */
+  gift_card?: Record<string, unknown>;
   /** Paramètres de la requête courante (filtres, tri) conservés par la pagination. */
   request_query?: string;
   /** Message d'erreur / succès des formulaires (contact, newsletter, login…), par type de formulaire. */

@@ -1,4 +1,5 @@
 import "server-only";
+import { giftCardPath } from "./gift-card-link";
 import type { Order, OrderItem, Store } from "@prisma/client";
 import { formatMoney } from "./money";
 import { orderCurrency } from "./presentment";
@@ -43,6 +44,7 @@ const T = dict(
     validUntil: (date: string) => `Valable jusqu'au ${date}`,
     giftHowTo: "Saisissez ce code dans votre panier, champ « Carte cadeau ». Le montant non utilisé reste sur la carte.",
     discoverStore: "Découvrir la boutique",
+    viewGiftCard: "Voir ma carte cadeau",
     reason: "Motif",
     loginSubject: (code: string, store: string) => `${code} est votre code de connexion ${store}`,
     loginTitle: "Votre code de connexion",
@@ -95,6 +97,7 @@ const T = dict(
     validUntil: (date: string) => `Valid until ${date}`,
     giftHowTo: "Enter this code in your cart, in the “Gift card” field. Any unused balance stays on the card.",
     discoverStore: "Visit the store",
+    viewGiftCard: "View my gift card",
     reason: "Reason",
     loginSubject: (code: string, store: string) => `${code} is your ${store} login code`,
     loginTitle: "Your login code",
@@ -258,7 +261,7 @@ export function abandonedCartEmail(store: Store, name: string, lines: { title: s
   };
 }
 
-export function giftCardEmail(store: Store, code: string, amountCents: number, note: string, expiresAt: Date | null, locale: Locale = "fr") {
+export function giftCardEmail(store: Store, code: string, amountCents: number, note: string, expiresAt: Date | null, locale: Locale = "fr", cardId?: string) {
   const L = T[locale];
   const pretty = code.match(/.{1,4}/g)?.join(" ") ?? code;
   const amount = money(amountCents, store.currency, locale);
@@ -272,7 +275,7 @@ export function giftCardEmail(store: Store, code: string, amountCents: number, n
 ${expiresAt ? `<div style="font-size:12px;color:#616161;margin-top:6px">${L.validUntil(expiresAt.toLocaleDateString(intlLocale(locale)))}</div>` : ""}
 </div>
 <p style="font-size:14px;line-height:1.5">${esc(L.giftHowTo)}</p>
-<p>${button(`${storeBase(store)}`, L.discoverStore)}</p>`, undefined, locale),
+<p>${cardId ? button(`${storeBase(store)}${giftCardPath(cardId)}`, L.viewGiftCard) : button(`${storeBase(store)}`, L.discoverStore)}</p>`, undefined, locale),
   };
 }
 

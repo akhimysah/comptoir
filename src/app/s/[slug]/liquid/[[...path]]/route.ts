@@ -9,6 +9,7 @@ import { activeThemeRow } from "@/lib/liquid/active";
 import { cartCookieHeader, lineKey, readCartCookie, shopifyCart, type CookieLine } from "@/lib/liquid/cart";
 import { articleWithComments, buildPageData, liquidCatalog, shopifyAddress, shopifyArticle, shopifyBlog, shopifyOrder, shopifyPage, type BuildOpts } from "@/lib/liquid/data";
 import { commentsMode, postComment } from "@/lib/comments";
+import { giftCardForPage, shopifyGiftCard } from "@/lib/gift-card-page";
 import { renderPage, renderSection } from "@/lib/liquid/engine";
 import { dbThemeSource, overlaySource, platformThemeSource, rewriteShopifyCdn } from "@/lib/liquid/source";
 import { designModeScript } from "@/lib/liquid/design-mode";
@@ -79,13 +80,14 @@ const withBanner = (html: string, c: Ctx) => { const b = previewBanner(c); retur
 const jsonHeaders = (extra: Record<string, string> = {}) => ({ "Content-Type": "application/json; charset=utf-8", ...extra });
 const wantsJson = (req: Request, path: string) => /\.(js|json)$/.test(path) || /application\/(json|javascript)/.test(req.headers.get("accept") ?? "") || (req.headers.get("content-type") ?? "").includes("application/json");
 
-async function page(c: Ctx, req: Request, template: PageData["template"], extra: Partial<BuildOpts> & { status?: number; setCookie?: string[] } = {}): Promise<Response> {
+async function page(c: Ctx, req: Request, template: PageData["template"], extra: Partial<BuildOpts> & { status?: number; setCookie?: string[]; extraGlobals?: Record<string, unknown> } = {}): Promise<Response> {
   const data = await buildPageData({
     store: c.store, root: c.root, origin: c.origin, path: `${c.root}${c.path}`, locale: c.locale, template, cart: c.cart, customer: c.customer,
     priceAdjustBps: c.market?.priceAdjustBps ?? 0, display: c.display, markets: await storeMarkets(c.store.id), market: c.market, variantId: c.url.searchParams.get("variant"), currentPage: Math.max(1, Number(c.url.searchParams.get("page")) || 1),
     contentForHeader: contentForHeader(c), designMode: Boolean(c.design), ...extra,
   });
   data.request_query = c.url.search.replace(/^\?/, "");
+  if (extra.extraGlobals) Object.assign(data, extra.extraGlobals);
   const headers: Record<string, string> = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store" };
   // Section Rendering API : ?sections=a,b → JSON { a: html }, ?section_id=a → fragment HTML.
   const sections = c.url.searchParams.get("sections");
@@ -203,6 +205,13 @@ async function get(req: Request, c: Ctx): Promise<Response> {
   // Compte client rendu par les gabarits customers/* du thème.
   const to = (p: string, status = 302) => NextResponse.redirect(new URL(`${root}${p}`, url.origin), status);
   if (path === "/account") return c.customer ? page(c, req, "customers/account") : to("/account/login");
+  if ((m = path.match(/^\/gift_cards\/([^/]+)\/([^/]+)$/))) {
+    // Page d'une carte cadeau (lien de l'e-mail) : gabarit gift_card du thème, sinon page native.
+    const card = await giftCardForPage(c.store.id, m[1], m[2]);
+    if (!card) return page(c, req, "404", { status: 404 });
+    if ((await c.source.get("templates/gift_card.liquid")) == null) return NextResponse.redirect(new URL(`/s/${c.store.slug}/gift_cards/${m[1]}/${m[2]}?native=1`, url.origin), 302);
+    return page(c, req, "gift_card", { pageObjects: { page_title: locale === "en" ? "Gift card" : "Carte cadeau" }, extraGlobals: { gift_card: shopifyGiftCard(card, c.store.currency, c.origin, root) } });
+  }
   if (path === "/account/login") return c.customer ? to("/account") : page(c, req, "customers/login");
   if (path === "/account/register") return c.customer ? to("/account") : page(c, req, "customers/register");
   if (path === "/account/logout") { await logoutCustomer(c.store.id, c.store.slug); return to("/"); }

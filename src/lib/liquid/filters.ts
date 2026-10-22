@@ -167,10 +167,8 @@ const preload_tag: F = function (v, ...args) {
   return `<link rel="preload" href="${esc(v)}"${attrs({ as: named.as, type: named.type, crossorigin: named.crossorigin })}>`;
 };
 /** Scripts du CDN Shopify (option_selection.js…) : servis depuis nos assets si présents, sinon adresse neutre. */
-const shopify_asset_url: F = function (v) {
-  const s = st(this);
-  return s ? s.source.assetUrl(`shopify/${toStr(v)}`) : `/assets/shopify/${toStr(v)}`;
-};
+/** Assets globaux de Shopify (vendor/qrcode.js, gift-card/card.svg…) : servis depuis public/shopify-assets. */
+const shopify_asset_url: F = (v) => `/shopify-assets/${toStr(v).replace(/^\/+/, "")}`;
 const global_asset_url: F = shopify_asset_url;
 const file_url: F = asset_url;
 const file_img_url: F = asset_img_url;
@@ -252,7 +250,7 @@ const splitF: F = (v, sep) => {
   while (parts.length && parts[parts.length - 1] === "") parts.pop();
   return parts;
 };
-const format_code: F = (v) => toStr(v);
+const format_code: F = (v) => toStr(v).replace(/\s+/g, "").match(/.{1,4}/g)?.join(" ") ?? "";
 const md: F = (v) => toStr(v);
 const base64_encode: F = (v) => Buffer.from(toStr(v), "utf8").toString("base64");
 const base64_decode: F = (v) => Buffer.from(toStr(v), "base64").toString("utf8");

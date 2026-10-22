@@ -264,8 +264,8 @@ async function issuePurchasedGiftCards(orderId: string) {
     for (let k = 0; k < item.quantity; k++) {
       let code = newGiftCode();
       while (await db.giftCard.findUnique({ where: { storeId_code: { storeId: order.storeId, code } } })) code = newGiftCode();
-      await db.giftCard.create({ data: { storeId: order.storeId, code, initialCents: item.priceCents, balanceCents: item.priceCents, email: order.email, orderId: order.id, note: `Achetée avec la commande #${order.number}` } });
-      if (!order.email.endsWith(".local")) await sendMail({ to: order.email, storeId: order.storeId, ...giftCardEmail(order.store, code, item.priceCents, "", null, orderLocale(order)) });
+      const card = await db.giftCard.create({ data: { storeId: order.storeId, code, initialCents: item.priceCents, balanceCents: item.priceCents, email: order.email, orderId: order.id, note: `Achetée avec la commande #${order.number}` } });
+      if (!order.email.endsWith(".local")) await sendMail({ to: order.email, storeId: order.storeId, ...giftCardEmail(order.store, code, item.priceCents, "", null, orderLocale(order), card.id) });
     }
   }
   if (giftItems.length === order.items.length) {

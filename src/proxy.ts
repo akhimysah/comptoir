@@ -3,7 +3,7 @@ import { isPlatformHost, slugForDomain } from "@/lib/domains";
 import { wantsLiquid } from "@/lib/liquid/routing";
 
 /** Chemins communs à toutes les boutiques, jamais réécrits (fichiers de l'application, API, impressions). */
-const SHARED = /^\/(_next|api|print|uploads|brand)(\/|$)|^\/(icon\.png|apple-icon\.png|favicon\.ico)$/;
+const SHARED = /^\/(_next|api|print|uploads|brand|shopify-assets)(\/|$)|^\/(icon\.png|apple-icon\.png|favicon\.ico)$/;
 
 /**
  * Nom de domaine personnalisé : maboutique.fr/p/bol sert la page /s/<boutique>/p/bol.
