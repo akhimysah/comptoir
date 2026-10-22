@@ -142,7 +142,7 @@ async function get(req: Request, c: Ctx): Promise<Response> {
     if (m[2]) return NextResponse.json(m[2] === ".json" ? { product: productJson(product) } : productJson(product), { headers: jsonHeaders({ "Cache-Control": "private, max-age=60" }) });
     const recommendations = { performed: true, products: products.filter((p) => p.id !== product.id && p.collections.some((cc) => product.collections.some((pc) => pc.handle === cc.handle))).slice(0, 4), products_count: 0, intent: "related" };
     recommendations.products_count = recommendations.products.length;
-    return page(c, req, "product", { pageObjects: { product, recommendations, page_description: product.description.replace(/<[^>]+>/g, "").slice(0, 160) } });
+    return page(c, req, "product", { templateSuffix: product.template_suffix || undefined, pageObjects: { product, recommendations, page_description: product.description.replace(/<[^>]+>/g, "").slice(0, 160) } });
   }
   if (path === "/collections") return page(c, req, "list-collections", { pageObjects: { page_title: "Collections" } });
   if ((m = path.match(/^\/collections\/([^/]+?)(\/products\.json)?$/))) {
@@ -151,7 +151,7 @@ async function get(req: Request, c: Ctx): Promise<Response> {
     if (!collection) return m[2] ? NextResponse.json({ products: [] }, { status: 404 }) : page(c, req, "404", { status: 404 });
     if (m[2]) return NextResponse.json({ products: collection.products.map(productJson) }, { headers: jsonHeaders() });
     const { products: filtered, filters, sort_by } = applyFilters(collection.products, url.searchParams, `${root}${path}`, locale, collection.default_sort_by);
-    return page(c, req, "collection", { pageObjects: { collection: { ...collection, products: filtered, products_count: filtered.length, all_products_count: collection.products.length, filters, sort_by, sort_options: SORT_OPTIONS(locale) } } });
+    return page(c, req, "collection", { templateSuffix: collection.template_suffix || undefined, pageObjects: { collection: { ...collection, products: filtered, products_count: filtered.length, all_products_count: collection.products.length, filters, sort_by, sort_options: SORT_OPTIONS(locale) } } });
   }
   if ((m = path.match(/^\/collections\/([^/]+)\/products\/([^/]+)$/))) return redirect(`/products/${m[2]}`);
   if (path === "/search" || path === "/search/suggest" || path === "/search/suggest.json") {
@@ -173,7 +173,7 @@ async function get(req: Request, c: Ctx): Promise<Response> {
   if ((m = path.match(/^\/pages\/([^/]+)$/))) {
     const row = await db.page.findFirst({ where: { storeId: c.store.id, handle: m[1], published: true } });
     if (!row) return page(c, req, "404", { status: 404 });
-    return page(c, req, "page", { templateSuffix: m[1] === "contact" ? "contact" : undefined, pageObjects: { page: shopifyPage(row, root, locale) } });
+    return page(c, req, "page", { templateSuffix: row.templateSuffix || (m[1] === "contact" ? "contact" : undefined), pageObjects: { page: shopifyPage(row, root, locale) } });
   }
   if ((m = path.match(/^\/policies\/([^/]+)$/)) && isPolicyKey(m[1])) {
     const pol = readPolicies(c.store.policies)[m[1]];

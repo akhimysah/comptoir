@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { appUrl } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { templateSuffixes } from "@/lib/theme-templates";
 import { bundleChoicesFor } from "@/lib/bundle-choices";
 import { centsToInput, formatMoney } from "@/lib/money";
 import { parseJson } from "@/lib/utils";
@@ -65,6 +66,7 @@ export default async function EditProductPage({ params, searchParams }: { params
         storeUrl={`${storeBase(store)}`}
         bundleChoices={choices}
         fieldDefs={fieldDefs}
+        templateOptions={await templateSuffixes(store, "product", product.templateSuffix)}
         productChoices={productChoices}
         handle={product.handle}
         initial={{
@@ -91,6 +93,7 @@ export default async function EditProductPage({ params, searchParams }: { params
           vendor: product.vendor,
           tags: product.tags.split(",").map((t) => t.trim()).filter(Boolean),
           taxable: product.taxable,
+          templateSuffix: product.templateSuffix,
         }}
       />
     </>

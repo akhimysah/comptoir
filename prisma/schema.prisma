@@ -211,6 +211,7 @@ model Page {
   seoTitle       String   @default("")
   seoDescription String   @default("")
   metafields     String   @default("{}") // JSON { clé: valeur }
+  templateSuffix String   @default("") // gabarit alternatif du thème
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -374,6 +375,7 @@ model Product {
   tags                    String              @default("") // balises séparées par des virgules
   category                String              @default("")
   taxable                 Boolean             @default(true)
+  templateSuffix          String              @default("") // gabarit alternatif du thème (product.<suffixe>), comme le « Modèle de thème » de Shopify
 
   @@unique([storeId, handle])
 }
@@ -412,6 +414,7 @@ model Collection {
   seoTitle       String              @default("")
   seoDescription String              @default("")
   metafields     String              @default("{}") // JSON { clé: valeur } des champs personnalisés
+  templateSuffix String              @default("") // gabarit alternatif du thème
   createdAt      DateTime            @default(now())
   products       ProductCollection[]
 

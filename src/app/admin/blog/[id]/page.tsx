@@ -33,6 +33,7 @@ export default async function EditPage({ params, searchParams }: { params: Promi
         initial={{
           kind: "post",
           metafields: {},
+          templateSuffix: "",
           id: item?.id,
           title: item?.title ?? "",
           handle: item?.handle ?? "",

@@ -9,12 +9,13 @@ import { formatMoney, parseMoney } from "@/lib/money";
 import { choicesOf, type MetafieldDef } from "@/lib/metafields";
 import { SaveBar } from "./SaveBar";
 import { SeoCard } from "./SeoCard";
+import { TemplateSelect } from "./TemplateSelect";
 import { uploadImage } from "./upload";
 
 type Option = { name: string; values: string[] };
 type VariantRow = ProductPayload["variants"][number];
 
-export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle" | "subscriptionInterval" | "subscriptionDiscountPct" | "metafields" | "complementaryIds" | "category" | "productType" | "vendor" | "tags" | "taxable"> & { metafields?: Record<string, string>; complementaryIds?: string[]; id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[]; subscriptionInterval?: "" | "week" | "month"; subscriptionDiscountPct?: number; category?: string; productType?: string; vendor?: string; tags?: string[]; taxable?: boolean };
+export type ProductFormInitial = Omit<ProductPayload, "id" | "seoTitle" | "seoDescription" | "isGiftCard" | "continueSelling" | "bundle" | "subscriptionInterval" | "subscriptionDiscountPct" | "metafields" | "complementaryIds" | "category" | "productType" | "vendor" | "tags" | "taxable" | "templateSuffix"> & { metafields?: Record<string, string>; complementaryIds?: string[]; id?: string; seoTitle?: string; seoDescription?: string; isGiftCard?: boolean; continueSelling?: boolean; bundle?: { variantId: string; quantity: number }[]; subscriptionInterval?: "" | "week" | "month"; subscriptionDiscountPct?: number; category?: string; productType?: string; vendor?: string; tags?: string[]; taxable?: boolean; templateSuffix?: string };
 export type BundleChoice = { id: string; label: string; stock: number };
 
 /** Catégories proposées dans la liste déroulante (saisie libre possible). */
@@ -29,7 +30,7 @@ function cartesian(options: Option[]): string[][] {
   return usable.reduce<string[][]>((acc, o) => acc.flatMap((combo) => o.values.map((v) => [...combo, v])), [[]]);
 }
 
-export function ProductForm({ initial, collections, currency, storeUrl, handle, bundleChoices = [], fieldDefs = [], productChoices = [] }: { initial: ProductFormInitial; collections: { id: string; title: string }[]; currency: string; storeUrl: string; handle?: string; bundleChoices?: BundleChoice[]; fieldDefs?: MetafieldDef[]; productChoices?: { id: string; title: string }[] }) {
+export function ProductForm({ initial, collections, currency, storeUrl, handle, bundleChoices = [], fieldDefs = [], productChoices = [], templateOptions = [] }: { initial: ProductFormInitial; collections: { id: string; title: string }[]; currency: string; storeUrl: string; handle?: string; bundleChoices?: BundleChoice[]; fieldDefs?: MetafieldDef[]; productChoices?: { id: string; title: string }[]; templateOptions?: string[] }) {
   const [complementaryIds, setComplementaryIds] = useState<string[]>(initial.complementaryIds ?? []);
   const [compQ, setCompQ] = useState("");
   const [metafields, setMetafields] = useState<Record<string, string>>(initial.metafields ?? {});
@@ -53,6 +54,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
   const [vendor, setVendor] = useState(initial.vendor ?? "");
   const [tags, setTags] = useState<string[]>(initial.tags ?? []);
   const [taxable, setTaxable] = useState(initial.taxable ?? true);
+  const [templateSuffix, setTemplateSuffix] = useState(initial.templateSuffix ?? "");
   const [bundleQ, setBundleQ] = useState("");
   const isBundle = bundle.length > 0;
   const [seo, setSeo] = useState({ seoTitle: initial.seoTitle ?? "", seoDescription: initial.seoDescription ?? "" });
@@ -90,7 +92,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
     }
   }
 
-  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle, subscriptionInterval: subInterval, subscriptionDiscountPct: subPct, metafields, complementaryIds, category, productType, vendor, tags, taxable };
+  const payload: ProductPayload = { id: initial.id, title, description, status, hue, images, options: options.filter((o) => o.name.trim() && o.values.length), variants, collectionIds, ...seo, isGiftCard, continueSelling, bundle, subscriptionInterval: subInterval, subscriptionDiscountPct: subPct, metafields, complementaryIds, category, productType, vendor, tags, taxable, templateSuffix };
   const hasOptions = combos[0].length > 0;
   const [initialJson] = useState(() => JSON.stringify(payload));
   const dirty = !initial.id || JSON.stringify(payload) !== initialJson;
@@ -338,6 +340,7 @@ export function ProductForm({ initial, collections, currency, storeUrl, handle, 
               </div>
             </section>
           )}
+          <TemplateSelect kind="product" options={templateOptions} value={templateSuffix} onChange={setTemplateSuffix} />
           <SeoCard
             title={seo.seoTitle}
             description={seo.seoDescription}

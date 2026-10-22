@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { appUrl } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { templateSuffixes } from "@/lib/theme-templates";
 import { bundleChoicesFor } from "@/lib/bundle-choices";
 import { storeBase } from "@/lib/domains";
 
@@ -21,6 +22,7 @@ export default async function NewProductPage() {
         storeUrl={`${storeBase(store)}`}
         bundleChoices={choices}
         fieldDefs={fieldDefs}
+        templateOptions={await templateSuffixes(store, "product", "")}
         productChoices={productChoices}
         initial={{ title: "", description: "", status: "active", hue: Math.floor(Math.random() * 360), images: [], options: [], variants: [{ optionValues: [], price: "", compareAt: "", cost: "", weight: "", sku: "", barcode: "", lengthCm: "", widthCm: "", heightCm: "", stock: 10 }], collectionIds: [] }}
       />

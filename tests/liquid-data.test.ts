@@ -31,7 +31,7 @@ describe("panier serveur des thèmes Shopify", () => {
 
 describe("objets Shopify", () => {
   const product = {
-    id: "p1", storeId: "s", title: "Bol", handle: "bol", description: "<p>Un bol</p>", translations: JSON.stringify({ en: { title: "Bowl" } }), status: "active", images: JSON.stringify(["/a.jpg", "/b.jpg"]), options: JSON.stringify([{ name: "Taille", values: ["S", "M"] }]), hue: 1, seoTitle: "", seoDescription: "", isGiftCard: false, continueSelling: false, subscriptionInterval: null, subscriptionDiscountBps: 0, createdAt: new Date("2026-01-01"), updatedAt: new Date(), metafields: "{}", complementaryIds: "[]", vendor: "Atelier", productType: "Céramique", tags: "fait-main, bleu", category: "", taxable: true,
+    id: "p1", storeId: "s", title: "Bol", handle: "bol", description: "<p>Un bol</p>", translations: JSON.stringify({ en: { title: "Bowl" } }), status: "active", images: JSON.stringify(["/a.jpg", "/b.jpg"]), options: JSON.stringify([{ name: "Taille", values: ["S", "M"] }]), hue: 1, seoTitle: "", seoDescription: "", isGiftCard: false, continueSelling: false, subscriptionInterval: null, subscriptionDiscountBps: 0, createdAt: new Date("2026-01-01"), updatedAt: new Date(), metafields: "{}", complementaryIds: "[]", vendor: "Atelier", productType: "Céramique", tags: "fait-main, bleu", category: "", taxable: true, templateSuffix: "",
     variants: [
       { id: "v1", productId: "p1", title: "S", optionValues: JSON.stringify(["S"]), priceCents: 2000, compareAtCents: 2500, costCents: null, image: "/b.jpg", weightGrams: 300, sku: "B-S", stock: 0, position: 0, barcode: "", lengthMm: null, widthMm: null, heightMm: null },
       { id: "v2", productId: "p1", title: "M", optionValues: JSON.stringify(["M"]), priceCents: 2400, compareAtCents: null, costCents: null, image: null, weightGrams: 400, sku: "B-M", stock: 3, position: 1, barcode: "", lengthMm: null, widthMm: null, heightMm: null },
@@ -126,5 +126,20 @@ describe("métachamps au format Shopify", async () => {
     const source = memorySource({ "layout/theme.liquid": "{{ content_for_layout }}", "templates/product.liquid": "{{ product.metafields.custom.matiere }}|{{ product.metafields.custom.matiere.value }}|{% if product.metafields.custom.lavable.value %}lavable{% endif %}|{{ product.metafields.custom.absent.value | default: 'rien' }}" });
     const { html } = await renderPage(source, { ...data, template: "product", product });
     expect(html).toContain("Grès|Grès|lavable|rien");
+  });
+});
+
+describe("modèle de thème (gabarits alternatifs)", async () => {
+  const { db } = await import("@/lib/db");
+  const { templateSuffixes } = await import("@/lib/theme-templates");
+  it("liste les suffixes des gabarits du thème publié et garde celui déjà choisi", async () => {
+    await db.user.deleteMany();
+    const owner = await db.user.create({ data: { email: `tpl-${Date.now()}@test.local`, name: "M", passwordHash: "x" } });
+    const store = await db.store.create({ data: { ownerId: owner.id, name: "B", slug: `tpl-${Date.now()}`, theme: "{}" } });
+    const theme = await db.storeTheme.create({ data: { storeId: store.id, name: "T", theme: "{}", engine: "liquid", files: { create: [{ path: "templates/product.json", text: "{}" }, { path: "templates/product.pre-order.json", text: "{}" }, { path: "templates/product.bundle.liquid", text: "" }, { path: "templates/page.contact.json", text: "{}" }] } } });
+    const published = await db.store.update({ where: { id: store.id }, data: { publishedThemeId: theme.id } });
+    expect(await templateSuffixes(published, "product")).toEqual(["bundle", "pre-order"]);
+    expect(await templateSuffixes(published, "page", "ancien")).toEqual(["ancien", "contact"]);
+    expect(await templateSuffixes({ publishedThemeId: null }, "collection")).toEqual([]);
   });
 });

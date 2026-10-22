@@ -79,7 +79,7 @@ export function shopifyProduct(p: FullProduct, root: string, locale: Locale, adj
     options_by_name: Object.fromEntries(optionsWithValues.map((o) => [o.name, o])), has_only_default_variant: variants.length === 1 && DEFAULT_TITLES.has(variants[0].title),
     selected_or_first_available_variant: selected ?? first ?? variants[0] ?? null, selected_variant: selected, first_available_variant: first, url,
     collections: p.collections.map((c) => ({ id: c.collection.handle, title: c.collection.handle, handle: c.collection.handle, url: `${root}/collections/${c.collection.handle}`, image: null, products_count: 0, description: "" })),
-    created_at: p.createdAt.toISOString(), published_at: p.createdAt.toISOString(), gift_card: p.isGiftCard, requires_selling_plan: false, template_suffix: "", metafields: metafieldObjects(p.metafields, defs),
+    created_at: p.createdAt.toISOString(), published_at: p.createdAt.toISOString(), gift_card: p.isGiftCard, requires_selling_plan: false, template_suffix: p.templateSuffix ?? "", metafields: metafieldObjects(p.metafields, defs),
   };
 }
 
@@ -89,17 +89,17 @@ export function shopifyCollection(c: Collection & { products?: { productId: stri
   return {
     ...ref, products, all_products_count: products.length, all_tags: [...new Set(products.flatMap((p) => p.tags))].sort(), all_types: [...new Set(products.map((p) => p.type).filter(Boolean))], all_vendors: [...new Set(products.map((p) => p.vendor).filter(Boolean))],
     sort_by: "manual", default_sort_by: "manual", sort_options: [{ name: "Fonctionnalités", value: "manual" }, { name: "Meilleures ventes", value: "best-selling" }, { name: "Alphabétique, de A à Z", value: "title-ascending" }, { name: "Alphabétique, de Z à A", value: "title-descending" }, { name: "Prix : faible à élevé", value: "price-ascending" }, { name: "Prix : élevé à faible", value: "price-descending" }, { name: "Date, de la plus ancienne à la plus récente", value: "created-ascending" }, { name: "Date, de la plus récente à la plus ancienne", value: "created-descending" }],
-    current_type: null, current_vendor: null, template_suffix: "", featured_image: image(c.image, t.title) ?? products[0]?.featured_image ?? null, filters: [], metafields: metafieldObjects(c.metafields ?? "{}", defs), ...extra,
+    current_type: null, current_vendor: null, template_suffix: c.templateSuffix ?? "", featured_image: image(c.image, t.title) ?? products[0]?.featured_image ?? null, filters: [], metafields: metafieldObjects(c.metafields ?? "{}", defs), ...extra,
   };
 }
 
 /** Collection virtuelle « all » : tous les produits, comme /collections/all sur Shopify. */
 export const allCollection = (products: ShopifyProduct[], root: string, locale: Locale): ShopifyCollection =>
-  shopifyCollection({ id: "all", storeId: "", title: locale === "en" ? "Products" : "Produits", handle: "all", description: "", translations: "{}", image: null, seoTitle: "", seoDescription: "", createdAt: new Date(0), metafields: "{}" }, products, root, locale);
+  shopifyCollection({ id: "all", storeId: "", title: locale === "en" ? "Products" : "Produits", handle: "all", description: "", translations: "{}", image: null, seoTitle: "", seoDescription: "", createdAt: new Date(0), metafields: "{}", templateSuffix: "" }, products, root, locale);
 
 export function shopifyPage(p: Page, root: string, locale: Locale, defs: MetafieldDefLite[] = []): ShopifyPage {
   const t = translate(p, locale, ["title", "body"]);
-  return { id: p.id, title: t.title, handle: p.handle, url: `${root}/pages/${p.handle}`, content: t.body, author: "", published_at: p.createdAt.toISOString(), template_suffix: "", metafields: metafieldObjects(p.metafields ?? "{}", defs) };
+  return { id: p.id, title: t.title, handle: p.handle, url: `${root}/pages/${p.handle}`, content: t.body, author: "", published_at: p.createdAt.toISOString(), template_suffix: p.templateSuffix ?? "", metafields: metafieldObjects(p.metafields ?? "{}", defs) };
 }
 
 export function shopifyArticle(a: BlogPost, root: string, locale: Locale, blogHandle = "news"): ShopifyArticle {

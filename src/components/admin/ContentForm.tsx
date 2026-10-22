@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import { MetafieldInputs } from "./MetafieldInputs";
+import { TemplateSelect } from "./TemplateSelect";
 import type { MetafieldDef } from "@/lib/metafields";
 import { saveContent, type ContentPayload } from "@/app/admin/content-actions";
 import { RichText } from "@/components/store/RichText";
@@ -10,7 +11,7 @@ import { ImageField } from "./ImageField";
 import { SaveBar } from "./SaveBar";
 import { SeoCard } from "./SeoCard";
 
-export function ContentForm({ initial, storeUrl, fieldDefs = [] }: { initial: ContentPayload; storeUrl: string; fieldDefs?: MetafieldDef[] }) {
+export function ContentForm({ initial, storeUrl, fieldDefs = [], templateOptions = [] }: { initial: ContentPayload; storeUrl: string; fieldDefs?: MetafieldDef[]; templateOptions?: string[] }) {
   const [state, action, pending] = useActionState(saveContent, undefined);
   const [c, setC] = useState(initial);
   const [preview, setPreview] = useState(false);
@@ -55,6 +56,7 @@ export function ContentForm({ initial, storeUrl, fieldDefs = [] }: { initial: Co
           <label className="flex items-center gap-2"><input type="radio" checked={!c.published} onChange={() => set({ published: false })} className="accent-[#7c3aed]" />Masqué (brouillon)</label>
           {!isPost && <label className="mt-1 flex items-center gap-2 text-[13px]"><input type="checkbox" checked={c.showInFooter} onChange={(e) => set({ showInFooter: e.target.checked })} className="h-4 w-4 accent-[#7c3aed]" />Lien dans le pied de page</label>}
         </section>
+        {!isPost && <TemplateSelect kind="page" options={templateOptions} value={c.templateSuffix ?? ""} onChange={(templateSuffix) => set({ templateSuffix })} />}
         {isPost && (
           <section className="card flex flex-col gap-3 p-4">
             <ImageField id="post-image" label="Image à la une" value={c.image ?? null} onChange={(image) => set({ image })} />

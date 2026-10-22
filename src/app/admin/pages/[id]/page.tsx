@@ -5,6 +5,7 @@ import { ContentForm } from "@/components/admin/ContentForm";
 import { PageHeader } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { templateSuffixes } from "@/lib/theme-templates";
 import { parseJson } from "@/lib/utils";
 import { appUrl } from "@/lib/stripe";
 import { storeBase } from "@/lib/domains";
@@ -33,9 +34,11 @@ export default async function EditPage({ params, searchParams }: { params: Promi
         key={item?.updatedAt.toISOString() ?? "new"}
         storeUrl={`${storeBase(store)}`}
         fieldDefs={fieldDefs}
+        templateOptions={await templateSuffixes(store, "page", item?.templateSuffix ?? "")}
         initial={{
           kind: "page",
           metafields: parseJson<Record<string, string>>(item?.metafields, {}),
+          templateSuffix: item?.templateSuffix ?? "",
           id: item?.id,
           title: item?.title ?? "",
           handle: item?.handle ?? "",

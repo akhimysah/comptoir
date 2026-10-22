@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui";
 import { requirePerm } from "@/lib/auth";
 import { appUrl } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { templateSuffixes } from "@/lib/theme-templates";
 import { parseJson } from "@/lib/utils";
 import { storeBase } from "@/lib/domains";
 
@@ -31,8 +32,9 @@ export default async function CollectionPage({ params, searchParams }: { params:
         key={collection?.id ?? "new"}
         products={products}
         fieldDefs={fieldDefs}
+        templateOptions={await templateSuffixes(store, "collection", collection?.templateSuffix ?? "")}
         storeUrl={`${storeBase(store)}`}
-        initial={{ id: collection?.id, title: collection?.title ?? "", description: collection?.description ?? "", image: collection?.image ?? null, productIds: collection?.products.map((p) => p.productId) ?? [], seoTitle: collection?.seoTitle ?? "", seoDescription: collection?.seoDescription ?? "", metafields: parseJson<Record<string, string>>(collection?.metafields, {}) }}
+        initial={{ id: collection?.id, title: collection?.title ?? "", description: collection?.description ?? "", image: collection?.image ?? null, productIds: collection?.products.map((p) => p.productId) ?? [], seoTitle: collection?.seoTitle ?? "", seoDescription: collection?.seoDescription ?? "", metafields: parseJson<Record<string, string>>(collection?.metafields, {}), templateSuffix: collection?.templateSuffix ?? "" }}
       />
     </>
   );

@@ -26,6 +26,7 @@ const schema = z.object({
   seoTitle: z.string().max(70).optional().default(""),
   seoDescription: z.string().max(320).optional().default(""),
   metafields: z.record(z.string()).optional().default({}),
+  templateSuffix: z.string().max(60).regex(/^[\w-]*$/).optional().default(""),
 });
 export type ContentPayload = z.infer<typeof schema>;
 
@@ -54,7 +55,7 @@ export async function saveContent(_: { error?: string } | undefined, form: FormD
     const defs = await db.metafieldDefinition.findMany({ where: { storeId: store.id, owner: "page" } });
     const meta = cleanMetafields(defs, c.metafields);
     if (meta.error) return { error: meta.error };
-    const data = { ...common, showInFooter: c.showInFooter, metafields: JSON.stringify(meta.values ?? {}) };
+    const data = { ...common, showInFooter: c.showInFooter, metafields: JSON.stringify(meta.values ?? {}), templateSuffix: c.templateSuffix };
     if (id) { const r = await db.page.updateMany({ where: { id, storeId: store.id }, data }); if (!r.count) return { error: "Cette page n'existe plus." }; }
     else id = (await db.page.create({ data: { ...data, storeId: store.id } })).id;
   } else {

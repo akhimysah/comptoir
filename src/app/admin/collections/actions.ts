@@ -21,6 +21,7 @@ const schema = z.object({
   seoTitle: z.string().max(70).optional().default(""),
   seoDescription: z.string().max(320).optional().default(""),
   metafields: z.record(z.string()).optional().default({}),
+  templateSuffix: z.string().max(60).regex(/^[\w-]*$/).optional().default(""),
 });
 export type CollectionPayload = z.infer<typeof schema>;
 
@@ -53,10 +54,10 @@ export async function saveCollection(_: { error?: string } | undefined, form: Fo
     if (existing.handle !== handle) await addAutoRedirect(store.id, `/c/${existing.handle}`, `/c/${handle}`);
     await db.$transaction([
       db.productCollection.deleteMany({ where: { collectionId: id } }),
-      db.collection.update({ where: { id }, data: { title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, metafields, products: { create: links } } }),
+      db.collection.update({ where: { id }, data: { title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, metafields, templateSuffix: c.templateSuffix, products: { create: links } } }),
     ]);
   } else {
-    id = (await db.collection.create({ data: { storeId: store.id, title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, metafields, products: { create: links } } })).id;
+    id = (await db.collection.create({ data: { storeId: store.id, title: c.title, handle, description: c.description, image: c.image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, metafields, templateSuffix: c.templateSuffix, products: { create: links } } })).id;
   }
   revalidatePath(`/s/${store.slug}`, "layout");
   await logActivity(`Collection « ${c.title} » enregistrée`, `/admin/collections/${id}`);
