@@ -19,7 +19,11 @@ const linkSchema = z.object({
 export const menuItemSchema = linkSchema.extend({ children: z.array(linkSchema).max(30).optional().default([]) });
 export const menuSchema = z.array(menuItemSchema).max(30);
 export type MenuItem = z.infer<typeof menuItemSchema>;
-export type MenuKey = "main" | "footer";
+/** Identifiant d'un menu : « main », « footer », ou le handle d'un menu créé par le marchand (comme sur Shopify). */
+export type MenuKey = string;
+export type ExtraMenu = { handle: string; title: string; items: MenuItem[] };
+export const extraMenuSchema = z.object({ handle: z.string().regex(/^[a-z0-9-]{2,40}$/), title: z.string().trim().min(1).max(60), items: menuSchema });
+export const RESERVED_MENU_HANDLES = ["main", "footer", "main-menu", "footer-menu"];
 export type ResolvedLink = { title: string; href: string; external: boolean; children: ResolvedLink[] };
 
 /** Une adresse personnalisée : un chemin de la boutique (/pages/x) ou une adresse web https://… Jamais javascript: ou autre. */
@@ -33,11 +37,14 @@ export function safeUrl(url: string) {
 export const newLinkId = () => Math.random().toString(36).slice(2, 10);
 
 /** Menus enregistrés, ou à défaut ceux qu'affichait la boutique : tous les produits, 4 collections, le blog ; pages du pied de page. */
-export async function storeMenus(store: { id: string; menus: string }): Promise<Record<MenuKey, MenuItem[]>> {
-  const saved = parseJson<Partial<Record<MenuKey, unknown>>>(store.menus, {});
+export type StoreMenus = { main: MenuItem[]; footer: MenuItem[]; extra: ExtraMenu[] };
+export async function storeMenus(store: { id: string; menus: string }): Promise<StoreMenus> {
+  const saved = parseJson<{ main?: unknown; footer?: unknown; extra?: unknown }>(store.menus, {});
   const main = menuSchema.safeParse(saved.main);
   const footer = menuSchema.safeParse(saved.footer);
-  if (main.success && footer.success) return { main: main.data, footer: footer.data };
+  const extra = z.array(extraMenuSchema).max(20).safeParse(saved.extra ?? []);
+  const extras = extra.success ? extra.data : [];
+  if (main.success && footer.success) return { main: main.data, footer: footer.data, extra: extras };
   const [collections, pages, posts] = await Promise.all([
     db.collection.findMany({ where: { storeId: store.id }, orderBy: { title: "asc" }, take: 4, select: { id: true, title: true } }),
     db.page.findMany({ where: { storeId: store.id, published: true, showInFooter: true }, orderBy: { createdAt: "asc" }, select: { id: true, title: true } }),
@@ -47,7 +54,13 @@ export async function storeMenus(store: { id: string; menus: string }): Promise<
   return {
     main: main.success ? main.data : [item("Tous les produits", "all"), ...collections.map((c) => item(c.title, "collection", c.id)), ...(posts ? [item("Blog", "blog")] : [])],
     footer: footer.success ? footer.data : [...pages.map((p) => item(p.title, "page", p.id)), ...(posts ? [item("Blog", "blog")] : [])],
+    extra: extras,
   };
+}
+
+/** Tous les menus par identifiant (main, footer, puis les menus créés), avec leur titre. */
+export function allMenus(m: StoreMenus): { key: string; title: string; items: MenuItem[] }[] {
+  return [{ key: "main", title: "Menu principal", items: m.main }, { key: "footer", title: "Menu du pied de page", items: m.footer }, ...m.extra.map((e) => ({ key: e.handle, title: e.title, items: e.items }))];
 }
 
 /** Transforme les menus en liens. Un lien vers un élément supprimé ou masqué disparaît. */
@@ -56,7 +69,7 @@ export const resolveMenus = cache(async (store: { id: string; slug: string; menu
   // Libellés traduits par le marchand (clé « menu.<libellé d'origine> »).
   const tr = locale === "fr" ? {} : readTranslations(store.translations)[locale] ?? {};
   const label = (title: string) => tr[`menu.${title}`]?.trim() || title;
-  const all = [...menus.main, ...menus.footer].flatMap((i) => [i, ...i.children]);
+  const all = allMenus(menus).flatMap((m) => m.items).flatMap((i) => [i, ...i.children]);
   const ids = (t: LinkType) => all.filter((i) => i.type === t && i.ref).map((i) => i.ref);
   const [collections, products, pages, posts] = await Promise.all([
     db.collection.findMany({ where: { storeId: store.id, id: { in: ids("collection") } }, select: { id: true, handle: true } }),
@@ -85,7 +98,8 @@ export const resolveMenus = cache(async (store: { id: string; slug: string; menu
       const children = (i.children ?? []).flatMap((c) => { const ch = href(c); return ch ? [{ title: label(c.title), href: ch, external: !ch.startsWith("/"), children: [] }] : []; });
       return h ? [{ title: label(i.title), href: h, external: !h.startsWith("/"), children }] : [];
     });
-  return { main: resolve(menus.main), footer: resolve(menus.footer) };
+  const extra = Object.fromEntries(menus.extra.map((e) => [e.handle, { title: e.title, links: resolve(e.items) }]));
+  return { main: resolve(menus.main), footer: resolve(menus.footer), extra };
 });
 
 /** Chemin normalisé d'une boutique : commence par /, sans / final, sans paramètres. */

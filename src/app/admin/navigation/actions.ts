@@ -4,12 +4,15 @@ import { revalidatePath } from "next/cache";
 import { logActivity } from "@/lib/activity";
 import { requirePerm } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { menuSchema, normalizePath, safeUrl, storeMenus, type MenuItem, type MenuKey } from "@/lib/navigation";
+import { menuSchema, normalizePath, RESERVED_MENU_HANDLES, safeUrl, storeMenus, type MenuItem, type MenuKey } from "@/lib/navigation";
+import { slugify } from "@/lib/utils";
 import { parseJson } from "@/lib/utils";
 
 export async function saveMenu(key: MenuKey, items: MenuItem[]): Promise<{ error?: string; ok?: boolean }> {
   const { store } = await requirePerm("content");
-  if (key !== "main" && key !== "footer") return { error: "Menu inconnu." };
+  const current = await storeMenus(store);
+  const extraIndex = current.extra.findIndex((e) => e.handle === key);
+  if (key !== "main" && key !== "footer" && extraIndex < 0) return { error: "Menu inconnu." };
   const parsed = menuSchema.safeParse(items);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const flat = parsed.data.flatMap((i) => [i, ...i.children]);
@@ -28,10 +31,11 @@ export async function saveMenu(key: MenuKey, items: MenuItem[]): Promise<{ error
   const uniq = (t: string) => new Set(refs(t)).size;
   if (c !== uniq("collection") || p !== uniq("product") || pg !== uniq("page") || po !== uniq("post")) return { error: "Un lien pointe vers un élément qui n'existe plus. Rechargez la page." };
 
-  const current = await storeMenus(store);
-  const menus = { ...current, ...parseJson<object>(store.menus, {}), [key]: parsed.data };
+  const menus = extraIndex >= 0
+    ? { ...current, extra: current.extra.map((e) => (e.handle === key ? { ...e, items: parsed.data } : e)) }
+    : { ...current, ...parseJson<object>(store.menus, {}), extra: current.extra, [key]: parsed.data };
   await db.store.update({ where: { id: store.id }, data: { menus: JSON.stringify(menus) } });
-  await logActivity(`${key === "main" ? "Menu principal" : "Menu du pied de page"} modifié`, "/admin/navigation");
+  await logActivity(`${key === "main" ? "Menu principal" : key === "footer" ? "Menu du pied de page" : `Menu « ${current.extra[extraIndex].title} »`} modifié`, "/admin/navigation");
   revalidatePath(`/s/${store.slug}`, "layout");
   revalidatePath("/admin/navigation");
   return { ok: true };
@@ -55,5 +59,31 @@ export async function addRedirect(_: { error?: string; ok?: boolean } | undefine
 export async function deleteRedirect(form: FormData) {
   const { store } = await requirePerm("content");
   await db.redirect.deleteMany({ where: { id: String(form.get("id")), storeId: store.id } });
+  revalidatePath("/admin/navigation");
+}
+
+/** « Ajouter un menu » : un menu supplémentaire avec son identifiant (ex. « liens-rapides »), que les thèmes peuvent choisir. */
+export async function addMenu(form: FormData) {
+  const { store } = await requirePerm("content");
+  const title = String(form.get("title") ?? "").trim().slice(0, 60);
+  const handle = slugify(title).slice(0, 40);
+  const current = await storeMenus(store);
+  if (!title || handle.length < 2) return;
+  if (RESERVED_MENU_HANDLES.includes(handle) || current.extra.some((e) => e.handle === handle)) return;
+  if (current.extra.length >= 20) return;
+  await db.store.update({ where: { id: store.id }, data: { menus: JSON.stringify({ ...current, extra: [...current.extra, { handle, title, items: [] }] }) } });
+  await logActivity(`Menu « ${title} » créé`, "/admin/navigation");
+  revalidatePath("/admin/navigation");
+}
+
+export async function deleteMenu(form: FormData) {
+  const { store } = await requirePerm("content");
+  const handle = String(form.get("handle") ?? "");
+  const current = await storeMenus(store);
+  const menu = current.extra.find((e) => e.handle === handle);
+  if (!menu) return;
+  await db.store.update({ where: { id: store.id }, data: { menus: JSON.stringify({ ...current, extra: current.extra.filter((e) => e.handle !== handle) }) } });
+  await logActivity(`Menu « ${menu.title} » supprimé`, "/admin/navigation");
+  revalidatePath(`/s/${store.slug}`, "layout");
   revalidatePath("/admin/navigation");
 }

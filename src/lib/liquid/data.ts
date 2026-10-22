@@ -267,10 +267,15 @@ export async function buildPageData(o: BuildOpts): Promise<PageData> {
   };
   const language = langs.find((l) => l.iso_code === locale) ?? langs[0];
   const pageType = o.template === "index" ? "index" : o.template;
+  const mainLinks = links(menus.main, store.slug, root, o.path), footerLinks = links(menus.footer, store.slug, root, o.path);
   const linklists: Record<string, ShopifyLinklist> = {
-    "main-menu": { title: locale === "en" ? "Main menu" : "Menu principal", handle: "main-menu", levels: 2, links: links(menus.main, store.slug, root, o.path) },
-    footer: { title: locale === "en" ? "Footer menu" : "Menu de pied de page", handle: "footer", levels: 1, links: links(menus.footer, store.slug, root, o.path) },
+    "main-menu": { title: locale === "en" ? "Main menu" : "Menu principal", handle: "main-menu", levels: 2, links: mainLinks },
+    footer: { title: locale === "en" ? "Footer menu" : "Menu de pied de page", handle: "footer", levels: 1, links: footerLinks },
   };
+  // Menus créés par le marchand, par identifiant ; alias courants des thèmes vers nos menus de base.
+  for (const [handle, m] of Object.entries(menus.extra)) linklists[handle] = { title: m.title, handle, levels: 2, links: links(m.links, store.slug, root, o.path) };
+  for (const alias of ["footer-menu", "quick-links", "footer-1"]) linklists[alias] ??= linklists.footer;
+  linklists["customer-account-main-menu"] ??= linklists["main-menu"];
   const blog = shopifyBlog(posts, root, locale);
   const pageObjects = o.pageObjects ?? {};
   const title = pageObjects.page_title ?? pageObjects.product?.title ?? pageObjects.collection?.title ?? pageObjects.page?.title ?? pageObjects.article?.title ?? (o.template === "index" ? store.name : o.template === "cart" ? (locale === "en" ? "Cart" : "Panier") : o.template === "search" ? (locale === "en" ? "Search" : "Recherche") : o.template === "404" ? (locale === "en" ? "Page not found" : "Page introuvable") : store.name);

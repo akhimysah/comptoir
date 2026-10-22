@@ -5,7 +5,7 @@ import { requireOwner } from "@/lib/auth";
 import { db, textSearch } from "@/lib/db";
 import { readTranslations } from "@/lib/i18n";
 import { storeLocales } from "@/lib/locale";
-import { storeMenus } from "@/lib/navigation";
+import { allMenus, storeMenus } from "@/lib/navigation";
 import { readTheme, SECTION_LABELS, SECTION_TEXT_FIELDS } from "@/lib/theme";
 import { cx } from "@/lib/utils";
 
@@ -34,7 +34,7 @@ export default async function LanguagesPage({ searchParams }: { searchParams: Pr
   const st = readTranslations(store.translations).en ?? {};
   const theme = readTheme(store.theme, store.name);
   const menus = await storeMenus(store);
-  const menuTitles = [...new Set([...menus.main, ...menus.footer].flatMap((i) => [i.title, ...(i.children ?? []).map((c) => c.title)]))];
+  const menuTitles = [...new Set(allMenus(menus).flatMap((m) => m.items).flatMap((i) => [i.title, ...(i.children ?? []).map((c) => c.title)]))];
   const search = q ? { title: textSearch(q) } : {};
   const [products, collections, pages] = await Promise.all([
     tab === "products" ? db.product.findMany({ where: { storeId: store.id, ...search }, orderBy: { title: "asc" }, take: 50 }) : [],

@@ -183,3 +183,15 @@ describe("marchés : rattachement par pays", async () => {
     expect(adjustPrice(1999, 0)).toBe(1999);
   });
 });
+
+describe("menus multiples (comme les menus de Shopify)", async () => {
+  const { allMenus, storeMenus } = await import("@/lib/navigation");
+  it("lit les menus créés par le marchand et ignore un menu mal formé", async () => {
+    const item = { id: "a1", title: "Aide", type: "url" as const, ref: "", url: "/pages/aide", children: [] };
+    const menus = await storeMenus({ id: "s", menus: JSON.stringify({ main: [item], footer: [], extra: [{ handle: "liens-rapides", title: "Liens rapides", items: [item] }, { handle: "Mauvais Handle", title: "x", items: [] }] }) });
+    expect(menus.extra).toHaveLength(0); // un seul élément invalide suffit à écarter la liste : on repart proprement
+    const ok = await storeMenus({ id: "s", menus: JSON.stringify({ main: [item], footer: [], extra: [{ handle: "liens-rapides", title: "Liens rapides", items: [item] }] }) });
+    expect(ok.extra.map((e) => e.handle)).toEqual(["liens-rapides"]);
+    expect(allMenus(ok).map((m) => m.key)).toEqual(["main", "footer", "liens-rapides"]);
+  });
+});
